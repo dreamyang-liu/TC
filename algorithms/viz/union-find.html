@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>并查集 · 集合合并魔法</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#fef3c7; border-left:4px solid #f59e0b; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#92400e; }
+
+  .container { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .tree-section { flex:1; min-width:500px; }
+  svg { display:block; margin:0 auto; }
+  .tree-edge { stroke:#9ca3af; stroke-width:2; fill:none; transition: all 0.4s; }
+  .tree-edge.flash { stroke:#10b981; stroke-width:3; }
+  .node-circle { transition: all 0.4s cubic-bezier(.4,0,.2,1); }
+  .nc-default { fill:white; stroke:#6b7280; stroke-width:2; }
+  .nc-root { fill:#3b82f6; stroke:#1e40af; stroke-width:3; }
+  .nc-active { fill:#fbbf24; stroke:#d97706; stroke-width:3; }
+  .nc-found { fill:#10b981; stroke:#047857; stroke-width:3; }
+  .node-text { font-size:16px; font-weight:700; text-anchor:middle; fill:#1f2937; }
+  .nc-root + .node-text, .nc-active + .node-text, .nc-found + .node-text { fill:white; }
+
+  .ops-section { min-width:280px; }
+  .panel { background:#f9fafb; border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .panel .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:10px; }
+  .parent-table { display:grid; grid-template-columns: repeat(2, 1fr); gap:6px; font-family:ui-monospace,monospace; font-size:13px; }
+  .pe { display:flex; justify-content:space-between; padding:5px 10px; background:white; border-radius:6px; }
+  .pe.changed { background:#dcfce7; animation:flash 0.5s ease; }
+  @keyframes flash { 0% { background:#fbbf24; } 100% { background:#dcfce7; } }
+  .pe .from { font-weight:700; color:#4b5563; }
+  .pe .to { color:#1f2937; font-weight:600; }
+
+  .ops-list {
+    display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto;
+  }
+  .op-item {
+    padding:8px 12px; background:white; border-radius:6px;
+    font-family:ui-monospace,monospace; font-size:13px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .op-item.pending { color:#9ca3af; }
+  .op-item.current { background:#fef3c7; color:#92400e; font-weight:700; }
+  .op-item.done { background:#dcfce7; color:#065f46; }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌲 并查集 · 集合合并魔法</h1>
+  <p class="subtitle">每个集合一棵树，根节点代表整个集合</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：把"找朋友圈"问题变成"<strong>找树根</strong>"。
+    两个人朋友 = 两棵树合并（一个根挂到另一个根下）。<br>
+    <strong>路径压缩</strong>：每次 find 顺便把路径上的所有节点直接挂到根 → 树越压越扁 → O(α(n)) ≈ O(1)。
+  </div>
+
+  <div class="container">
+    <div class="tree-section">
+      <svg id="tree" width="500" height="320" viewBox="0 0 500 320"></svg>
+    </div>
+    <div class="ops-section">
+      <div class="panel">
+        <div class="label">parent[] 数组</div>
+        <div class="parent-table" id="parentTable"></div>
+      </div>
+      <div class="panel">
+        <div class="label">操作序列</div>
+        <div class="ops-list" id="opsList"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+</div>
+
+<script>
+const N = 8;
+const ops = [
+  { kind:'union', a:0, b:1 },
+  { kind:'union', a:2, b:3 },
+  { kind:'union', a:1, b:3 },     // merges {0,1} and {2,3}
+  { kind:'union', a:4, b:5 },
+  { kind:'find',  a:0 },          // demonstrates path compression
+  { kind:'union', a:6, b:7 },
+  { kind:'union', a:5, b:7 },
+  { kind:'find',  a:7 },
+];
+
+let parent, opIdx, animEvents, eventIdx, activeNodes, foundRoot, changedNode;
+let autoTimer = null;
+
+function init() {
+  parent = Array.from({length:N}, (_,i) => i);
+  opIdx = 0;
+  animEvents = [];
+  eventIdx = 0;
+  activeNodes = new Set();
+  foundRoot = null;
+  changedNode = null;
+}
+
+function findEvents(x) {
+  // generate visit events plus compression at end
+  const path = [];
+  let cur = x;
+  while (parent[cur] !== cur) {
+    path.push(cur);
+    cur = parent[cur];
+  }
+  path.push(cur);   // root
+  const events = [];
+  // walk-up phase
+  for (let i = 0; i < path.length; i++) {
+    events.push({ phase:'walk', node: path[i] });
+  }
+  // path compression: all non-root nodes point directly to root
+  const root = path[path.length-1];
+  for (let i = 0; i < path.length - 1; i++) {
+    if (parent[path[i]] !== root) {
+      events.push({ phase:'compress', node: path[i], to: root });
+    }
+  }
+  return { events, root };
+}
+
+function performFindWithEvents(x, callback) {
+  // Note: this returns root, but only marks path for animation
+  let cur = x;
+  while (parent[cur] !== cur) cur = parent[cur];
+  return cur;
+}
+
+function genOpEvents(op) {
+  if (op.kind === 'find') {
+    const { events, root } = findEvents(op.a);
+    events.push({ phase:'foundRoot', root, of: op.a });
+    return events;
+  }
+  if (op.kind === 'union') {
+    const findA = findEvents(op.a);
+    const findB = findEvents(op.b);
+    const all = [
+      { phase:'startOp', op },
+      ...findA.events.map(e => ({...e, side:'a'})),
+      { phase:'rootA', root:findA.root },
+      ...findB.events.map(e => ({...e, side:'b'})),
+      { phase:'rootB', root:findB.root },
+    ];
+    if (findA.root !== findB.root) {
+      all.push({ phase:'merge', from: findA.root, to: findB.root });
+    } else {
+      all.push({ phase:'alreadyUnion', root: findA.root });
+    }
+    return all;
+  }
+  return [];
+}
+
+// Layout nodes in a circle
+const positions = {};
+for (let i = 0; i < N; i++) {
+  positions[i] = { x: 60 + i * 55, y: 0 };
+}
+
+function computeY() {
+  // For each node, depth = chain length to root
+  const depth = Array(N).fill(0);
+  for (let i = 0; i < N; i++) {
+    let cur = i, d = 0;
+    while (parent[cur] !== cur && d < N) {
+      cur = parent[cur]; d++;
+    }
+    depth[i] = d;
+  }
+  const maxD = Math.max(...depth);
+  // y: roots at top, leaves at bottom
+  for (let i = 0; i < N; i++) {
+    positions[i].y = 50 + (maxD - depth[i]) * 60;
+  }
+}
+
+function render() {
+  computeY();
+  const svg = document.getElementById('tree');
+  let html = '';
+  // Draw edges (child → parent)
+  for (let i = 0; i < N; i++) {
+    if (parent[i] !== i) {
+      const a = positions[i], b = positions[parent[i]];
+      let cls = 'tree-edge';
+      if (changedNode === i) cls += ' flash';
+      html += `<line class="${cls}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+    }
+  }
+  // Nodes
+  for (let i = 0; i < N; i++) {
+    const p = positions[i];
+    let cls = 'node-circle';
+    if (foundRoot === i) cls += ' nc-found';
+    else if (activeNodes.has(i)) cls += ' nc-active';
+    else if (parent[i] === i) cls += ' nc-root';
+    else cls += ' nc-default';
+    html += `<circle class="${cls}" cx="${p.x}" cy="${p.y}" r="20"/>`;
+    html += `<text class="node-text" x="${p.x}" y="${p.y+5}">${i}</text>`;
+  }
+  svg.innerHTML = html;
+
+  // Parent table
+  document.getElementById('parentTable').innerHTML = parent.map((p,i) => {
+    const cls = (changedNode === i) ? 'changed' : '';
+    return `<div class="pe ${cls}"><span class="from">p[${i}]</span><span class="to">=${p}</span></div>`;
+  }).join('');
+
+  // Ops list
+  document.getElementById('opsList').innerHTML = ops.map((o,i) => {
+    let cls = 'op-item';
+    if (i < opIdx) cls += ' done';
+    else if (i === opIdx) cls += ' current';
+    else cls += ' pending';
+    const desc = o.kind === 'union' ? `union(${o.a},${o.b})` : `find(${o.a})`;
+    return `<div class="${cls}">${i+1}. ${desc}</div>`;
+  }).join('');
+}
+
+let pendingEvents = [];
+
+function step() {
+  changedNode = null;
+  if (pendingEvents.length === 0) {
+    if (opIdx >= ops.length) {
+      document.getElementById('narrate').innerHTML = `所有操作完成 ✅`;
+      activeNodes.clear(); foundRoot = null;
+      render();
+      return;
+    }
+    const op = ops[opIdx];
+    pendingEvents = genOpEvents(op);
+    activeNodes.clear(); foundRoot = null;
+    document.getElementById('narrate').innerHTML =
+      op.kind === 'union' ? `🔀 操作 ${opIdx+1}: union(${op.a}, ${op.b})` :
+                            `🔍 操作 ${opIdx+1}: find(${op.a})`;
+    if (op.kind === 'find' && !pendingEvents.find(e=>e.phase==='startOp')) {
+      // ok proceed
+    }
+    render();
+    return;
+  }
+  const ev = pendingEvents.shift();
+  if (ev.phase === 'startOp') {
+    document.getElementById('narrate').innerHTML = `开始处理...`;
+    render(); return;
+  }
+  if (ev.phase === 'walk') {
+    activeNodes.add(ev.node);
+    document.getElementById('narrate').innerHTML = `走到节点 <strong>${ev.node}</strong>，parent[${ev.node}]=${parent[ev.node]} ${parent[ev.node]===ev.node ? '←这是根！' : '→ 继续往上'}`;
+    render();
+  } else if (ev.phase === 'compress') {
+    parent[ev.node] = ev.to;
+    changedNode = ev.node;
+    document.getElementById('narrate').innerHTML = `<strong style="color:#10b981">路径压缩</strong>：parent[${ev.node}] = ${ev.to}（直接挂到根）`;
+    render();
+  } else if (ev.phase === 'rootA' || ev.phase === 'rootB') {
+    foundRoot = ev.root;
+    document.getElementById('narrate').innerHTML = `找到 ${ev.phase==='rootA'?'左':'右'}边的根：<strong>${ev.root}</strong>`;
+    render();
+  } else if (ev.phase === 'foundRoot') {
+    foundRoot = ev.root;
+    document.getElementById('narrate').innerHTML = `find(${ev.of}) = <strong style="color:#10b981">${ev.root}</strong>`;
+    render();
+  } else if (ev.phase === 'merge') {
+    parent[ev.from] = ev.to;
+    changedNode = ev.from;
+    foundRoot = null; activeNodes.clear();
+    document.getElementById('narrate').innerHTML = `合并：parent[${ev.from}] = ${ev.to}（把 ${ev.from} 这棵树挂到 ${ev.to} 下）`;
+    render();
+  } else if (ev.phase === 'alreadyUnion') {
+    document.getElementById('narrate').innerHTML = `已经在同一组（共同根 ${ev.root}）→ 无需操作`;
+    render();
+  }
+  if (pendingEvents.length === 0) {
+    opIdx++;
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  init();
+  pendingEvents = [];
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。每个 union 会触发两次 find，注意路径压缩。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => {
+    step();
+    if (opIdx >= ops.length && pendingEvents.length === 0) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  }, 800);
+}
+reset();
+</script>
+</body>
+</html>

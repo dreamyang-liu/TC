@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Trie · 共享前缀的树</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:980px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#dbeafe; border-left:4px solid #3b82f6; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#1e40af; }
+
+  .container { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .tree-section { flex:1; min-width:480px; }
+  svg { display:block; margin:0 auto; }
+  .tree-edge { stroke:#cbd5e1; stroke-width:2; transition: all 0.3s; }
+  .tree-edge.active { stroke:#f59e0b; stroke-width:3.5; }
+  .edge-label { font-size:13px; font-weight:700; fill:#4b5563; text-anchor:middle; paint-order:stroke; stroke:white; stroke-width:4px; }
+  .node-circle { transition:all 0.4s cubic-bezier(.4,0,.2,1); }
+  .nc-default { fill:white; stroke:#9ca3af; stroke-width:2; }
+  .nc-current { fill:#f59e0b; stroke:#d97706; stroke-width:3; }
+  .nc-end { fill:#10b981; stroke:#047857; stroke-width:3; }
+  .nc-just-added { fill:#bfdbfe; stroke:#3b82f6; stroke-width:3; animation:pop 0.4s ease; }
+  @keyframes pop { 0% { r:8; } 60% { r:16; } 100% { r:14; } }
+
+  .panel { background:#f9fafb; border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .panel .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:10px; }
+  .words-list { display:flex; flex-direction:column; gap:6px; }
+  .word-item {
+    padding:8px 12px; background:white; border-radius:6px;
+    font-family:ui-monospace,monospace; font-size:14px; font-weight:600;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .word-item.pending { color:#9ca3af; }
+  .word-item.current { background:#fef3c7; color:#92400e; }
+  .word-item.done { background:#dcfce7; color:#065f46; }
+  .ops-section { min-width:260px; }
+
+  .current-char {
+    display:inline-block; background:#f59e0b; color:white;
+    padding:6px 14px; border-radius:8px; font-weight:700; font-size:18px;
+    margin-right:6px; min-width:40px; text-align:center;
+  }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌲 Trie · 共享前缀的树</h1>
+  <p class="subtitle">插入 ["cat", "car", "card", "dog", "do"]</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：每个节点代表"走到这里时的<strong>前缀</strong>"，每条边代表"加一个字符"。
+    <strong>所有同前缀的单词共享路径</strong>，节省内存 + O(L) 查询（L 是单词长度，与 vocab 大小无关）。
+    用 <code>$</code> 或字段标记一个节点"是单词结尾"。
+  </div>
+
+  <div class="container">
+    <div class="tree-section">
+      <svg id="tree" width="560" height="420" viewBox="0 0 560 420"></svg>
+    </div>
+    <div class="ops-section">
+      <div class="panel">
+        <div class="label">要插入的单词</div>
+        <div class="words-list" id="wordsList"></div>
+      </div>
+      <div class="panel">
+        <div class="label">当前插入</div>
+        <div id="curWord" style="font-family:ui-monospace,monospace; font-size:14px;">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+</div>
+
+<script>
+const words = ["cat", "car", "card", "dog", "do"];
+let trie, curWord, curIdx, curChar, currentNode, justAdded, wordIdx, charIdx, phase, justEnd;
+let autoTimer = null;
+let nodeCounter = 0;
+
+function newNode() {
+  return { id: nodeCounter++, children: {}, isEnd: false, x:0, y:0 };
+}
+
+function init() {
+  trie = newNode();
+  trie.x = 280; trie.y = 40;
+  curWord = null; curIdx = -1; charIdx = -1;
+  currentNode = trie; justAdded = null; justEnd = null;
+  wordIdx = 0;
+  phase = 'startWord';
+}
+
+function layout() {
+  // BFS layout
+  const queue = [{ node: trie, depth: 0, xMin: 20, xMax: 540 }];
+  while (queue.length > 0) {
+    const { node, depth, xMin, xMax } = queue.shift();
+    node.x = (xMin + xMax) / 2;
+    node.y = 40 + depth * 80;
+    const kids = Object.entries(node.children);
+    const slot = (xMax - xMin) / Math.max(kids.length, 1);
+    kids.forEach(([c, child], i) => {
+      queue.push({ node: child, depth: depth+1, xMin: xMin + i*slot, xMax: xMin + (i+1)*slot });
+    });
+  }
+}
+
+function render() {
+  layout();
+  const svg = document.getElementById('tree');
+  let html = '';
+  // Edges
+  function drawEdges(n) {
+    for (const [c, child] of Object.entries(n.children)) {
+      const isOnPath = currentNode === child || justAdded === child;
+      let cls = 'tree-edge';
+      if (isOnPath) cls += ' active';
+      html += `<line class="${cls}" x1="${n.x}" y1="${n.y}" x2="${child.x}" y2="${child.y}"/>`;
+      // edge label
+      const mx = (n.x + child.x)/2, my = (n.y + child.y)/2;
+      html += `<text class="edge-label" x="${mx}" y="${my+4}">${c}</text>`;
+      drawEdges(child);
+    }
+  }
+  drawEdges(trie);
+  // Nodes
+  function drawNodes(n) {
+    let cls = 'node-circle';
+    if (justEnd === n) cls += ' nc-end';
+    else if (justAdded === n) cls += ' nc-just-added';
+    else if (currentNode === n) cls += ' nc-current';
+    else if (n.isEnd) cls += ' nc-end';
+    else cls += ' nc-default';
+    html += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="14"/>`;
+    if (n === trie) html += `<text x="${n.x}" y="${n.y-22}" text-anchor="middle" font-size="12" fill="#6b7280">root</text>`;
+    if (n.isEnd) html += `<text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" font-weight="700" fill="white">●</text>`;
+    Object.values(n.children).forEach(drawNodes);
+  }
+  drawNodes(trie);
+  svg.innerHTML = html;
+
+  // Word list
+  document.getElementById('wordsList').innerHTML = words.map((w,i) => {
+    let cls = 'word-item';
+    if (i < wordIdx) cls += ' done';
+    else if (i === wordIdx) cls += ' current';
+    else cls += ' pending';
+    return `<div class="${cls}">${w}</div>`;
+  }).join('');
+
+  // Current word display
+  if (curWord) {
+    const chars = [...curWord].map((c,i) => {
+      if (i === charIdx) return `<span class="current-char">${c}</span>`;
+      if (i < charIdx) return `<span style="color:#10b981;font-weight:700;margin-right:4px">${c}</span>`;
+      return `<span style="color:#9ca3af;margin-right:4px">${c}</span>`;
+    }).join('');
+    document.getElementById('curWord').innerHTML = chars;
+  } else {
+    document.getElementById('curWord').textContent = '-';
+  }
+}
+
+function step() {
+  justAdded = null; justEnd = null;
+  if (phase === 'startWord') {
+    if (wordIdx >= words.length) {
+      document.getElementById('narrate').innerHTML = `所有单词插入完成 ✅ Trie 节点总数：${nodeCounter}`;
+      currentNode = trie;
+      render();
+      return;
+    }
+    curWord = words[wordIdx];
+    currentNode = trie;
+    charIdx = -1;
+    phase = 'nextChar';
+    document.getElementById('narrate').innerHTML = `开始插入单词 <strong style="color:#3b82f6">"${curWord}"</strong>，从 root 出发`;
+    render();
+  } else if (phase === 'nextChar') {
+    charIdx++;
+    if (charIdx >= curWord.length) {
+      // mark end
+      currentNode.isEnd = true;
+      justEnd = currentNode;
+      document.getElementById('narrate').innerHTML = `把 "${curWord}" 的结尾标记设为 true ✅`;
+      phase = 'startWord';
+      wordIdx++;
+      render();
+      return;
+    }
+    const c = curWord[charIdx];
+    if (currentNode.children[c]) {
+      // existing branch - reuse
+      currentNode = currentNode.children[c];
+      document.getElementById('narrate').innerHTML = `字符 <code>${c}</code>：已有这条边，<strong style="color:#10b981">复用</strong>`;
+      render();
+    } else {
+      const node = newNode();
+      currentNode.children[c] = node;
+      currentNode = node;
+      justAdded = node;
+      document.getElementById('narrate').innerHTML = `字符 <code>${c}</code>：<strong style="color:#3b82f6">新建</strong>子节点`;
+      render();
+    }
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  nodeCounter = 0;
+  init();
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。注意 cat → car → card 共享 "ca" 前缀。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => {
+    step();
+    if (wordIdx >= words.length && phase === 'startWord') {
+      clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放';
+    }
+  }, 700);
+}
+reset();
+</script>
+</body>
+</html>

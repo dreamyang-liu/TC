@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>快慢指针 · Floyd 找环</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#fce7f3; border-left:4px solid #ec4899; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#9d174d; }
+
+  .ll-section { padding:40px 20px; }
+  svg { display:block; margin:0 auto; }
+  .ll-node { transition:all 0.5s cubic-bezier(.4,0,.2,1); }
+  .ll-node-bg { fill:white; stroke:#9ca3af; stroke-width:2; }
+  .ll-edge { stroke:#9ca3af; stroke-width:2; fill:none; marker-end:url(#arrow); }
+  .ll-edge-cycle { stroke:#ec4899; stroke-width:2.5; stroke-dasharray:6 3; fill:none; marker-end:url(#arrow-pink); }
+  .ll-text { font-size:15px; font-weight:700; text-anchor:middle; fill:#1f2937; }
+  .ptr-marker { font-size:14px; font-weight:700; text-anchor:middle; }
+  .ptr-slow { fill:#3b82f6; }
+  .ptr-fast { fill:#ef4444; }
+  .ptr-p { fill:#10b981; }
+  .ll-node.has-slow circle { fill:#dbeafe; stroke:#3b82f6; stroke-width:3; }
+  .ll-node.has-fast circle { fill:#fee2e2; stroke:#ef4444; stroke-width:3; }
+  .ll-node.has-both circle { fill:#fde68a; stroke:#f59e0b; stroke-width:4; animation:flash 0.6s ease; }
+  .ll-node.entry circle { fill:#dcfce7; stroke:#10b981; stroke-width:3; }
+  .ll-node.has-p circle { stroke:#10b981; stroke-width:3; }
+  @keyframes flash { 50% { stroke-width:8; } }
+
+  .phase-banner {
+    text-align:center; padding:8px 16px; border-radius:8px;
+    background:#1f2937; color:white; display:inline-block;
+    font-size:13px; font-weight:600; margin-bottom:16px;
+  }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+  .vars { display:flex; gap:16px; margin-top:10px; font-family:ui-monospace,monospace; flex-wrap:wrap; }
+  .var-box { display:flex; align-items:center; gap:6px; }
+  .var-label { color:#6b7280; font-size:12px; }
+  .var-val { background:#1f2937; color:#fff; padding:2px 10px; border-radius:4px; font-size:13px; min-width:30px; text-align:center; }
+  .var-val.slow { background:#3b82f6; }
+  .var-val.fast { background:#ef4444; }
+  .var-val.p { background:#10b981; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+
+  .legend { display:flex; gap:16px; justify-content:center; margin-top:10px; flex-wrap:wrap; font-size:12px; color:#4b5563; }
+  .lg { display:flex; align-items:center; gap:5px; }
+  .lg .sq { width:14px; height:14px; border-radius:50%; }
+
+  .why {
+    background:#f9fafb; border-radius:10px; padding:14px 20px; margin-top:24px;
+    font-size:13px; line-height:1.7; color:#4b5563;
+  }
+  .why h4 { color:#1f2937; margin-bottom:8px; font-size:14px; }
+  .why .formula { font-family:ui-monospace,monospace; background:#1f2937; color:#d1d5db; padding:8px 12px; border-radius:6px; margin:8px 0; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🐢🐇 快慢指针 · Floyd 找环</h1>
+  <p class="subtitle">链表：0 → 1 → 2 → 3 → 4 → 5 → 6 → 回到 3 （环入口）</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：龟（slow，1 步）和兔（fast，2 步）在环里追，<strong>兔子一定会"套圈"追上龟</strong>。
+    相遇后，把一只指针放回起点，<strong>两个都以 1 步速度走</strong>，再次相遇的地方就是环入口。
+  </div>
+
+  <div class="phase-banner" id="phase">Phase 1: 检测环</div>
+
+  <div class="ll-section">
+    <svg id="ll" width="800" height="240" viewBox="0 0 800 240">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#9ca3af"/>
+        </marker>
+        <marker id="arrow-pink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#ec4899"/>
+        </marker>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="legend">
+    <div class="lg"><div class="sq" style="background:#3b82f6"></div>slow (1 步)</div>
+    <div class="lg"><div class="sq" style="background:#ef4444"></div>fast (2 步)</div>
+    <div class="lg"><div class="sq" style="background:#10b981"></div>p (从 head 再出发)</div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+    <div class="vars">
+      <div class="var-box"><span class="var-label">slow</span><span class="var-val slow" id="vSlow">0</span></div>
+      <div class="var-box"><span class="var-label">fast</span><span class="var-val fast" id="vFast">0</span></div>
+      <div class="var-box"><span class="var-label">p</span><span class="var-val p" id="vP">-</span></div>
+      <div class="var-box"><span class="var-label">步数</span><span class="var-val" id="vStep">0</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+
+  <div class="why">
+    <h4>为什么相遇后从 head 再走能到入口？</h4>
+    设头到入口距离 = <strong>a</strong>，入口到相遇点距离 = <strong>b</strong>，环长 = <strong>L</strong>。<br>
+    相遇时：slow 走了 a+b，fast 走了 a+b+kL（套了 k 圈）。
+    <div class="formula">2(a+b) = a+b+kL  ⟹  a = kL - b = (k-1)L + (L-b)</div>
+    意思：从相遇点再走 (L-b) 步就回到入口；这等于从 head 走 a 步。<br>
+    所以两个指针**同速度同时走，必定在入口相遇** ✨
+  </div>
+</div>
+
+<script>
+// Linked list: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 3 (cycle)
+const N = 7;
+const ENTRY = 3;  // cycle entry
+const TAIL = 6;   // cycle tail (next points back to ENTRY)
+// positions
+const positions = [];
+for (let i = 0; i < N; i++) {
+  positions.push({ x: 70 + i * 100, y: 80 });
+}
+
+function getNext(i) {
+  if (i === TAIL) return ENTRY;
+  if (i === N - 1) return -1;
+  return i + 1;
+}
+
+let slow, fast, p, step_count, phase, met, done;
+let autoTimer = null;
+
+function init() {
+  slow = 0; fast = 0; p = -1; step_count = 0;
+  phase = 'detect'; met = false; done = false;
+}
+
+function render() {
+  const svg = document.getElementById('ll');
+  // keep defs
+  const defs = svg.querySelector('defs').outerHTML;
+  let html = defs;
+
+  // Edges
+  for (let i = 0; i < N; i++) {
+    const nxt = getNext(i);
+    if (nxt === -1) continue;
+    const a = positions[i], b = positions[nxt];
+    if (i === TAIL) {
+      // curved edge back to ENTRY
+      const cx = (a.x + b.x) / 2;
+      const cy = a.y + 100;
+      html += `<path class="ll-edge-cycle" d="M ${a.x} ${a.y+18} Q ${cx} ${cy} ${b.x} ${b.y+18}"/>`;
+    } else {
+      html += `<line class="ll-edge" x1="${a.x+22}" y1="${a.y}" x2="${b.x-26}" y2="${b.y}"/>`;
+    }
+  }
+  // Nodes
+  for (let i = 0; i < N; i++) {
+    const p_node = positions[i];
+    let cls = 'll-node';
+    if (slow === i && fast === i) cls += ' has-both';
+    else if (slow === i) cls += ' has-slow';
+    else if (fast === i) cls += ' has-fast';
+    if (p === i && !cls.includes('has-both')) cls += ' has-p';
+    if (i === ENTRY) cls += ' entry';
+    html += `<g class="${cls}">`;
+    html += `<circle class="ll-node-bg" cx="${p_node.x}" cy="${p_node.y}" r="22"/>`;
+    html += `<text class="ll-text" x="${p_node.x}" y="${p_node.y+5}">${i}</text>`;
+    // Pointer markers above
+    let off = 0;
+    if (slow === i) { html += `<text class="ptr-marker ptr-slow" x="${p_node.x - 14}" y="${p_node.y - 32}">🐢</text>`; off++; }
+    if (fast === i) { html += `<text class="ptr-marker ptr-fast" x="${p_node.x + 14}" y="${p_node.y - 32}">🐇</text>`; off++; }
+    if (p === i) { html += `<text class="ptr-marker ptr-p" x="${p_node.x}" y="${p_node.y - 50}">p</text>`; }
+    if (i === ENTRY) { html += `<text x="${p_node.x}" y="${p_node.y + 50}" text-anchor="middle" font-size="10" fill="#10b981" font-weight="700">入口</text>`; }
+    html += `</g>`;
+  }
+  svg.innerHTML = html;
+
+  document.getElementById('vSlow').textContent = slow;
+  document.getElementById('vFast').textContent = fast;
+  document.getElementById('vP').textContent = p < 0 ? '-' : p;
+  document.getElementById('vStep').textContent = step_count;
+}
+
+function step() {
+  if (done) return;
+  if (phase === 'detect') {
+    document.getElementById('phase').textContent = 'Phase 1: 龟兔赛跑找相遇点';
+    step_count++;
+    slow = getNext(slow);
+    fast = getNext(fast);
+    if (fast !== -1) fast = getNext(fast);
+    document.getElementById('narrate').innerHTML =
+      `slow → ${slow}（1 步），fast → ${fast}（2 步）`;
+    if (slow === fast) {
+      met = true;
+      phase = 'reset_p';
+      document.getElementById('narrate').innerHTML =
+        `🎯 <strong style="color:#f59e0b">slow 和 fast 在节点 ${slow} 相遇！</strong>有环。下一步把 p 放到 head，让 p 和 slow 同速度走。`;
+    }
+    render();
+  } else if (phase === 'reset_p') {
+    p = 0;
+    document.getElementById('phase').textContent = 'Phase 2: 从 head 再走找入口';
+    document.getElementById('narrate').innerHTML = `p 放到 head=0。现在 p 和 slow 都以 1 步速度走，相遇点就是入口。`;
+    phase = 'find_entry';
+    render();
+  } else if (phase === 'find_entry') {
+    step_count++;
+    if (p === slow) {
+      document.getElementById('narrate').innerHTML =
+        `🎉 <strong style="color:#10b981">p 和 slow 在节点 ${p} 相遇！这就是环入口</strong> ✅`;
+      done = true;
+      render();
+      return;
+    }
+    p = getNext(p);
+    slow = getNext(slow);
+    document.getElementById('narrate').innerHTML = `p → ${p}，slow → ${slow}（都走 1 步）`;
+    if (p === slow) {
+      document.getElementById('narrate').innerHTML =
+        `🎉 <strong style="color:#10b981">p 和 slow 在节点 ${p} 相遇！这就是环入口</strong> ✅`;
+      done = true;
+    }
+    render();
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  init();
+  document.getElementById('phase').textContent = 'Phase 1: 检测环';
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。slow 一步，fast 两步，他们一定会在环里某点相遇。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 900);
+}
+reset();
+</script>
+</body>
+</html>

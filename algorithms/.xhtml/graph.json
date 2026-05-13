@@ -937,6 +937,146 @@
       },
       "filePath": "patterns/bit-manipulation.md",
       "label": "bit"
+    },
+    {
+      "id": "viz-binary-search",
+      "type": "markdown",
+      "position": {
+        "x": 1224.4385841276217,
+        "y": -1386.477050526899
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/binary-search.html",
+      "label": "🎬 binary-search"
+    },
+    {
+      "id": "viz-sliding-window",
+      "type": "markdown",
+      "position": {
+        "x": -236.15560947190951,
+        "y": -499.5285382793585
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/sliding-window.html",
+      "label": "🎬 sliding-window"
+    },
+    {
+      "id": "viz-monotonic-stack",
+      "type": "markdown",
+      "position": {
+        "x": 136.70159715112294,
+        "y": -935.662358952719
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/monotonic-stack.html",
+      "label": "🎬 monotonic-stack"
+    },
+    {
+      "id": "viz-bfs",
+      "type": "markdown",
+      "position": {
+        "x": 537.949816729986,
+        "y": -315.57650496420223
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/bfs.html",
+      "label": "🎬 bfs"
+    },
+    {
+      "id": "viz-backtracking",
+      "type": "markdown",
+      "position": {
+        "x": 1065.8662150198613,
+        "y": -346.76751024461015
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/backtracking.html",
+      "label": "🎬 backtracking"
+    },
+    {
+      "id": "viz-dijkstra",
+      "type": "markdown",
+      "position": {
+        "x": -1240.2124164117677,
+        "y": -515.341197923746
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/dijkstra.html",
+      "label": "🎬 dijkstra"
+    },
+    {
+      "id": "viz-union-find",
+      "type": "markdown",
+      "position": {
+        "x": 727.4668799338295,
+        "y": -62.45053539448307
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/union-find.html",
+      "label": "🎬 union-find"
+    },
+    {
+      "id": "viz-trie",
+      "type": "markdown",
+      "position": {
+        "x": 1406.0483362348298,
+        "y": -220.18182833279374
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/trie.html",
+      "label": "🎬 trie"
+    },
+    {
+      "id": "viz-dp-lis",
+      "type": "markdown",
+      "position": {
+        "x": 1051.061298246164,
+        "y": -1068.0448226497601
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/dp-lis.html",
+      "label": "🎬 dp-lis"
+    },
+    {
+      "id": "viz-linked-list-cycle",
+      "type": "markdown",
+      "position": {
+        "x": -282.8607755292678,
+        "y": -839.4105443776433
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "viz/linked-list-cycle.html",
+      "label": "🎬 linked-list-cycle"
     }
   ],
   "edges": [
@@ -1391,6 +1531,66 @@
       "id": "edge-hub-company-node-1778664929279-1zp7kx-1778666334777-qg6gx",
       "source": "hub-company",
       "target": "node-1778664929279-1zp7kx",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-binary-search",
+      "source": "node-1778661163412-uwrfzt",
+      "target": "viz-binary-search",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-sliding-window",
+      "source": "node-1778661163412-sq2won",
+      "target": "viz-sliding-window",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-monotonic-stack",
+      "source": "node-1778661163412-1d7tao",
+      "target": "viz-monotonic-stack",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-bfs",
+      "source": "node-1778661163412-btw1lu",
+      "target": "viz-bfs",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-backtracking",
+      "source": "node-1778661163412-vj9fpp",
+      "target": "viz-backtracking",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-dijkstra",
+      "source": "node-dijkstra-1778700000001",
+      "target": "viz-dijkstra",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-union-find",
+      "source": "node-1778661163412-i4h8ld",
+      "target": "viz-union-find",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-trie",
+      "source": "node-trie-1778700000000",
+      "target": "viz-trie",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-dp-lis",
+      "source": "node-1778661163412-xvsf03",
+      "target": "viz-dp-lis",
+      "type": "manual"
+    },
+    {
+      "id": "e-viz-linked-list-cycle",
+      "source": "node-1778661163412-ijat2n",
+      "target": "viz-linked-list-cycle",
       "type": "manual"
     }
   ],
