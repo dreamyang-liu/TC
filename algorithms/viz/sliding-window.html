@@ -115,7 +115,7 @@
 
 <script>
 const s = "abcabcbb";
-let left = 0, right = -1, ans = 0, window = {}, done = false, phase = 'expand';
+let left = 0, right = -1, ans = 0, winState = {}, done = false, phase = 'expand';
 let autoTimer = null;
 
 function render(highlightDup = null) {
@@ -162,10 +162,10 @@ function step() {
       return;
     }
     const c = s[right];
-    window[c] = (window[c]||0) + 1;
+    winState[c] = (winState[c]||0) + 1;
     highlight(4);
-    document.getElementById('narrate').innerHTML = `右指针扩张到 ${right}，加入字符 <code>${c}</code>。window[<code>${c}</code>] = ${window[c]}`;
-    if (window[c] > 1) {
+    document.getElementById('narrate').innerHTML = `右指针扩张到 ${right}，加入字符 <code>${c}</code>。window[<code>${c}</code>] = ${winState[c]}`;
+    if (winState[c] > 1) {
       phase = 'shrink';
     } else {
       phase = 'update';
@@ -173,7 +173,7 @@ function step() {
     render();
   } else if (phase === 'shrink') {
     const c = s[right];
-    if (window[c] > 1) {
+    if (winState[c] > 1) {
       highlight(5);
       // show which char is the duplicate (find earlier occurrence)
       const dupIdx = s.slice(left, right).indexOf(c) + left;
@@ -186,9 +186,9 @@ function step() {
     }
   } else if (phase === 'shrink-move') {
     const c = s[right];
-    if (window[c] > 1) {
+    if (winState[c] > 1) {
       highlight(6);
-      window[s[left]] -= 1;
+      winState[s[left]] -= 1;
       document.getElementById('narrate').innerHTML = `踢出 <code>${s[left]}</code>，left += 1 → ${left+1}`;
       left++;
       render();
@@ -211,7 +211,7 @@ function step() {
 
 function reset() {
   if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
-  left=0; right=-1; ans=0; window={}; done=false; phase='expand';
+  left=0; right=-1; ans=0; winState={}; done=false; phase='expand';
   document.getElementById('narrate').innerHTML = '点 "下一步" 开始。观察 left 何时移动。';
   render();
 }

@@ -107,11 +107,11 @@ const ops = [
   { kind:'find',  a:7 },
 ];
 
-let parent, opIdx, animEvents, eventIdx, activeNodes, foundRoot, changedNode;
+let par, opIdx, animEvents, eventIdx, activeNodes, foundRoot, changedNode;
 let autoTimer = null;
 
 function init() {
-  parent = Array.from({length:N}, (_,i) => i);
+  par = Array.from({length:N}, (_,i) => i);
   opIdx = 0;
   animEvents = [];
   eventIdx = 0;
@@ -124,9 +124,9 @@ function findEvents(x) {
   // generate visit events plus compression at end
   const path = [];
   let cur = x;
-  while (parent[cur] !== cur) {
+  while (par[cur] !== cur) {
     path.push(cur);
-    cur = parent[cur];
+    cur = par[cur];
   }
   path.push(cur);   // root
   const events = [];
@@ -137,7 +137,7 @@ function findEvents(x) {
   // path compression: all non-root nodes point directly to root
   const root = path[path.length-1];
   for (let i = 0; i < path.length - 1; i++) {
-    if (parent[path[i]] !== root) {
+    if (par[path[i]] !== root) {
       events.push({ phase:'compress', node: path[i], to: root });
     }
   }
@@ -147,7 +147,7 @@ function findEvents(x) {
 function performFindWithEvents(x, callback) {
   // Note: this returns root, but only marks path for animation
   let cur = x;
-  while (parent[cur] !== cur) cur = parent[cur];
+  while (par[cur] !== cur) cur = par[cur];
   return cur;
 }
 
@@ -188,8 +188,8 @@ function computeY() {
   const depth = Array(N).fill(0);
   for (let i = 0; i < N; i++) {
     let cur = i, d = 0;
-    while (parent[cur] !== cur && d < N) {
-      cur = parent[cur]; d++;
+    while (par[cur] !== cur && d < N) {
+      cur = par[cur]; d++;
     }
     depth[i] = d;
   }
@@ -204,10 +204,10 @@ function render() {
   computeY();
   const svg = document.getElementById('tree');
   let html = '';
-  // Draw edges (child → parent)
+  // Draw edges (child → par)
   for (let i = 0; i < N; i++) {
-    if (parent[i] !== i) {
-      const a = positions[i], b = positions[parent[i]];
+    if (par[i] !== i) {
+      const a = positions[i], b = positions[par[i]];
       let cls = 'tree-edge';
       if (changedNode === i) cls += ' flash';
       html += `<line class="${cls}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
@@ -219,7 +219,7 @@ function render() {
     let cls = 'node-circle';
     if (foundRoot === i) cls += ' nc-found';
     else if (activeNodes.has(i)) cls += ' nc-active';
-    else if (parent[i] === i) cls += ' nc-root';
+    else if (par[i] === i) cls += ' nc-root';
     else cls += ' nc-default';
     html += `<circle class="${cls}" cx="${p.x}" cy="${p.y}" r="20"/>`;
     html += `<text class="node-text" x="${p.x}" y="${p.y+5}">${i}</text>`;
@@ -227,7 +227,7 @@ function render() {
   svg.innerHTML = html;
 
   // Parent table
-  document.getElementById('parentTable').innerHTML = parent.map((p,i) => {
+  document.getElementById('parentTable').innerHTML = par.map((p,i) => {
     const cls = (changedNode === i) ? 'changed' : '';
     return `<div class="pe ${cls}"><span class="from">p[${i}]</span><span class="to">=${p}</span></div>`;
   }).join('');
@@ -273,12 +273,12 @@ function step() {
   }
   if (ev.phase === 'walk') {
     activeNodes.add(ev.node);
-    document.getElementById('narrate').innerHTML = `走到节点 <strong>${ev.node}</strong>，parent[${ev.node}]=${parent[ev.node]} ${parent[ev.node]===ev.node ? '←这是根！' : '→ 继续往上'}`;
+    document.getElementById('narrate').innerHTML = `走到节点 <strong>${ev.node}</strong>，par[${ev.node}]=${par[ev.node]} ${par[ev.node]===ev.node ? '←这是根！' : '→ 继续往上'}`;
     render();
   } else if (ev.phase === 'compress') {
-    parent[ev.node] = ev.to;
+    par[ev.node] = ev.to;
     changedNode = ev.node;
-    document.getElementById('narrate').innerHTML = `<strong style="color:#10b981">路径压缩</strong>：parent[${ev.node}] = ${ev.to}（直接挂到根）`;
+    document.getElementById('narrate').innerHTML = `<strong style="color:#10b981">路径压缩</strong>：par[${ev.node}] = ${ev.to}（直接挂到根）`;
     render();
   } else if (ev.phase === 'rootA' || ev.phase === 'rootB') {
     foundRoot = ev.root;
@@ -289,10 +289,10 @@ function step() {
     document.getElementById('narrate').innerHTML = `find(${ev.of}) = <strong style="color:#10b981">${ev.root}</strong>`;
     render();
   } else if (ev.phase === 'merge') {
-    parent[ev.from] = ev.to;
+    par[ev.from] = ev.to;
     changedNode = ev.from;
     foundRoot = null; activeNodes.clear();
-    document.getElementById('narrate').innerHTML = `合并：parent[${ev.from}] = ${ev.to}（把 ${ev.from} 这棵树挂到 ${ev.to} 下）`;
+    document.getElementById('narrate').innerHTML = `合并：par[${ev.from}] = ${ev.to}（把 ${ev.from} 这棵树挂到 ${ev.to} 下）`;
     render();
   } else if (ev.phase === 'alreadyUnion') {
     document.getElementById('narrate').innerHTML = `已经在同一组（共同根 ${ev.root}）→ 无需操作`;
