@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>二分查找 · 一眼看懂</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", system-ui, sans-serif;
+    background: linear-gradient(135deg, #f6f8fb 0%, #eef2f7 100%);
+    min-height: 100vh; padding: 30px 20px;
+    color: #1f2937;
+  }
+  .card {
+    max-width: 920px; margin: 0 auto;
+    background: white; border-radius: 16px;
+    padding: 36px 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  h1 { font-size: 26px; margin-bottom: 8px; }
+  .subtitle { color: #6b7280; margin-bottom: 24px; font-size: 14px; }
+  .insight {
+    background: #fef3c7; border-left: 4px solid #f59e0b;
+    padding: 14px 18px; border-radius: 8px; margin-bottom: 28px;
+    font-size: 15px; line-height: 1.6;
+  }
+  .insight strong { color: #92400e; }
+
+  /* Array viz */
+  .arr-row {
+    display: flex; gap: 4px; justify-content: center;
+    margin: 30px 0 16px;
+  }
+  .cell {
+    width: 52px; height: 52px;
+    border-radius: 8px; background: #f3f4f6;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 600;
+    transition: all 0.4s cubic-bezier(.4,0,.2,1);
+    position: relative;
+  }
+  .cell.in-range { background: #dbeafe; color: #1e40af; }
+  .cell.mid { background: #f59e0b; color: white; transform: translateY(-6px); }
+  .cell.found { background: #10b981; color: white; animation: pulse 0.6s ease; }
+  .cell.cut { background: #f3f4f6; color: #d1d5db; }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50% { transform: scale(1.15) translateY(-4px); }
+  }
+  .idx-row {
+    display: flex; gap: 4px; justify-content: center;
+    color: #9ca3af; font-size: 11px; margin-bottom: 14px;
+  }
+  .idx-row .idx { width: 52px; text-align: center; }
+  .pointer-row {
+    display: flex; gap: 4px; justify-content: center;
+    height: 28px; margin-bottom: 8px;
+    position: relative;
+  }
+  .ptr {
+    width: 52px; text-align: center;
+    font-size: 12px; font-weight: 700;
+    transition: all 0.4s cubic-bezier(.4,0,.2,1);
+  }
+  .ptr.lo { color: #2563eb; }
+  .ptr.hi { color: #db2777; }
+  .ptr.mid { color: #d97706; }
+
+  /* Status */
+  .status {
+    background: #f9fafb; border-radius: 10px;
+    padding: 18px 22px; margin: 20px 0;
+    font-size: 14px; line-height: 1.7;
+  }
+  .status code {
+    background: #1f2937; color: #d1d5db; padding: 2px 8px;
+    border-radius: 4px; font-size: 13px;
+  }
+  .status .narrate {
+    color: #4b5563; min-height: 24px;
+  }
+  .status .vars {
+    display: flex; gap: 24px; margin-top: 10px;
+    font-family: ui-monospace, "SF Mono", monospace;
+  }
+  .var-box { display: flex; align-items: center; gap: 6px; }
+  .var-label { color: #6b7280; font-size: 12px; }
+  .var-val {
+    background: #1f2937; color: #fff; padding: 2px 10px;
+    border-radius: 4px; font-size: 13px; min-width: 30px; text-align: center;
+  }
+  .var-val.lo { background: #2563eb; }
+  .var-val.hi { background: #db2777; }
+  .var-val.mid { background: #d97706; }
+
+  /* Controls */
+  .controls {
+    display: flex; gap: 10px; justify-content: center;
+    margin: 24px 0 10px; flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 22px; border-radius: 8px; border: none;
+    background: #3b82f6; color: white; cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    transition: all 0.2s;
+  }
+  button:hover { background: #2563eb; transform: translateY(-1px); }
+  button:disabled { background: #d1d5db; cursor: not-allowed; transform: none; }
+  button.ghost { background: #e5e7eb; color: #374151; }
+  button.ghost:hover { background: #d1d5db; }
+  .mode-switch {
+    display: flex; gap: 0; margin-bottom: 16px;
+    background: #f3f4f6; padding: 4px; border-radius: 10px;
+    width: fit-content; margin-left: auto; margin-right: auto;
+  }
+  .mode-switch button {
+    background: transparent; color: #6b7280;
+    padding: 6px 16px; font-size: 13px;
+  }
+  .mode-switch button.active {
+    background: white; color: #1f2937;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  .target-input {
+    text-align: center; margin: 10px 0;
+  }
+  .target-input input {
+    width: 60px; padding: 6px 10px; font-size: 14px;
+    border: 1.5px solid #d1d5db; border-radius: 6px;
+    text-align: center;
+  }
+
+  /* Code highlight */
+  .code {
+    background: #1e293b; border-radius: 10px;
+    padding: 20px 24px; margin-top: 24px;
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 13px; line-height: 1.8;
+    color: #cbd5e1;
+    overflow-x: auto;
+  }
+  .code .line { padding: 0 8px; border-radius: 4px; transition: all 0.3s; }
+  .code .line.active { background: #fbbf2444; color: white; }
+  .code .kw { color: #ec4899; }
+  .code .var { color: #38bdf8; }
+  .code .num { color: #f59e0b; }
+  .code .cmt { color: #64748b; font-style: italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔍 二分查找 · 一眼看懂</h1>
+  <p class="subtitle">每次砍掉一半 → log₂N 步内一定找到</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：用半开区间 <code>[lo, hi)</code> 就再也不会写错边界。
+    <code>&lt;</code> 找左边界，<code>&lt;=</code> 找右边界。只改这一个字符。
+  </div>
+
+  <div class="mode-switch">
+    <button class="active" onclick="setMode('left', this)">找左边界 (&lt;)</button>
+    <button onclick="setMode('right', this)">找右边界 (&lt;=)</button>
+  </div>
+
+  <div class="target-input">
+    target = <input type="number" id="target" value="5"> 在数组中找它
+  </div>
+
+  <div class="idx-row" id="idxRow"></div>
+  <div class="arr-row" id="arrRow"></div>
+  <div class="pointer-row" id="ptrRow"></div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+    <div class="vars">
+      <div class="var-box"><span class="var-label">lo</span><span class="var-val lo" id="vLo">0</span></div>
+      <div class="var-box"><span class="var-label">hi</span><span class="var-val hi" id="vHi">10</span></div>
+      <div class="var-box"><span class="var-label">mid</span><span class="var-val mid" id="vMid">-</span></div>
+      <div class="var-box"><span class="var-label">step</span><span class="var-val" id="vStep">0</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+
+  <pre class="code"><span class="line" data-l="1"><span class="kw">def</span> <span class="var">search</span>(nums, target):</span>
+<span class="line" data-l="2">    lo, hi = <span class="num">0</span>, len(nums)         <span class="cmt"># 半开 [lo, hi)</span></span>
+<span class="line" data-l="3">    <span class="kw">while</span> lo &lt; hi:</span>
+<span class="line" data-l="4">        mid = (lo + hi) // <span class="num">2</span></span>
+<span class="line" data-l="5">        <span class="kw">if</span> nums[mid] <span id="codeOp">&lt;</span> target:    <span class="cmt"># ← 只改这里</span></span>
+<span class="line" data-l="6">            lo = mid + <span class="num">1</span>           <span class="cmt"># 砍掉左半</span></span>
+<span class="line" data-l="7">        <span class="kw">else</span>:</span>
+<span class="line" data-l="8">            hi = mid                <span class="cmt"># 砍掉右半</span></span>
+<span class="line" data-l="9">    <span class="kw">return</span> lo</span>
+  </pre>
+</div>
+
+<script>
+const nums = [1, 3, 5, 5, 5, 7, 9, 11, 13, 15];
+let mode = 'left';
+let lo = 0, hi = nums.length, mid = -1, stepCount = 0, done = false, foundIdx = -1;
+let autoTimer = null;
+
+function render() {
+  const idxRow = document.getElementById('idxRow');
+  const arrRow = document.getElementById('arrRow');
+  const ptrRow = document.getElementById('ptrRow');
+  idxRow.innerHTML = nums.map((_,i) => `<div class="idx">${i}</div>`).join('');
+  arrRow.innerHTML = nums.map((v,i) => {
+    let cls = 'cell';
+    if (done && i === foundIdx) cls += ' found';
+    else if (i === mid) cls += ' mid';
+    else if (i >= lo && i < hi) cls += ' in-range';
+    else cls += ' cut';
+    return `<div class="${cls}">${v}</div>`;
+  }).join('');
+  // Pointers
+  const ptrs = nums.map((_,i) => '<div class="ptr"></div>');
+  if (lo < nums.length) ptrs[lo] = `<div class="ptr lo">▲lo</div>`;
+  if (hi - 1 >= 0 && hi <= nums.length) {
+    // hi can be N (out of array); show at right edge if so
+    if (hi < nums.length) {
+      ptrs[hi] = `<div class="ptr hi">▲hi</div>`;
+    }
+  }
+  if (mid >= 0 && mid < nums.length) {
+    const cur = ptrs[mid].replace(/<\/?div[^>]*>/g, '');
+    ptrs[mid] = `<div class="ptr mid">▲mid${cur ? ' / ' + cur : ''}</div>`;
+  }
+  ptrRow.innerHTML = ptrs.join('');
+
+  document.getElementById('vLo').textContent = lo;
+  document.getElementById('vHi').textContent = hi;
+  document.getElementById('vMid').textContent = mid < 0 ? '-' : mid;
+  document.getElementById('vStep').textContent = stepCount;
+  document.getElementById('codeOp').textContent = mode === 'left' ? '<' : '<=';
+
+  // highlight active code line
+  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));
+}
+
+function highlight(lineNo) {
+  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.code .line[data-l="${lineNo}"]`);
+  if (el) el.classList.add('active');
+}
+
+let phase = 'check';
+
+function step() {
+  if (done) return;
+  const target = parseInt(document.getElementById('target').value) || 0;
+
+  if (phase === 'check') {
+    highlight(3);
+    if (lo >= hi) {
+      done = true;
+      foundIdx = mode === 'left' ? lo : lo - 1;
+      const validHit = foundIdx >= 0 && foundIdx < nums.length && nums[foundIdx] === target;
+      document.getElementById('narrate').innerHTML =
+        `循环结束！返回 <code>lo = ${lo}</code>${mode === 'right' ? ' - 1 = ' + (lo - 1) : ''}。` +
+        (validHit ? ` ✅ 数组中 <code>${target}</code> 的${mode==='left'?'第一个':'最后一个'}位置是 <code>${foundIdx}</code>` : ` ⚠️ 数组中没有 <code>${target}</code>，但 <code>lo=${lo}</code> 是它"应该插入"的位置`);
+      render();
+      return;
+    }
+    mid = Math.floor((lo + hi) / 2);
+    highlight(4);
+    document.getElementById('narrate').innerHTML = `mid = (lo + hi) / 2 = <code>(${lo} + ${hi}) / 2 = ${mid}</code>`;
+    phase = 'compare';
+    render();
+  } else if (phase === 'compare') {
+    highlight(5);
+    const op = mode === 'left' ? '<' : '<=';
+    const cond = mode === 'left' ? nums[mid] < target : nums[mid] <= target;
+    document.getElementById('narrate').innerHTML =
+      `nums[${mid}] = <code>${nums[mid]}</code> ${op} target=${target} ? <strong>${cond ? '是 → 砍掉左半' : '否 → 砍掉右半'}</strong>`;
+    phase = cond ? 'shrinkLeft' : 'shrinkRight';
+  } else if (phase === 'shrinkLeft') {
+    highlight(6);
+    lo = mid + 1;
+    mid = -1;
+    stepCount++;
+    document.getElementById('narrate').innerHTML = `lo = mid + 1 = <code>${lo}</code>`;
+    phase = 'check';
+    render();
+  } else if (phase === 'shrinkRight') {
+    highlight(8);
+    hi = mid;
+    mid = -1;
+    stepCount++;
+    document.getElementById('narrate').innerHTML = `hi = mid = <code>${hi}</code>`;
+    phase = 'check';
+    render();
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('playBtn').textContent = '▶ 自动播放'; }
+  lo = 0; hi = nums.length; mid = -1; stepCount = 0; done = false; foundIdx = -1; phase = 'check';
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。注意数组里有 3 个 5 —— 看哪个被找到。';
+  render();
+}
+
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; document.getElementById('playBtn').textContent = '▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent = '⏸ 暂停';
+  autoTimer = setInterval(() => {
+    step();
+    if (done) { clearInterval(autoTimer); autoTimer = null; document.getElementById('playBtn').textContent = '▶ 自动播放'; }
+  }, 900);
+}
+
+function setMode(m, btn) {
+  mode = m;
+  document.querySelectorAll('.mode-switch button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  reset();
+}
+
+reset();
+</script>
+</body>
+</html>

@@ -1,0 +1,1403 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "node-1778661163412-r92m6e",
+      "type": "shape",
+      "position": {
+        "x": -819.2304718857696,
+        "y": 173.76860213846453
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "哈希表",
+      "label": "哈希表"
+    },
+    {
+      "id": "node-1778661163412-sq2won",
+      "type": "shape",
+      "position": {
+        "x": -156.15560947190951,
+        "y": -369.5285382793585
+      },
+      "size": {
+        "width": 102,
+        "height": 40
+      },
+      "content": "双指针 滑动窗口",
+      "label": "双指针 滑动窗口"
+    },
+    {
+      "id": "node-1778661163412-uwrfzt",
+      "type": "shape",
+      "position": {
+        "x": 1304.4385841276217,
+        "y": -1256.477050526899
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "二分查找",
+      "label": "二分查找"
+    },
+    {
+      "id": "node-1778661163412-va6cv0",
+      "type": "shape",
+      "position": {
+        "x": 1007.5194893355576,
+        "y": -567.2282626606204
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "二叉树递归",
+      "label": "二叉树递归"
+    },
+    {
+      "id": "node-1778661163412-btw1lu",
+      "type": "shape",
+      "position": {
+        "x": 617.949816729986,
+        "y": -185.57650496420223
+      },
+      "size": {
+        "width": 93,
+        "height": 40
+      },
+      "content": "DFS BFS",
+      "label": "DFS BFS"
+    },
+    {
+      "id": "node-1778661163412-xvsf03",
+      "type": "shape",
+      "position": {
+        "x": 1131.061298246164,
+        "y": -938.0448226497602
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "动态规划基础",
+      "label": "动态规划基础"
+    },
+    {
+      "id": "node-1778661163412-ijat2n",
+      "type": "shape",
+      "position": {
+        "x": -202.86077552926778,
+        "y": -709.4105443776433
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "链表操作",
+      "label": "链表操作"
+    },
+    {
+      "id": "node-1778661163412-vj9fpp",
+      "type": "shape",
+      "position": {
+        "x": 1145.8662150198613,
+        "y": -216.76751024461015
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "回溯",
+      "label": "回溯"
+    },
+    {
+      "id": "node-1778661163412-bcmyk9",
+      "type": "shape",
+      "position": {
+        "x": -879.9942986903443,
+        "y": -127.68948514636419
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "堆 优先队列",
+      "label": "堆 优先队列"
+    },
+    {
+      "id": "node-1778661163412-1d7tao",
+      "type": "shape",
+      "position": {
+        "x": 216.70159715112294,
+        "y": -805.662358952719
+      },
+      "size": {
+        "width": 102,
+        "height": 40
+      },
+      "content": "单调栈 单调队列",
+      "label": "单调栈 单调队列"
+    },
+    {
+      "id": "node-1778661163412-i4h8ld",
+      "type": "shape",
+      "position": {
+        "x": 807.4668799338295,
+        "y": 67.54946460551693
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "并查集",
+      "label": "并查集"
+    },
+    {
+      "id": "node-1778661163412-p2t6h0",
+      "type": "shape",
+      "position": {
+        "x": 877.4656236087257,
+        "y": -577.4719764653233
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "拓扑排序",
+      "label": "拓扑排序"
+    },
+    {
+      "id": "node-1778661163412-lpyoka",
+      "type": "shape",
+      "position": {
+        "x": 1418.584699456881,
+        "y": -1140.418577389492
+      },
+      "size": {
+        "width": 102,
+        "height": 40
+      },
+      "content": "二维 区间 DP",
+      "label": "二维 区间 DP"
+    },
+    {
+      "id": "node-1778661163412-y3oswc",
+      "type": "shape",
+      "position": {
+        "x": -1241.229420797243,
+        "y": -244.29011204384724
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "快速选择",
+      "label": "快速选择"
+    },
+    {
+      "id": "node-1778661416615-b2x2ln",
+      "type": "shape",
+      "position": {
+        "x": -1232.262130774298,
+        "y": 154.389237050779
+      },
+      "size": {
+        "width": 140,
+        "height": 80
+      },
+      "content": "Prefix Sum. Diff Array",
+      "label": "Node"
+    },
+    {
+      "id": "node-trie-1778700000000",
+      "type": "shape",
+      "position": {
+        "x": 1486.0483362348298,
+        "y": -90.18182833279374
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "Trie 前缀树",
+      "label": "Trie 前缀树"
+    },
+    {
+      "id": "node-dijkstra-1778700000001",
+      "type": "shape",
+      "position": {
+        "x": -1160.2124164117677,
+        "y": -385.341197923746
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "Dijkstra 最短路",
+      "label": "Dijkstra 最短路"
+    },
+    {
+      "id": "node-1778663261775-j01n2z",
+      "type": "markdown",
+      "position": {
+        "x": 480.3920119970789,
+        "y": -397.5577633633195
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/bfs.md",
+      "label": "bfs"
+    },
+    {
+      "id": "node-md-hash-table",
+      "type": "markdown",
+      "position": {
+        "x": -1065.403456536129,
+        "y": 48.427478745668154
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/hash-table.md",
+      "label": "hash-table"
+    },
+    {
+      "id": "node-md-two-pointers",
+      "type": "markdown",
+      "position": {
+        "x": -418.11759721613714,
+        "y": -416.7947736203661
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/two-pointers.md",
+      "label": "two-pointers"
+    },
+    {
+      "id": "node-md-sliding-window",
+      "type": "markdown",
+      "position": {
+        "x": -314.31132483507014,
+        "y": -587.7458128491414
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/sliding-window.md",
+      "label": "sliding-window"
+    },
+    {
+      "id": "node-md-binary-search",
+      "type": "markdown",
+      "position": {
+        "x": 1429.5950990922486,
+        "y": -1522.5857234857822
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/binary-search.md",
+      "label": "binary-search"
+    },
+    {
+      "id": "node-md-tree-traversal",
+      "type": "markdown",
+      "position": {
+        "x": 1020.1117731632464,
+        "y": -435.4872910887942
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/tree-traversal.md",
+      "label": "tree-traversal"
+    },
+    {
+      "id": "node-md-dp",
+      "type": "markdown",
+      "position": {
+        "x": 1144.8939601104003,
+        "y": -1214.399586879623
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/dp.md",
+      "label": "dp"
+    },
+    {
+      "id": "node-md-linked-list",
+      "type": "markdown",
+      "position": {
+        "x": -342.5208504780533,
+        "y": -961.0797314673515
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/linked-list.md",
+      "label": "linked-list"
+    },
+    {
+      "id": "node-md-backtracking",
+      "type": "markdown",
+      "position": {
+        "x": 1337.3869412661466,
+        "y": -18.594192208411478
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/backtracking.md",
+      "label": "backtracking"
+    },
+    {
+      "id": "node-md-heap",
+      "type": "markdown",
+      "position": {
+        "x": -995.4828647398054,
+        "y": -375.8979566449581
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/heap.md",
+      "label": "heap"
+    },
+    {
+      "id": "node-md-mono-stack",
+      "type": "markdown",
+      "position": {
+        "x": 253.75547231874543,
+        "y": -1082.3953389789137
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/monotonic-stack.md",
+      "label": "monotonic-stack"
+    },
+    {
+      "id": "node-md-mono-queue",
+      "type": "markdown",
+      "position": {
+        "x": 58.92191555526718,
+        "y": -1037.230251148378
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/monotonic-queue.md",
+      "label": "monotonic-queue"
+    },
+    {
+      "id": "node-md-union-find",
+      "type": "markdown",
+      "position": {
+        "x": 984.8639451709657,
+        "y": 286.8148580099741
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/union-find.md",
+      "label": "union-find"
+    },
+    {
+      "id": "node-md-topo",
+      "type": "markdown",
+      "position": {
+        "x": 1125.7019048980433,
+        "y": -682.3712572834894
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/topological-sort.md",
+      "label": "topological-sort"
+    },
+    {
+      "id": "node-md-interval-dp",
+      "type": "markdown",
+      "position": {
+        "x": 1656.642519151866,
+        "y": -1313.5000246597353
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/interval-dp.md",
+      "label": "interval-dp"
+    },
+    {
+      "id": "node-md-quickselect",
+      "type": "markdown",
+      "position": {
+        "x": -1524.989637822319,
+        "y": -339.69748016179074
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/quickselect.md",
+      "label": "quickselect"
+    },
+    {
+      "id": "node-md-diff-array",
+      "type": "markdown",
+      "position": {
+        "x": -1532.087607482139,
+        "y": 164.60794762969329
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/difference-array.md",
+      "label": "difference-array"
+    },
+    {
+      "id": "node-md-trie",
+      "type": "markdown",
+      "position": {
+        "x": 1748.6784227519956,
+        "y": 29.206705207550755
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/trie.md",
+      "label": "trie"
+    },
+    {
+      "id": "node-md-dijkstra",
+      "type": "markdown",
+      "position": {
+        "x": -1380.4029527072523,
+        "y": -583.006093338573
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/dijkstra.md",
+      "label": "dijkstra"
+    },
+    {
+      "id": "node-1778664894644-jorot0",
+      "type": "shape",
+      "position": {
+        "x": -392.5638197196376,
+        "y": 241.41967693059382
+      },
+      "size": {
+        "width": 140,
+        "height": 80
+      },
+      "label": "Node"
+    },
+    {
+      "id": "node-1778664929279-1zp7kx",
+      "type": "markdown",
+      "position": {
+        "x": 138.94932024597858,
+        "y": 495.94202419902757
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "30-day-plan.md",
+      "label": "30-day-plan"
+    },
+    {
+      "id": "hub-company",
+      "type": "shape",
+      "position": {
+        "x": -130.63630290482905,
+        "y": 492.22041140019576
+      },
+      "size": {
+        "width": 160,
+        "height": 60
+      },
+      "content": "🎓 Company Guides",
+      "label": "🎓 Company Guides"
+    },
+    {
+      "id": "md-openai",
+      "type": "markdown",
+      "position": {
+        "x": -108.18949156354542,
+        "y": 763.1543397779227
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "company-guides/openai.md",
+      "label": "OpenAI"
+    },
+    {
+      "id": "md-anthropic",
+      "type": "markdown",
+      "position": {
+        "x": 76.27177818665918,
+        "y": 685.862425828496
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "company-guides/anthropic.md",
+      "label": "Anthropic"
+    },
+    {
+      "id": "hub-playbook",
+      "type": "shape",
+      "position": {
+        "x": -906.8545618403975,
+        "y": 454.5997003628106
+      },
+      "size": {
+        "width": 140,
+        "height": 60
+      },
+      "content": "📋 Playbook",
+      "label": "📋 Playbook"
+    },
+    {
+      "id": "md-pb-umpire",
+      "type": "markdown",
+      "position": {
+        "x": -820.4352706661101,
+        "y": 696.1001911788019
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "playbook/umpire.md",
+      "label": "umpire"
+    },
+    {
+      "id": "md-pb-clarifying",
+      "type": "markdown",
+      "position": {
+        "x": -1067.1523695234441,
+        "y": 248.40969162824655
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "playbook/clarifying.md",
+      "label": "clarifying"
+    },
+    {
+      "id": "md-pb-edge-cases",
+      "type": "markdown",
+      "position": {
+        "x": -1198.3097890978743,
+        "y": 399.37603990900544
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "playbook/edge-cases.md",
+      "label": "edge-cases"
+    },
+    {
+      "id": "md-pb-complexity",
+      "type": "markdown",
+      "position": {
+        "x": -1180.688802009297,
+        "y": 598.5830395034467
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "playbook/complexity.md",
+      "label": "complexity"
+    },
+    {
+      "id": "md-pb-concurrency",
+      "type": "markdown",
+      "position": {
+        "x": -1019.3468762934706,
+        "y": 716.7726456721197
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "playbook/concurrency.md",
+      "label": "concurrency"
+    },
+    {
+      "id": "hub-syscoding",
+      "type": "shape",
+      "position": {
+        "x": -578.343209932227,
+        "y": 1137.2812842327553
+      },
+      "size": {
+        "width": 180,
+        "height": 60
+      },
+      "content": "💻 System Coding 13 题",
+      "label": "💻 System Coding 13 题"
+    },
+    {
+      "id": "md-sc-web-crawler",
+      "type": "markdown",
+      "position": {
+        "x": -717.0689850196788,
+        "y": 939.6829656293305
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/web-crawler.md",
+      "label": "web-crawler"
+    },
+    {
+      "id": "md-sc-lru-cache",
+      "type": "markdown",
+      "position": {
+        "x": -900.5403539975209,
+        "y": 1019.3341213545924
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/lru-cache.md",
+      "label": "lru-cache"
+    },
+    {
+      "id": "md-sc-lfu-cache",
+      "type": "markdown",
+      "position": {
+        "x": -450.0237485094364,
+        "y": 937.0319641750157
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/lfu-cache.md",
+      "label": "lfu-cache"
+    },
+    {
+      "id": "md-sc-stack-trace",
+      "type": "markdown",
+      "position": {
+        "x": -981.8339967311878,
+        "y": 1207.2495616042195
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/stack-trace.md",
+      "label": "stack-trace"
+    },
+    {
+      "id": "md-sc-tokenizer",
+      "type": "markdown",
+      "position": {
+        "x": -783.5407482776576,
+        "y": 1181.4731584117017
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/tokenizer.md",
+      "label": "tokenizer"
+    },
+    {
+      "id": "md-sc-distributed-mode",
+      "type": "markdown",
+      "position": {
+        "x": -329.51816532924835,
+        "y": 1096.6252332510292
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/distributed-mode.md",
+      "label": "distributed-mode"
+    },
+    {
+      "id": "md-sc-kv-serializer",
+      "type": "markdown",
+      "position": {
+        "x": -860.4090730502951,
+        "y": 1366.199364607215
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/kv-serializer.md",
+      "label": "kv-serializer"
+    },
+    {
+      "id": "md-sc-time-kv-store",
+      "type": "markdown",
+      "position": {
+        "x": -662.1743105117633,
+        "y": 1340.272141864197
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/time-kv-store.md",
+      "label": "time-kv-store"
+    },
+    {
+      "id": "md-sc-resumable-iterator",
+      "type": "markdown",
+      "position": {
+        "x": -265.9234493022009,
+        "y": 1286.2559920826416
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/resumable-iterator.md",
+      "label": "resumable-iterator"
+    },
+    {
+      "id": "md-sc-spreadsheet",
+      "type": "markdown",
+      "position": {
+        "x": -738.7221438723404,
+        "y": 1525.0256669958674
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/spreadsheet.md",
+      "label": "spreadsheet"
+    },
+    {
+      "id": "md-sc-unix-cd",
+      "type": "markdown",
+      "position": {
+        "x": -539.8055259421741,
+        "y": 1498.5832279418353
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/unix-cd.md",
+      "label": "unix-cd"
+    },
+    {
+      "id": "md-sc-sql-engine",
+      "type": "markdown",
+      "position": {
+        "x": -464.12573638053595,
+        "y": 1313.3889241642855
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/sql-engine.md",
+      "label": "sql-engine"
+    },
+    {
+      "id": "md-sc-rate-limiter",
+      "type": "markdown",
+      "position": {
+        "x": -341.6009533044684,
+        "y": 1471.4638352330103
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "system-coding/rate-limiter.md",
+      "label": "rate-limiter"
+    },
+    {
+      "id": "node-greedy",
+      "type": "shape",
+      "position": {
+        "x": 1315.1395127028215,
+        "y": -586.2664435856422
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "贪心",
+      "label": "贪心"
+    },
+    {
+      "id": "md-greedy",
+      "type": "markdown",
+      "position": {
+        "x": 1601.166890457295,
+        "y": -562.6956364058673
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/greedy.md",
+      "label": "greedy"
+    },
+    {
+      "id": "node-tree-dp",
+      "type": "shape",
+      "position": {
+        "x": 1357.263318919835,
+        "y": -777.5749449236658
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "树形 DP",
+      "label": "树形 DP"
+    },
+    {
+      "id": "md-tree-dp",
+      "type": "markdown",
+      "position": {
+        "x": 1634.9831364429408,
+        "y": -859.3744358872641
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/tree-dp.md",
+      "label": "tree-dp"
+    },
+    {
+      "id": "node-bit",
+      "type": "shape",
+      "position": {
+        "x": 685.5453537217456,
+        "y": -994.1289221563866
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "位运算",
+      "label": "位运算"
+    },
+    {
+      "id": "md-bit",
+      "type": "markdown",
+      "position": {
+        "x": 664.6087775562033,
+        "y": -1276.186266207918
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "patterns/bit-manipulation.md",
+      "label": "bit"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-slide-monoq",
+      "source": "node-1778661163412-sq2won",
+      "target": "node-1778661163412-1d7tao",
+      "label": "滑窗最值用单调队列",
+      "type": "manual"
+    },
+    {
+      "id": "edge-slide-linklist",
+      "source": "node-1778661163412-sq2won",
+      "target": "node-1778661163412-ijat2n",
+      "label": "链表用快慢指针",
+      "type": "manual"
+    },
+    {
+      "id": "edge-dfsbfs-backtrack",
+      "source": "node-1778661163412-btw1lu",
+      "target": "node-1778661163412-vj9fpp",
+      "label": "回溯本质是带剪枝的 DFS",
+      "type": "manual"
+    },
+    {
+      "id": "edge-dfsbfs-tree",
+      "source": "node-1778661163412-btw1lu",
+      "target": "node-1778661163412-va6cv0",
+      "label": "树遍历是 DFS/BFS",
+      "type": "manual"
+    },
+    {
+      "id": "edge-dfsbfs-unionfind",
+      "source": "node-1778661163412-btw1lu",
+      "target": "node-1778661163412-i4h8ld",
+      "label": "连通分量两种解法",
+      "type": "manual"
+    },
+    {
+      "id": "edge-dfsbfs-topo",
+      "source": "node-1778661163412-btw1lu",
+      "target": "node-1778661163412-p2t6h0",
+      "label": "拓扑 = DFS 后序 / BFS Kahn",
+      "type": "manual"
+    },
+    {
+      "id": "edge-backtrack-trie",
+      "source": "node-1778661163412-vj9fpp",
+      "target": "node-trie-1778700000000",
+      "label": "单词搜索 = Trie + 回溯",
+      "type": "manual"
+    },
+    {
+      "id": "edge-topo-dp",
+      "source": "node-1778661163412-p2t6h0",
+      "target": "node-1778661163412-xvsf03",
+      "label": "DAG 上按拓扑序 DP",
+      "type": "manual"
+    },
+    {
+      "id": "edge-tree-dp",
+      "source": "node-1778661163412-va6cv0",
+      "target": "node-1778661163412-xvsf03",
+      "label": "树形 DP",
+      "type": "manual"
+    },
+    {
+      "id": "edge-dp-intervaldp",
+      "source": "node-1778661163412-xvsf03",
+      "target": "node-1778661163412-lpyoka",
+      "label": "区间 DP 是 DP 进阶",
+      "type": "manual"
+    },
+    {
+      "id": "edge-bsearch-dp",
+      "source": "node-1778661163412-uwrfzt",
+      "target": "node-1778661163412-xvsf03",
+      "label": "LIS 用二分优化到 nlogn",
+      "type": "manual"
+    },
+    {
+      "id": "edge-hash-prefix",
+      "source": "node-1778661163412-r92m6e",
+      "target": "node-1778661416615-b2x2ln",
+      "label": "前缀和配哈希查差值",
+      "type": "manual"
+    },
+    {
+      "id": "edge-heap-dijkstra",
+      "source": "node-1778661163412-bcmyk9",
+      "target": "node-dijkstra-1778700000001",
+      "label": "Dijkstra 用堆优化",
+      "type": "manual"
+    },
+    {
+      "id": "edge-heap-qselect",
+      "source": "node-1778661163412-bcmyk9",
+      "target": "node-1778661163412-y3oswc",
+      "label": "TopK：堆 nlogk vs 快选 n 均摊",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-bfs",
+      "source": "node-1778661163412-btw1lu",
+      "target": "node-1778663261775-j01n2z",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-hash-table",
+      "source": "node-1778661163412-r92m6e",
+      "target": "node-md-hash-table",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-two-pointers",
+      "source": "node-1778661163412-sq2won",
+      "target": "node-md-two-pointers",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-sliding-window",
+      "source": "node-1778661163412-sq2won",
+      "target": "node-md-sliding-window",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-binary-search",
+      "source": "node-1778661163412-uwrfzt",
+      "target": "node-md-binary-search",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-tree-traversal",
+      "source": "node-1778661163412-va6cv0",
+      "target": "node-md-tree-traversal",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-dp",
+      "source": "node-1778661163412-xvsf03",
+      "target": "node-md-dp",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-linked-list",
+      "source": "node-1778661163412-ijat2n",
+      "target": "node-md-linked-list",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-backtracking",
+      "source": "node-1778661163412-vj9fpp",
+      "target": "node-md-backtracking",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-heap",
+      "source": "node-1778661163412-bcmyk9",
+      "target": "node-md-heap",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-mono-stack",
+      "source": "node-1778661163412-1d7tao",
+      "target": "node-md-mono-stack",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-mono-queue",
+      "source": "node-1778661163412-1d7tao",
+      "target": "node-md-mono-queue",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-union-find",
+      "source": "node-1778661163412-i4h8ld",
+      "target": "node-md-union-find",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-topo",
+      "source": "node-1778661163412-p2t6h0",
+      "target": "node-md-topo",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-interval-dp",
+      "source": "node-1778661163412-lpyoka",
+      "target": "node-md-interval-dp",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-quickselect",
+      "source": "node-1778661163412-y3oswc",
+      "target": "node-md-quickselect",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-diff-array",
+      "source": "node-1778661416615-b2x2ln",
+      "target": "node-md-diff-array",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-trie",
+      "source": "node-trie-1778700000000",
+      "target": "node-md-trie",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-md-dijkstra",
+      "source": "node-dijkstra-1778700000001",
+      "target": "node-md-dijkstra",
+      "label": "模板",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778664894644-jorot0-node-1778661163412-sq2won-1778664902732-pwuax",
+      "source": "node-1778664894644-jorot0",
+      "target": "node-1778661163412-sq2won",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778664894644-jorot0-node-1778661163412-bcmyk9-1778664907414-cn2d4",
+      "source": "node-1778664894644-jorot0",
+      "target": "node-1778661163412-bcmyk9",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778664894644-jorot0-node-1778661163412-r92m6e-1778664911556-fto51",
+      "source": "node-1778664894644-jorot0",
+      "target": "node-1778661163412-r92m6e",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778664894644-jorot0-node-1778661163412-btw1lu-1778664915898-9fgw9",
+      "source": "node-1778664894644-jorot0",
+      "target": "node-1778661163412-btw1lu",
+      "type": "manual"
+    },
+    {
+      "id": "e-co-openai",
+      "source": "hub-company",
+      "target": "md-openai",
+      "type": "manual"
+    },
+    {
+      "id": "e-co-anthropic",
+      "source": "hub-company",
+      "target": "md-anthropic",
+      "type": "manual"
+    },
+    {
+      "id": "e-pb-umpire",
+      "source": "hub-playbook",
+      "target": "md-pb-umpire",
+      "type": "manual"
+    },
+    {
+      "id": "e-pb-clarifying",
+      "source": "hub-playbook",
+      "target": "md-pb-clarifying",
+      "type": "manual"
+    },
+    {
+      "id": "e-pb-edge-cases",
+      "source": "hub-playbook",
+      "target": "md-pb-edge-cases",
+      "type": "manual"
+    },
+    {
+      "id": "e-pb-complexity",
+      "source": "hub-playbook",
+      "target": "md-pb-complexity",
+      "type": "manual"
+    },
+    {
+      "id": "e-pb-concurrency",
+      "source": "hub-playbook",
+      "target": "md-pb-concurrency",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-web-crawler",
+      "source": "hub-syscoding",
+      "target": "md-sc-web-crawler",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-lru-cache",
+      "source": "hub-syscoding",
+      "target": "md-sc-lru-cache",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-lfu-cache",
+      "source": "hub-syscoding",
+      "target": "md-sc-lfu-cache",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-stack-trace",
+      "source": "hub-syscoding",
+      "target": "md-sc-stack-trace",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-tokenizer",
+      "source": "hub-syscoding",
+      "target": "md-sc-tokenizer",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-distributed-mode",
+      "source": "hub-syscoding",
+      "target": "md-sc-distributed-mode",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-kv-serializer",
+      "source": "hub-syscoding",
+      "target": "md-sc-kv-serializer",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-time-kv-store",
+      "source": "hub-syscoding",
+      "target": "md-sc-time-kv-store",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-resumable-iterator",
+      "source": "hub-syscoding",
+      "target": "md-sc-resumable-iterator",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-spreadsheet",
+      "source": "hub-syscoding",
+      "target": "md-sc-spreadsheet",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-unix-cd",
+      "source": "hub-syscoding",
+      "target": "md-sc-unix-cd",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-sql-engine",
+      "source": "hub-syscoding",
+      "target": "md-sc-sql-engine",
+      "type": "manual"
+    },
+    {
+      "id": "e-sc-rate-limiter",
+      "source": "hub-syscoding",
+      "target": "md-sc-rate-limiter",
+      "type": "manual"
+    },
+    {
+      "id": "e-greedy-md",
+      "source": "node-greedy",
+      "target": "md-greedy",
+      "type": "manual"
+    },
+    {
+      "id": "e-tree-dp-md",
+      "source": "node-tree-dp",
+      "target": "md-tree-dp",
+      "type": "manual"
+    },
+    {
+      "id": "e-bit-md",
+      "source": "node-bit",
+      "target": "md-bit",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-root-company",
+      "source": "node-1778664894644-jorot0",
+      "target": "hub-company",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-root-playbook",
+      "source": "node-1778664894644-jorot0",
+      "target": "hub-playbook",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-root-syscoding",
+      "source": "node-1778664894644-jorot0",
+      "target": "hub-syscoding",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-greedy-bt",
+      "source": "node-1778661163412-vj9fpp",
+      "target": "node-greedy",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-greedy-dp",
+      "source": "node-1778661163412-xvsf03",
+      "target": "node-greedy",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-tree-dp-tree",
+      "source": "node-1778661163412-va6cv0",
+      "target": "node-tree-dp",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-tree-dp-dp",
+      "source": "node-1778661163412-xvsf03",
+      "target": "node-tree-dp",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-bit-dp",
+      "source": "node-1778661163412-xvsf03",
+      "target": "node-bit",
+      "type": "manual"
+    },
+    {
+      "id": "e-fix-bit-mono",
+      "source": "node-1778661163412-1d7tao",
+      "target": "node-bit",
+      "type": "manual"
+    },
+    {
+      "id": "edge-hub-company-node-1778664929279-1zp7kx-1778666334777-qg6gx",
+      "source": "hub-company",
+      "target": "node-1778664929279-1zp7kx",
+      "type": "manual"
+    }
+  ],
+  "viewport": {
+    "x": 914.9785000365441,
+    "y": 226.21994737827737,
+    "zoom": 0.8114938103841945
+  },
+  "layoutMode": "force"
+}

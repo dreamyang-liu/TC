@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>LeetCode 1674 可视化：为什么不能二分</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px;
+    background: #fafafa;
+    color: #222;
+  }
+  h1 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+  h2 { font-size: 17px; margin-top: 30px; color: #444; }
+  .panel {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 16px;
+    margin: 12px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .controls label { font-size: 13px; color: #555; }
+  .controls input[type="text"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    width: 180px;
+  }
+  .controls input[type="number"] {
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 70px;
+  }
+  button {
+    padding: 6px 14px;
+    background: #2a6fdb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  button:hover { background: #1d54a8; }
+  button.preset {
+    background: #eee;
+    color: #333;
+    border: 1px solid #ccc;
+  }
+  button.preset:hover { background: #ddd; }
+  canvas {
+    display: block;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+  }
+  .pairs-list {
+    font-family: monospace;
+    font-size: 13px;
+    color: #555;
+    margin: 8px 0;
+  }
+  .pair-tag {
+    display: inline-block;
+    background: #eef3fb;
+    border: 1px solid #c0d4ec;
+    border-radius: 3px;
+    padding: 2px 8px;
+    margin-right: 6px;
+  }
+  .legend {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    margin-top: 8px;
+    color: #555;
+    flex-wrap: wrap;
+  }
+  .legend span::before {
+    content: "■";
+    margin-right: 4px;
+  }
+  .note {
+    background: #fff8e1;
+    border-left: 3px solid #f0b400;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .conclusion {
+    background: #e8f5e9;
+    border-left: 3px solid #4caf50;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  table { border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+  th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: center; }
+  th { background: #f0f0f0; }
+  .min-cell { background: #c8e6c9; font-weight: bold; }
+  code {
+    background: #f4f4f4;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<h1>LeetCode 1674：为什么 f(T) 不能二分？</h1>
+
+<div class="panel">
+  <div class="controls">
+    <label>nums: <input type="text" id="numsInput" value="1,1,10,10"></label>
+    <label>limit: <input type="number" id="limitInput" value="10" min="1" max="50"></label>
+    <button onclick="render()">渲染</button>
+    <button class="preset" onclick="loadPreset('1,1,10,10', 10)">反例：两个远谷</button>
+    <button class="preset" onclick="loadPreset('1,2,4,3', 4)">官方例1</button>
+    <button class="preset" onclick="loadPreset('1,2,2,1', 2)">官方例2</button>
+    <button class="preset" onclick="loadPreset('1,2,1,2', 2)">已满足</button>
+    <button class="preset" onclick="loadPreset('1,1,5,5,10,10', 10)">三个谷</button>
+  </div>
+  <div class="pairs-list" id="pairsList"></div>
+</div>
+
+<h2>① 每一对 (a, b) 的 cost：V 形</h2>
+<div class="panel">
+  <canvas id="perPairCanvas" width="1040" height="260"></canvas>
+  <div class="legend" id="perPairLegend"></div>
+  <div class="note">
+    每对独立看：在 <code>T = a+b</code> 处 cost = 0；在 <code>[a+1, b+limit]</code> 区间内 cost = 1；其余 cost = 2。
+    所以单对的 cost 形状是「2 → 1 → 0 → 1 → 2」的 V 形（谷底有个小尖）。
+  </div>
+</div>
+
+<h2>② 总和 f(T)：多个 V 叠加 → 多峰多谷</h2>
+<div class="panel">
+  <canvas id="sumCanvas" width="1040" height="320"></canvas>
+  <div id="sumTable"></div>
+  <div class="note">
+    把所有对的 cost 函数相加得到 <code>f(T)</code>。
+    每对的「谷」在不同位置时，叠加后会出现多个<strong>局部极小</strong>。
+    红点是所有局部极小，绿点是全局最优。
+  </div>
+</div>
+
+<h2>③ 为什么二分会失败</h2>
+<div class="panel" id="bsExplain">
+  <!-- filled by JS -->
+</div>
+
+<h2>④ 差分动画：4 个 delta 如何「长」出 cost 函数</h2>
+<div class="panel">
+  <div class="controls">
+    <label>看哪一对：
+      <select id="pairSelect"></select>
+    </label>
+    <button onclick="animPlay()">▶ 播放</button>
+    <button onclick="animStep()">⏭ 单步</button>
+    <button onclick="animReset()">↺ 重置</button>
+    <label>速度
+      <input type="range" id="animSpeed" min="30" max="500" value="180" style="vertical-align:middle">
+    </label>
+    <span id="animStatus" style="font-family:monospace;font-size:12px;color:#666;"></span>
+  </div>
+  <canvas id="diffCanvas" width="1040" height="180"></canvas>
+  <canvas id="buildCanvas" width="1040" height="220"></canvas>
+  <div class="note">
+    上图：diff 数组（大多为 0，只有 5 个非零端点 —— 基线 +2 加 4 个跳变 delta）。<br>
+    下图：cost(T) 由 <strong>diff 的前缀和</strong>扫出来。竖线 = 当前扫描位置，红字 = 累加器当前值。<br>
+    选「全部对」可以看多对的 delta 一起堆在 diff 数组里，前缀和就是 f(T)。
+  </div>
+</div>
+
+<h2>⑤ 正解：差分数组一次扫完</h2>
+<div class="panel">
+  <p style="font-size:13px;color:#555;">
+    既然不能二分，那就老实枚举所有 T。直接枚举 + 对每对算 cost 是 O(n · limit)，
+    用差分数组把「区间贡献」摊到端点，就是 <code>O(n + limit)</code>：
+  </p>
+<pre style="background:#f5f5f5;padding:12px;border-radius:4px;font-size:12px;overflow-x:auto;">
+for each pair (a, b):       # a ≤ b
+    diff[2]         += 2     # 默认 2 次
+    diff[2*limit+1] -= 2
+    diff[a+1]       -= 1     # [a+1, b+limit] 区间内只要 1 次
+    diff[b+limit+1] += 1
+    diff[a+b]       -= 1     # T = a+b 时为 0 次（在 1 的基础上再减 1）
+    diff[a+b+1]    += 1
+
+cur = 0; ans = n
+for T in 2..2*limit:
+    cur += diff[T]
+    ans = min(ans, cur)
+</pre>
+</div>
+
+<script>
+const colors = ['#e53935', '#1e88e5', '#43a047', '#fb8c00', '#8e24aa', '#00acc1', '#c2185b'];
+
+function loadPreset(nums, limit) {
+  document.getElementById('numsInput').value = nums;
+  document.getElementById('limitInput').value = limit;
+  render();
+}
+
+function parseInput() {
+  const nums = document.getElementById('numsInput').value
+    .split(',').map(s => parseInt(s.trim())).filter(x => !isNaN(x));
+  const limit = parseInt(document.getElementById('limitInput').value);
+  return { nums, limit };
+}
+
+function pairCost(a, b, T, limit) {
+  if (T === a + b) return 0;
+  if (T >= a + 1 && T <= b + limit) return 1;
+  return 2;
+}
+
+function render() {
+  const { nums, limit } = parseInput();
+  const n = nums.length;
+  if (n % 2 !== 0 || n < 2) { alert('需要偶数长度'); return; }
+
+  const pairs = [];
+  for (let i = 0; i < n/2; i++) {
+    const a = Math.min(nums[i], nums[n-1-i]);
+    const b = Math.max(nums[i], nums[n-1-i]);
+    pairs.push({ a, b });
+  }
+
+  // pair list display
+  const listDiv = document.getElementById('pairsList');
+  listDiv.innerHTML = '配对： ' + pairs.map((p, i) =>
+    `<span class="pair-tag" style="border-color:${colors[i % colors.length]};color:${colors[i % colors.length]}">
+      (${p.a}, ${p.b}) → 谷=${p.a+p.b}, 1-区间=[${p.a+1}, ${p.b+limit}]
+    </span>`
+  ).join('');
+
+  const Tmin = 2, Tmax = 2 * limit;
+  const Ts = [];
+  for (let T = Tmin; T <= Tmax; T++) Ts.push(T);
+
+  // === Per-pair canvas ===
+  const c1 = document.getElementById('perPairCanvas');
+  const ctx1 = c1.getContext('2d');
+  drawCostChart(ctx1, c1.width, c1.height, Ts, pairs.map((p, i) => ({
+    label: `(${p.a},${p.b})`,
+    color: colors[i % colors.length],
+    values: Ts.map(T => pairCost(p.a, p.b, T, limit))
+  })), 0, 2, false);
+
+  // per-pair legend
+  document.getElementById('perPairLegend').innerHTML = pairs.map((p, i) =>
+    `<span style="color:${colors[i % colors.length]}">对 (${p.a}, ${p.b})</span>`
+  ).join('');
+
+  // === Sum canvas ===
+  const sumVals = Ts.map(T => pairs.reduce((s, p) => s + pairCost(p.a, p.b, T, limit), 0));
+  const minVal = Math.min(...sumVals);
+  const maxVal = Math.max(...sumVals);
+
+  // find local minima
+  const localMins = [];
+  for (let i = 0; i < sumVals.length; i++) {
+    const left = i > 0 ? sumVals[i-1] : Infinity;
+    const right = i < sumVals.length-1 ? sumVals[i+1] : Infinity;
+    if (sumVals[i] <= left && sumVals[i] <= right && sumVals[i] < Math.max(left, right)) {
+      localMins.push({ T: Ts[i], val: sumVals[i] });
+    }
+  }
+  // first/last edge case
+  if (sumVals.length > 1) {
+    if (sumVals[0] < sumVals[1] && !localMins.find(m=>m.T===Ts[0])) localMins.unshift({T:Ts[0], val:sumVals[0]});
+    const last = sumVals.length-1;
+    if (sumVals[last] < sumVals[last-1] && !localMins.find(m=>m.T===Ts[last])) localMins.push({T:Ts[last], val:sumVals[last]});
+  }
+
+  const c2 = document.getElementById('sumCanvas');
+  const ctx2 = c2.getContext('2d');
+  drawCostChart(ctx2, c2.width, c2.height, Ts,
+    [{ label: 'f(T)', color: '#333', values: sumVals }],
+    0, maxVal, true, localMins, minVal);
+
+  // sum table
+  let table = '<table><tr><th>T</th>';
+  Ts.forEach(T => table += `<th>${T}</th>`);
+  table += '</tr><tr><th>f(T)</th>';
+  sumVals.forEach((v, i) => {
+    const cls = v === minVal ? 'min-cell' : '';
+    table += `<td class="${cls}">${v}</td>`;
+  });
+  table += '</tr></table>';
+  document.getElementById('sumTable').innerHTML = table;
+
+  // === BS explain ===
+  let bsHtml = '';
+  if (localMins.length <= 1) {
+    bsHtml = `<div class="conclusion">
+      本组数据里 f(T) 只有 <strong>1 个局部极小</strong>（即全局最小 = ${minVal}），看起来好像三分能用。
+      但换 <code>1,1,10,10</code> 那个反例你就会看到多个谷 —— 题目并不保证单峰，所以二分/三分思路是<strong>错的</strong>。
+    </div>`;
+  } else {
+    bsHtml = `<div class="conclusion">
+      这组数据里 f(T) 有 <strong>${localMins.length} 个局部极小</strong>：
+      ${localMins.map(m => `T=${m.T} (cost=${m.val})`).join('， ')}。<br>
+      全局最优是 <strong>cost=${minVal}</strong>。
+      二分（或三分）只能保证收敛到某个<strong>局部</strong>极小，可能错过真正的全局最优。
+    </div>`;
+  }
+  bsHtml += `<div class="note" style="margin-top:10px;">
+    <strong>本质原因：</strong>每对 (a,b) 贡献一个 V 形 cost 函数，谷底在 a+b。
+    当不同对的 a+b 相距较远时，它们的 V 不重叠，叠加后中间会形成「假山」，破坏单峰性。
+  </div>`;
+  document.getElementById('bsExplain').innerHTML = bsHtml;
+}
+
+function drawCostChart(ctx, W, H, Ts, series, yMin, yMax, isSum, localMins, globalMin) {
+  ctx.clearRect(0, 0, W, H);
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const xStep = plotW / (Ts.length - 1 || 1);
+  const yRange = Math.max(1, yMax - yMin);
+
+  // grid + y labels
+  ctx.strokeStyle = '#eee';
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  for (let v = yMin; v <= yMax; v++) {
+    const y = padT + plotH - (v - yMin) / yRange * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillText(v, 10, y + 4);
+  }
+
+  // x labels
+  const labelEvery = Math.max(1, Math.floor(Ts.length / 20));
+  for (let i = 0; i < Ts.length; i++) {
+    if (i % labelEvery !== 0 && i !== Ts.length - 1) continue;
+    const x = padL + i * xStep;
+    ctx.fillText(Ts[i], x - 6, H - padB + 14);
+    ctx.strokeStyle = '#f5f5f5';
+    ctx.beginPath();
+    ctx.moveTo(x, padT);
+    ctx.lineTo(x, padT + plotH);
+    ctx.stroke();
+  }
+
+  // axes
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(padL, padT);
+  ctx.lineTo(padL, padT + plotH);
+  ctx.lineTo(W - padR, padT + plotH);
+  ctx.stroke();
+  ctx.fillStyle = '#333';
+  ctx.fillText('T (target sum)', W - padR - 80, H - 8);
+  ctx.fillText(isSum ? 'f(T)' : 'cost', padL - 35, padT - 6);
+
+  // series
+  series.forEach(s => {
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = isSum ? 2.5 : 2;
+    ctx.beginPath();
+    s.values.forEach((v, i) => {
+      const x = padL + i * xStep;
+      const y = padT + plotH - (v - yMin) / yRange * plotH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // dots
+    s.values.forEach((v, i) => {
+      const x = padL + i * xStep;
+      const y = padT + plotH - (v - yMin) / yRange * plotH;
+      ctx.fillStyle = s.color;
+      ctx.beginPath();
+      ctx.arc(x, y, isSum ? 3 : 2, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+
+  // mark local minima and global min on sum chart
+  if (isSum && localMins) {
+    localMins.forEach(m => {
+      const i = Ts.indexOf(m.T);
+      if (i < 0) return;
+      const x = padL + i * xStep;
+      const y = padT + plotH - (m.val - yMin) / yRange * plotH;
+      const isGlobal = m.val === globalMin;
+      ctx.fillStyle = isGlobal ? '#43a047' : '#e53935';
+      ctx.beginPath();
+      ctx.arc(x, y, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText(isGlobal ? '★' : '!', x - 3, y + 3);
+      ctx.fillStyle = isGlobal ? '#43a047' : '#e53935';
+      ctx.font = '11px sans-serif';
+      ctx.fillText(`T=${m.T}`, x - 12, y - 12);
+    });
+  }
+}
+
+// ============ 差分动画部分 ============
+let animState = {
+  pairsBuilt: [],     // current pair selection's pairs
+  events: [],         // sorted list of {T, delta, label, color}
+  Tmin: 2, Tmax: 4,
+  cursor: 2,          // current T position
+  running: 0,         // running prefix sum
+  costSoFar: [],      // [{T, val}, ...]
+  playing: false,
+  timer: null,
+  limit: 10,
+};
+
+function buildPairs() {
+  const { nums, limit } = parseInput();
+  const n = nums.length;
+  const pairs = [];
+  for (let i = 0; i < n/2; i++) {
+    const a = Math.min(nums[i], nums[n-1-i]);
+    const b = Math.max(nums[i], nums[n-1-i]);
+    pairs.push({ a, b });
+  }
+  return { pairs, limit };
+}
+
+function refreshPairSelect() {
+  const { pairs } = buildPairs();
+  const sel = document.getElementById('pairSelect');
+  sel.innerHTML = '';
+  pairs.forEach((p, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `对 ${i+1}: (${p.a}, ${p.b})`;
+    sel.appendChild(opt);
+  });
+  const allOpt = document.createElement('option');
+  allOpt.value = 'all';
+  allOpt.textContent = '全部对叠加';
+  sel.appendChild(allOpt);
+  sel.value = pairs.length === 1 ? '0' : 'all';
+  sel.onchange = animReset;
+}
+
+function buildEvents() {
+  const { pairs, limit } = buildPairs();
+  const sel = document.getElementById('pairSelect').value;
+  const chosen = sel === 'all' ? pairs.map((p,i)=>({...p,idx:i})) : [{...pairs[parseInt(sel)], idx: parseInt(sel)}];
+
+  // each pair contributes 5 events: +2 at T=2, -2 at T=2*limit+1, -1 at a+1, -1 at a+b, +1 at a+b+1, +1 at b+limit+1
+  // We'll combine the "+2 baseline" into one if multiple pairs.
+  const events = [];
+  chosen.forEach(p => {
+    const c = colors[p.idx % colors.length];
+    events.push({ T: 2, delta: 2, label: `基线 +2 (对${p.idx+1})`, color: c, kind: 'base' });
+    events.push({ T: p.a + 1, delta: -1, label: `T=a+1=${p.a+1}, 进入 1-区间`, color: c, kind: 'enter1' });
+    events.push({ T: p.a + p.b, delta: -1, label: `T=a+b=${p.a+p.b}, 到达谷底`, color: c, kind: 'valley' });
+    events.push({ T: p.a + p.b + 1, delta: 1, label: `T=a+b+1=${p.a+p.b+1}, 离开谷底`, color: c, kind: 'leave' });
+    events.push({ T: p.b + limit + 1, delta: 1, label: `T=b+limit+1=${p.b+limit+1}, 离开 1-区间`, color: c, kind: 'exit1' });
+  });
+  events.sort((a, b) => a.T - b.T);
+
+  animState.pairsBuilt = chosen;
+  animState.events = events;
+  animState.Tmin = 2;
+  animState.Tmax = 2 * limit;
+  animState.limit = limit;
+  animState.cursor = 2;
+  animState.running = 0;
+  animState.costSoFar = [];
+}
+
+function animReset() {
+  if (animState.timer) { clearInterval(animState.timer); animState.timer = null; }
+  animState.playing = false;
+  buildEvents();
+  drawAnim();
+}
+
+function animStep() {
+  if (animState.cursor > animState.Tmax) return;
+  // apply all events at current cursor
+  let appliedDeltas = [];
+  animState.events.forEach(e => {
+    if (e.T === animState.cursor) {
+      animState.running += e.delta;
+      appliedDeltas.push(e);
+    }
+  });
+  animState.costSoFar.push({ T: animState.cursor, val: animState.running, applied: appliedDeltas });
+  drawAnim(appliedDeltas);
+  animState.cursor++;
+}
+
+function animPlay() {
+  if (animState.cursor > animState.Tmax) animReset();
+  if (animState.playing) return;
+  animState.playing = true;
+  const speed = parseInt(document.getElementById('animSpeed').value);
+  animState.timer = setInterval(() => {
+    if (animState.cursor > animState.Tmax) {
+      clearInterval(animState.timer);
+      animState.timer = null;
+      animState.playing = false;
+      drawAnim();
+      return;
+    }
+    animStep();
+  }, 520 - speed);
+}
+
+function drawAnim(highlight = []) {
+  drawDiffChart(highlight);
+  drawBuildChart(highlight);
+  const status = document.getElementById('animStatus');
+  if (highlight.length > 0) {
+    status.innerHTML = highlight.map(h =>
+      `<span style="color:${h.color}">T=${h.T}: delta=${h.delta > 0 ? '+' : ''}${h.delta} (${h.label})</span>`
+    ).join(' &nbsp; ') + ` &nbsp; → 当前累加 = <strong>${animState.running}</strong>`;
+  } else if (animState.cursor > animState.Tmax) {
+    status.innerHTML = `扫描完毕，最小 cost = <strong style="color:#43a047">${Math.min(...animState.costSoFar.map(c=>c.val))}</strong>`;
+  } else {
+    status.innerHTML = `准备从 T=${animState.cursor} 开始扫描`;
+  }
+}
+
+function drawDiffChart(highlight) {
+  const c = document.getElementById('diffCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const padL = 50, padR = 20, padT = 20, padB = 35;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const Tcount = animState.Tmax - animState.Tmin + 1;
+  const xStep = plotW / (Tcount - 1 || 1);
+
+  // build aggregated diff array
+  const diff = {};
+  animState.events.forEach(e => {
+    diff[e.T] = (diff[e.T] || 0) + e.delta;
+  });
+
+  // find y range
+  let minD = 0, maxD = 0;
+  Object.values(diff).forEach(v => { minD = Math.min(minD, v); maxD = Math.max(maxD, v); });
+  const yRange = Math.max(1, maxD - minD);
+  const yZero = padT + plotH * (maxD / yRange);
+
+  // axes
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH);
+  ctx.lineTo(W - padR, padT + plotH);
+  ctx.stroke();
+  ctx.fillStyle = '#888';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('diff[T]', padL - 35, padT - 6);
+
+  // zero line
+  ctx.strokeStyle = '#bbb';
+  ctx.setLineDash([3, 3]);
+  ctx.beginPath();
+  ctx.moveTo(padL, yZero); ctx.lineTo(W - padR, yZero);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // y labels
+  for (let v = minD; v <= maxD; v++) {
+    const y = padT + plotH - (v - minD) / yRange * plotH;
+    ctx.fillStyle = '#888';
+    ctx.fillText(v, 20, y + 4);
+  }
+
+  // x labels
+  const labelEvery = Math.max(1, Math.floor(Tcount / 20));
+  for (let i = 0; i < Tcount; i++) {
+    const T = animState.Tmin + i;
+    if (i % labelEvery !== 0 && i !== Tcount - 1) continue;
+    const x = padL + i * xStep;
+    ctx.fillStyle = '#888';
+    ctx.fillText(T, x - 6, H - 18);
+  }
+
+  // bars
+  Object.entries(diff).forEach(([Tstr, v]) => {
+    const T = parseInt(Tstr);
+    if (T < animState.Tmin || T > animState.Tmax) return;
+    const i = T - animState.Tmin;
+    const x = padL + i * xStep;
+    const barH = Math.abs(v) / yRange * plotH;
+    const y = v >= 0 ? yZero - barH : yZero;
+    // find color: any event at this T
+    const evt = animState.events.find(e => e.T === T);
+    let color = evt ? evt.color : '#999';
+    // mix multiple if needed
+    const here = animState.events.filter(e => e.T === T);
+    if (here.length > 1) color = '#555';
+    const isApplied = animState.costSoFar.find(c => c.T === T) !== undefined;
+    const isCurrent = highlight.some(h => h.T === T);
+    ctx.fillStyle = isCurrent ? color : (isApplied ? color : color + '60');
+    ctx.fillRect(x - 6, y, 12, barH);
+    if (isCurrent) {
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 7, y - 1, 14, barH + 2);
+    }
+    // label
+    ctx.fillStyle = color;
+    ctx.font = 'bold 11px sans-serif';
+    const lblY = v >= 0 ? y - 4 : y + barH + 12;
+    ctx.fillText((v > 0 ? '+' : '') + v, x - 8, lblY);
+  });
+
+  // cursor
+  if (animState.cursor <= animState.Tmax) {
+    const i = animState.cursor - animState.Tmin;
+    const x = padL + i * xStep;
+    ctx.strokeStyle = '#e53935';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawBuildChart(highlight) {
+  const c = document.getElementById('buildCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.clearRect(0, 0, W, H);
+  const padL = 50, padR = 20, padT = 20, padB = 35;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const Tcount = animState.Tmax - animState.Tmin + 1;
+  const xStep = plotW / (Tcount - 1 || 1);
+
+  const maxY = Math.max(2 * animState.pairsBuilt.length, 2, ...animState.costSoFar.map(c => c.val));
+  const yRange = Math.max(1, maxY);
+
+  // axes + grid
+  ctx.strokeStyle = '#eee';
+  for (let v = 0; v <= maxY; v++) {
+    const y = padT + plotH - v / yRange * plotH;
+    ctx.beginPath();
+    ctx.moveTo(padL, y); ctx.lineTo(W - padR, y);
+    ctx.stroke();
+    ctx.fillStyle = '#888';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(v, 20, y + 4);
+  }
+
+  ctx.strokeStyle = '#333';
+  ctx.beginPath();
+  ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + plotH);
+  ctx.lineTo(W - padR, padT + plotH);
+  ctx.stroke();
+  ctx.fillStyle = '#888';
+  ctx.fillText(animState.pairsBuilt.length === 1 ? 'cost(T) = 前缀和' : 'f(T) = 前缀和', padL - 35, padT - 6);
+
+  // x labels
+  const labelEvery = Math.max(1, Math.floor(Tcount / 20));
+  for (let i = 0; i < Tcount; i++) {
+    const T = animState.Tmin + i;
+    if (i % labelEvery !== 0 && i !== Tcount - 1) continue;
+    const x = padL + i * xStep;
+    ctx.fillText(T, x - 6, H - 18);
+  }
+
+  // line built so far
+  if (animState.costSoFar.length > 0) {
+    ctx.strokeStyle = '#1e88e5';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    animState.costSoFar.forEach((pt, idx) => {
+      const i = pt.T - animState.Tmin;
+      const x = padL + i * xStep;
+      const y = padT + plotH - pt.val / yRange * plotH;
+      if (idx === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    animState.costSoFar.forEach(pt => {
+      const i = pt.T - animState.Tmin;
+      const x = padL + i * xStep;
+      const y = padT + plotH - pt.val / yRange * plotH;
+      const isHi = highlight.some(h => h.T === pt.T);
+      ctx.fillStyle = isHi ? '#e53935' : '#1e88e5';
+      ctx.beginPath();
+      ctx.arc(x, y, isHi ? 5 : 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // running value text near cursor
+    const last = animState.costSoFar[animState.costSoFar.length - 1];
+    const i = last.T - animState.Tmin;
+    const x = padL + i * xStep;
+    const y = padT + plotH - last.val / yRange * plotH;
+    ctx.fillStyle = '#e53935';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText(last.val, x + 8, y - 6);
+  }
+
+  // cursor
+  if (animState.cursor <= animState.Tmax) {
+    const i = animState.cursor - animState.Tmin;
+    const x = padL + i * xStep;
+    ctx.strokeStyle = '#e53935';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(x, padT); ctx.lineTo(x, padT + plotH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// Wrap original render to also refresh anim
+const _origRender = render;
+render = function() {
+  _origRender();
+  refreshPairSelect();
+  animReset();
+};
+
+render();
+</script>
+
+</body>
+</html>

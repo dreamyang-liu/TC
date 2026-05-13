@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>滑动窗口 · 看一次就懂</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", system-ui, sans-serif; background: linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#dbeafe; border-left:4px solid #3b82f6; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#1e40af; }
+
+  /* String viz */
+  .str-row { display:flex; gap:4px; justify-content:center; margin:40px 0 16px; flex-wrap:wrap; }
+  .ch {
+    width:44px; height:44px; border-radius:8px; background:#f3f4f6;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:600; font-family:ui-monospace,monospace;
+    transition:all 0.4s cubic-bezier(.4,0,.2,1); position:relative;
+  }
+  .ch.in-window { background:#bfdbfe; color:#1e3a8a; }
+  .ch.duplicate { background:#fecaca; color:#7f1d1d; }
+  .ch.left-ptr { box-shadow: 0 0 0 3px #2563eb; }
+  .ch.right-ptr { box-shadow: 0 0 0 3px #db2777; }
+  .ch.both-ptr { box-shadow: 0 0 0 3px #7c3aed; }
+  .idx-row { display:flex; gap:4px; justify-content:center; color:#9ca3af; font-size:11px; margin-bottom:14px; }
+  .idx { width:44px; text-align:center; }
+  .ptr-labels { display:flex; gap:24px; justify-content:center; margin:14px 0; font-size:13px; font-weight:600; }
+  .pl { display:flex; align-items:center; gap:6px; }
+  .dot { width:10px; height:10px; border-radius:50%; }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+  .vars { display:flex; gap:20px; margin-top:10px; font-family:ui-monospace,monospace; flex-wrap:wrap; }
+  .var-box { display:flex; align-items:center; gap:6px; }
+  .var-label { color:#6b7280; font-size:12px; }
+  .var-val { background:#1f2937; color:#fff; padding:2px 10px; border-radius:4px; font-size:13px; min-width:30px; text-align:center; }
+  .var-val.left { background:#2563eb; }
+  .var-val.right { background:#db2777; }
+  .var-val.ans { background:#10b981; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+  button:disabled { background:#d1d5db; cursor:not-allowed; transform:none; }
+
+  /* Window highlight bar */
+  .window-bar {
+    position:relative; height:8px; margin-top:6px;
+    display:flex; gap:4px; justify-content:center;
+  }
+  .wb-slot { width:44px; height:100%; }
+  .wb-active {
+    background: linear-gradient(90deg,#3b82f6 0%,#8b5cf6 100%);
+    border-radius:4px; height:100%;
+    transition: all 0.4s cubic-bezier(.4,0,.2,1);
+  }
+
+  .code { background:#1e293b; border-radius:10px; padding:20px 24px; margin-top:24px; font-family:ui-monospace,monospace; font-size:13px; line-height:1.8; color:#cbd5e1; overflow-x:auto; }
+  .code .line { padding:0 8px; border-radius:4px; transition:all 0.3s; }
+  .code .line.active { background:#fbbf2444; color:white; }
+  .code .kw { color:#ec4899; } .code .var { color:#38bdf8; } .code .num { color:#f59e0b; } .code .cmt { color:#64748b; font-style:italic; } .code .str { color:#86efac; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🪟 滑动窗口 · 看一次就懂</h1>
+  <p class="subtitle">求最长无重复子串：<code style="background:#1f2937;color:#86efac;padding:2px 8px;border-radius:4px;">abcabcbb</code></p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：右指针管 <strong>扩张</strong>（每轮 +1），左指针只在 <strong>不合法时</strong> 才动。
+    窗口里的每个字符**最多被左指针扫过一次** → 整体 O(n)。
+  </div>
+
+  <div class="idx-row" id="idxRow"></div>
+  <div class="str-row" id="strRow"></div>
+  <div class="window-bar" id="winBar"></div>
+
+  <div class="ptr-labels">
+    <div class="pl"><span class="dot" style="background:#2563eb"></span>left (收缩端)</div>
+    <div class="pl"><span class="dot" style="background:#db2777"></span>right (扩张端)</div>
+    <div class="pl"><span class="dot" style="background:#fecaca"></span>重复字符</div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+    <div class="vars">
+      <div class="var-box"><span class="var-label">left</span><span class="var-val left" id="vL">0</span></div>
+      <div class="var-box"><span class="var-label">right</span><span class="var-val right" id="vR">-</span></div>
+      <div class="var-box"><span class="var-label">window</span><span class="var-val" id="vW">""</span></div>
+      <div class="var-box"><span class="var-label">最长</span><span class="var-val ans" id="vA">0</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+
+  <pre class="code"><span class="line" data-l="1"><span class="kw">def</span> <span class="var">longest_unique</span>(s):</span>
+<span class="line" data-l="2">    window = {}; left = <span class="num">0</span>; ans = <span class="num">0</span></span>
+<span class="line" data-l="3">    <span class="kw">for</span> right, c <span class="kw">in</span> enumerate(s):</span>
+<span class="line" data-l="4">        window[c] = window.get(c, <span class="num">0</span>) + <span class="num">1</span>  <span class="cmt"># 1) 扩张</span></span>
+<span class="line" data-l="5">        <span class="kw">while</span> window[c] &gt; <span class="num">1</span>:                <span class="cmt"># 2) 不合法 → 收缩</span></span>
+<span class="line" data-l="6">            window[s[left]] -= <span class="num">1</span></span>
+<span class="line" data-l="7">            left += <span class="num">1</span></span>
+<span class="line" data-l="8">        ans = max(ans, right - left + <span class="num">1</span>) <span class="cmt"># 3) 更新答案</span></span>
+<span class="line" data-l="9">    <span class="kw">return</span> ans</span>
+  </pre>
+</div>
+
+<script>
+const s = "abcabcbb";
+let left = 0, right = -1, ans = 0, window = {}, done = false, phase = 'expand';
+let autoTimer = null;
+
+function render(highlightDup = null) {
+  document.getElementById('idxRow').innerHTML = [...s].map((_,i) => `<div class="idx">${i}</div>`).join('');
+  document.getElementById('strRow').innerHTML = [...s].map((c,i) => {
+    let cls = 'ch';
+    if (i >= left && i <= right) cls += ' in-window';
+    if (i === highlightDup) cls += ' duplicate';
+    if (i === left && i === right) cls += ' both-ptr';
+    else if (i === left) cls += ' left-ptr';
+    else if (i === right) cls += ' right-ptr';
+    return `<div class="${cls}">${c}</div>`;
+  }).join('');
+
+  // Window bar
+  const slots = [...s].map((_,i) => {
+    if (i >= left && i <= right) return `<div class="wb-slot"><div class="wb-active"></div></div>`;
+    return `<div class="wb-slot"></div>`;
+  });
+  document.getElementById('winBar').innerHTML = slots.join('');
+
+  document.getElementById('vL').textContent = left;
+  document.getElementById('vR').textContent = right < 0 ? '-' : right;
+  const winStr = right < 0 ? '""' : '"' + s.slice(left, right+1) + '"';
+  document.getElementById('vW').textContent = winStr;
+  document.getElementById('vA').textContent = ans;
+}
+
+function highlight(n) {
+  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.code .line[data-l="${n}"]`);
+  if (el) el.classList.add('active');
+}
+
+function step() {
+  if (done) return;
+  if (phase === 'expand') {
+    right++;
+    if (right >= s.length) {
+      done = true;
+      highlight(9);
+      document.getElementById('narrate').innerHTML = `遍历完成 ✅ 最长无重复子串长度 = <code>${ans}</code>`;
+      render();
+      return;
+    }
+    const c = s[right];
+    window[c] = (window[c]||0) + 1;
+    highlight(4);
+    document.getElementById('narrate').innerHTML = `右指针扩张到 ${right}，加入字符 <code>${c}</code>。window[<code>${c}</code>] = ${window[c]}`;
+    if (window[c] > 1) {
+      phase = 'shrink';
+    } else {
+      phase = 'update';
+    }
+    render();
+  } else if (phase === 'shrink') {
+    const c = s[right];
+    if (window[c] > 1) {
+      highlight(5);
+      // show which char is the duplicate (find earlier occurrence)
+      const dupIdx = s.slice(left, right).indexOf(c) + left;
+      document.getElementById('narrate').innerHTML = `<code>${c}</code> 在窗口里重复了（位置 ${dupIdx}），left 要往右移直到把它移出去`;
+      render(dupIdx);
+      phase = 'shrink-move';
+    } else {
+      phase = 'update';
+      step();
+    }
+  } else if (phase === 'shrink-move') {
+    const c = s[right];
+    if (window[c] > 1) {
+      highlight(6);
+      window[s[left]] -= 1;
+      document.getElementById('narrate').innerHTML = `踢出 <code>${s[left]}</code>，left += 1 → ${left+1}`;
+      left++;
+      render();
+      phase = 'shrink';
+    } else {
+      phase = 'update';
+      step();
+    }
+  } else if (phase === 'update') {
+    highlight(8);
+    const len = right - left + 1;
+    const old = ans;
+    ans = Math.max(ans, len);
+    document.getElementById('narrate').innerHTML =
+      `窗口 [<code>${left}</code>, <code>${right}</code>] 合法，长度 ${len}。ans = max(${old}, ${len}) = <code>${ans}</code>`;
+    phase = 'expand';
+    render();
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  left=0; right=-1; ans=0; window={}; done=false; phase='expand';
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。观察 left 何时移动。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 700);
+}
+reset();
+</script>
+</body>
+</html>
