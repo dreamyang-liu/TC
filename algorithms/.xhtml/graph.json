@@ -940,140 +940,140 @@
     },
     {
       "id": "viz-binary-search",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 1224.4385841276217,
         "y": -1386.477050526899
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/binary-search.html",
       "label": "🎬 binary-search"
     },
     {
       "id": "viz-sliding-window",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": -236.15560947190951,
         "y": -499.5285382793585
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/sliding-window.html",
       "label": "🎬 sliding-window"
     },
     {
       "id": "viz-monotonic-stack",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 136.70159715112294,
         "y": -935.662358952719
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/monotonic-stack.html",
       "label": "🎬 monotonic-stack"
     },
     {
       "id": "viz-bfs",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 537.949816729986,
         "y": -315.57650496420223
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/bfs.html",
       "label": "🎬 bfs"
     },
     {
       "id": "viz-backtracking",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 1065.8662150198613,
         "y": -346.76751024461015
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/backtracking.html",
       "label": "🎬 backtracking"
     },
     {
       "id": "viz-dijkstra",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": -1240.2124164117677,
         "y": -515.341197923746
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/dijkstra.html",
       "label": "🎬 dijkstra"
     },
     {
       "id": "viz-union-find",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 727.4668799338295,
         "y": -62.45053539448307
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/union-find.html",
       "label": "🎬 union-find"
     },
     {
       "id": "viz-trie",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 1406.0483362348298,
         "y": -220.18182833279374
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/trie.html",
       "label": "🎬 trie"
     },
     {
       "id": "viz-dp-lis",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": 1051.061298246164,
         "y": -1068.0448226497601
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/dp-lis.html",
       "label": "🎬 dp-lis"
     },
     {
       "id": "viz-linked-list-cycle",
-      "type": "markdown",
+      "type": "html",
       "position": {
         "x": -282.8607755292678,
         "y": -839.4105443776433
       },
       "size": {
-        "width": 160,
-        "height": 70
+        "width": 240,
+        "height": 140
       },
       "filePath": "viz/linked-list-cycle.html",
       "label": "🎬 linked-list-cycle"
@@ -1595,9 +1595,9 @@
     }
   ],
   "viewport": {
-    "x": 914.9785000365441,
-    "y": 226.21994737827737,
-    "zoom": 0.8114938103841945
+    "x": -393.6192433012012,
+    "y": 873.1113056702661,
+    "zoom": 1.081832718338732
   },
   "layoutMode": "force"
 }
