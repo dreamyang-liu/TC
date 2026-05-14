@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 1: Transformer 与 Attention 机制</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 2.5rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.8rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.3rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+h4 { color: #76b900; margin: 1rem 0 0.5rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.decorator { color: #e5c07b; }
+.builtin { color: #56b6c2; }
+
+/* Animation containers */
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; min-height: 300px; position: relative; overflow: hidden; }
+.matrix-grid { display: inline-grid; gap: 2px; margin: 10px; }
+.matrix-cell { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; border: 1px solid #444; border-radius: 4px; font-size: 0.8rem; font-family: monospace; transition: all 0.3s ease; }
+.matrix-cell.highlight { background: #76b900; color: #000; font-weight: bold; }
+.matrix-cell.result { background: #00d4aa; color: #000; font-weight: bold; }
+.matrix-label { text-align: center; font-weight: bold; color: #76b900; margin-bottom: 5px; font-size: 0.9rem; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+/* Scroll animations */
+.fade-in { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+
+/* Flash attention visualization */
+.flash-grid { display: grid; gap: 2px; margin: 10px auto; }
+.flash-cell { width: 100%; aspect-ratio: 1; background: #1a1a2e; border: 1px solid #333; border-radius: 2px; transition: all 0.3s ease; }
+.flash-cell.active { background: #76b900; }
+.flash-cell.computed { background: #00d4aa; opacity: 0.6; }
+.flash-cell.standard-active { background: #ff6b6b; }
+
+/* KV Cache visualization */
+.kv-token { display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; margin: 4px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; transition: all 0.3s ease; }
+.kv-token.generated { background: #76b900; color: #000; }
+.kv-token.cached { background: #1a1a2e; border: 2px solid #00d4aa; color: #00d4aa; }
+.kv-token.computing { background: #ff6b6b; color: #000; animation: pulse 0.5s ease infinite; }
+.kv-bar { height: 20px; background: linear-gradient(90deg, #76b900, #00d4aa); border-radius: 4px; transition: width 0.5s ease; margin: 4px 0; }
+
+/* Multi-head animation */
+.head-block { display: inline-block; padding: 10px 15px; margin: 5px; border-radius: 8px; font-size: 0.8rem; font-weight: bold; text-align: center; transition: all 0.5s ease; }
+.tensor-full { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; min-width: 200px; }
+.tensor-head { min-width: 60px; color: #000; }
+
+/* Exercise styles */
+.exercise { background: #1a1a2e; border-radius: 12px; border: 1px solid #76b900; padding: 24px; margin: 20px 0; }
+.exercise-title { color: #76b900; font-size: 1.1rem; font-weight: bold; margin-bottom: 12px; }
+details { margin: 10px 0; }
+summary { cursor: pointer; color: #00d4aa; font-weight: bold; padding: 8px 0; user-select: none; }
+summary:hover { color: #76b900; }
+details[open] summary { margin-bottom: 10px; }
+.solution { background: #0a0a1a; border-radius: 8px; padding: 15px; border-left: 3px solid #76b900; }
+
+/* Comparison table */
+.comparison-table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.comparison-table th, .comparison-table td { padding: 12px 16px; border: 1px solid #333; text-align: left; }
+.comparison-table th { background: #1a1a2e; color: #76b900; }
+.comparison-table tr:hover { background: #1a1a2e; }
+
+/* Tooltip */
+.tooltip { position: relative; display: inline-block; border-bottom: 1px dotted #76b900; cursor: help; }
+.tooltip .tooltip-text { visibility: hidden; background: #333; color: #e0e0e0; text-align: center; padding: 8px 12px; border-radius: 6px; position: absolute; z-index: 10; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.8rem; opacity: 0; transition: opacity 0.3s; }
+.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fadeScale { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes flowRight { 0% { transform: translateX(-10px); opacity: 0; } 50% { opacity: 1; } 100% { transform: translateX(10px); opacity: 0; } }
+
+.chapter-header { text-align: center; padding: 40px 0; border-bottom: 1px solid #333; margin-bottom: 40px; }
+.chapter-number { font-size: 1rem; color: #76b900; letter-spacing: 3px; text-transform: uppercase; }
+.toc { background: #1a1a2e; border-radius: 12px; padding: 24px; margin: 20px 0; border: 1px solid #333; }
+.toc-item { padding: 8px 0; border-bottom: 1px solid #222; }
+.toc-item:last-child { border-bottom: none; }
+.toc-item a { color: #00d4aa; text-decoration: none; }
+.toc-item a:hover { color: #76b900; }
+.formula { background: #0a0a1a; padding: 15px; border-radius: 8px; text-align: center; margin: 1rem 0; font-family: 'SF Mono', monospace; font-size: 1.1rem; color: #e0e0e0; border: 1px solid #222; overflow-x: auto; }
+.note { background: #1a1a2e; border-left: 4px solid #76b900; padding: 15px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.warning { background: #1a1a2e; border-left: 4px solid #ff6b6b; padding: 15px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: linear-gradient(90deg, #76b900, #00d4aa); z-index: 1000; transition: width 0.1s; }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="chapter-header fade-in">
+  <div class="chapter-number">Chapter 1</div>
+  <h1>Transformer 与 Attention 机制</h1>
+  <p style="color: #888; margin-top: 10px;">从 Self-Attention 到 Flash Attention，理解现代 LLM 的核心计算原理</p>
+</div>
+
+<!-- Table of Contents -->
+<div class="toc fade-in">
+  <h3 style="margin-top:0;">目录</h3>
+  <div class="toc-item"><a href="#section1">1.1 Self-Attention 机制</a></div>
+  <div class="toc-item"><a href="#section2">1.2 Multi-Head Attention</a></div>
+  <div class="toc-item"><a href="#section3">1.3 Flash Attention</a></div>
+  <div class="toc-item"><a href="#section4">1.4 Cross Attention vs Self Attention</a></div>
+  <div class="toc-item"><a href="#section5">1.5 KV Cache 原理</a></div>
+  <div class="toc-item"><a href="#section6">1.6 Special Tokens 与 Chat Templates</a></div>
+  <div class="toc-item"><a href="#exercises">练习题</a></div>
+</div>
+
+<!-- Section 1: Self-Attention -->
+<section id="section1" class="fade-in">
+<h2>1.1 Self-Attention 机制</h2>
+
+<div class="card">
+<p>Self-Attention 是 Transformer 的核心计算单元。它允许序列中的每个 token "关注" 其他所有 token，从而捕获长距离依赖关系。其核心公式为：</p>
+
+<div class="formula">
+Attention(Q, K, V) = softmax(Q K<sup>T</sup> / √d<sub>k</sub>) V
+</div>
+
+<p>其中：</p>
+<ul style="margin-left: 20px; margin-bottom: 1rem;">
+  <li><strong>Q (Query)</strong>：查询矩阵，表示 "我在找什么"</li>
+  <li><strong>K (Key)</strong>：键矩阵，表示 "我有什么信息"</li>
+  <li><strong>V (Value)</strong>：值矩阵，表示 "我能提供什么内容"</li>
+  <li><strong>d<sub>k</sub></strong>：Key 向量的维度，用于缩放防止梯度消失</li>
+</ul>
+
+<div class="note">
+<strong>为什么需要缩放？</strong> 当 d<sub>k</sub> 较大时，Q 和 K 的点积结果方差会很大（约为 d<sub>k</sub>），导致 softmax 输出趋近于 one-hot 分布，梯度接近于零。除以 √d<sub>k</sub> 可以将方差归一化为 1。
+</div>
+</div>
+
+<h3>交互动画：逐步计算 Attention</h3>
+<div class="animation-container" id="attention-animation">
+  <div class="controls">
+    <button class="btn" onclick="attentionDemo.start()">开始演示</button>
+    <button class="btn btn-secondary" onclick="attentionDemo.step()">下一步</button>
+    <button class="btn btn-secondary" onclick="attentionDemo.reset()">重置</button>
+  </div>
+  <div class="step-info" id="attention-step-info">点击 "开始演示" 查看 Attention 计算过程</div>
+  <div id="attention-matrices" style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 15px; margin-top: 15px;">
+    <!-- Matrices will be rendered by JS -->
+  </div>
+</div>
+
+<h3>代码实现：Scaled Dot-Product Attention</h3>
+<div class="card">
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+<span class="keyword">import</span> math
+
+<span class="keyword">def</span> <span class="function">scaled_dot_product_attention</span>(Q, K, V, mask=<span class="builtin">None</span>):
+    <span class="string">"""
+    手动实现 Scaled Dot-Product Attention
+
+    Args:
+        Q: Query tensor, shape (batch, seq_len_q, d_k)
+        K: Key tensor, shape (batch, seq_len_k, d_k)
+        V: Value tensor, shape (batch, seq_len_k, d_v)
+        mask: 可选的 attention mask
+
+    Returns:
+        output: shape (batch, seq_len_q, d_v)
+        attention_weights: shape (batch, seq_len_q, seq_len_k)
+    """</span>
+    d_k = Q.size(-<span class="number">1</span>)
+
+    <span class="comment"># Step 1: 计算 Q @ K^T，得到 attention scores</span>
+    scores = torch.matmul(Q, K.transpose(-<span class="number">2</span>, -<span class="number">1</span>))  <span class="comment"># (batch, seq_q, seq_k)</span>
+
+    <span class="comment"># Step 2: 缩放</span>
+    scores = scores / math.sqrt(d_k)
+
+    <span class="comment"># Step 3: 应用 mask（用于 causal attention）</span>
+    <span class="keyword">if</span> mask <span class="keyword">is not</span> <span class="builtin">None</span>:
+        scores = scores.masked_fill(mask == <span class="number">0</span>, <span class="builtin">float</span>(<span class="string">'-inf'</span>))
+
+    <span class="comment"># Step 4: Softmax 归一化</span>
+    attention_weights = F.softmax(scores, dim=-<span class="number">1</span>)
+
+    <span class="comment"># Step 5: 加权求和 V</span>
+    output = torch.matmul(attention_weights, V)  <span class="comment"># (batch, seq_q, d_v)</span>
+
+    <span class="keyword">return</span> output, attention_weights
+
+
+<span class="comment"># 示例用法</span>
+batch_size, seq_len, d_model = <span class="number">2</span>, <span class="number">8</span>, <span class="number">64</span>
+Q = torch.randn(batch_size, seq_len, d_model)
+K = torch.randn(batch_size, seq_len, d_model)
+V = torch.randn(batch_size, seq_len, d_model)
+
+<span class="comment"># Causal mask: 下三角矩阵，防止看到未来的 token</span>
+causal_mask = torch.tril(torch.ones(seq_len, seq_len))
+
+output, weights = scaled_dot_product_attention(Q, K, V, mask=causal_mask)
+<span class="builtin">print</span>(f<span class="string">"Output shape: {output.shape}"</span>)       <span class="comment"># (2, 8, 64)</span>
+<span class="builtin">print</span>(f<span class="string">"Weights shape: {weights.shape}"</span>)    <span class="comment"># (2, 8, 8)</span>
+<span class="builtin">print</span>(f<span class="string">"Weights sum: {weights.sum(dim=-1)}"</span>) <span class="comment"># 每行和为 1</span>
+</code></pre>
+</div>
+</section>
+
+<!-- Section 2: Multi-Head Attention -->
+<section id="section2" class="fade-in">
+<h2>1.2 Multi-Head Attention</h2>
+
+<div class="card">
+<p>Multi-Head Attention (MHA) 将输入投影到多个不同的子空间中，每个 "head" 独立计算 attention，最后将结果拼接并投影回原始维度。</p>
+
+<div class="formula">
+MultiHead(Q, K, V) = Concat(head<sub>1</sub>, ..., head<sub>h</sub>) W<sup>O</sup>
+<br>
+where head<sub>i</sub> = Attention(QW<sub>i</sub><sup>Q</sup>, KW<sub>i</sub><sup>K</sup>, VW<sub>i</sub><sup>V</sup>)
+</div>
+
+<h4>为什么要拆分多个 Head？</h4>
+<ul style="margin-left: 20px; margin-bottom: 1rem;">
+  <li><strong>多样性</strong>：不同的 head 可以学习关注不同类型的关系（语法、语义、位置等）</li>
+  <li><strong>计算效率</strong>：每个 head 的维度为 d<sub>k</sub> = d<sub>model</sub> / h，总计算量与单个大 head 相同</li>
+  <li><strong>表达能力</strong>：多个子空间的注意力模式比单一空间更丰富</li>
+</ul>
+
+<div class="note">
+<strong>典型配置</strong>：GPT-3 使用 96 个 head，d<sub>model</sub>=12288，每个 head 维度为 128。LLaMA-2-70B 使用 64 个 head（加上 8 个 KV head 用于 GQA）。
+</div>
+</div>
+
+<h3>交互动画：Multi-Head 拆分与并行计算</h3>
+<div class="animation-container" id="multihead-animation">
+  <div class="controls">
+    <button class="btn" onclick="multiHeadDemo.start()">开始演示</button>
+    <button class="btn btn-secondary" onclick="multiHeadDemo.reset()">重置</button>
+  </div>
+  <div class="step-info" id="multihead-step-info">展示 tensor 如何被拆分成多个 head 并行处理</div>
+  <div id="multihead-visual" style="text-align: center; padding: 20px;">
+    <div id="mh-input" style="margin-bottom: 20px;"></div>
+    <div id="mh-heads" style="margin-bottom: 20px; min-height: 80px;"></div>
+    <div id="mh-output" style="margin-bottom: 10px;"></div>
+  </div>
+</div>
+
+<div class="card">
+<h4>Grouped Query Attention (GQA)</h4>
+<p>标准 MHA 中，每个 head 都有独立的 K 和 V 投影。GQA 将多个 query head 共享同一组 KV head，显著减少 KV Cache 的内存占用：</p>
+<table class="comparison-table">
+  <tr><th>方法</th><th>Query Heads</th><th>KV Heads</th><th>KV Cache 大小</th></tr>
+  <tr><td>MHA</td><td>h</td><td>h</td><td>1x</td></tr>
+  <tr><td>GQA</td><td>h</td><td>h/g</td><td>1/g x</td></tr>
+  <tr><td>MQA</td><td>h</td><td>1</td><td>1/h x</td></tr>
+</table>
+</div>
+</section>
+
+<!-- Section 3: Flash Attention -->
+<section id="section3" class="fade-in">
+<h2>1.3 Flash Attention</h2>
+
+<div class="card">
+<p>Flash Attention 是一种 <strong>IO-aware</strong> 的精确 attention 算法。它的核心动机：<strong>GPU 的计算速度远快于内存带宽</strong>。标准 Attention 的瓶颈不是计算 FLOPS，而是 HBM（高带宽内存）的读写次数。</p>
+
+<h4>问题根源：标准 Attention 的 HBM 访问</h4>
+<p>标准 Attention 的计算步骤，每一步都需要 HBM 读/写。我们以 <strong>单个 head</strong> 为例，追踪每个矩阵的 shape 和对应的 HBM 访问量：</p>
+
+<pre><code><span class="comment"># 设 N = 序列长度, d = head 维度 (如 N=4096, d=128)</span>
+<span class="comment"># Q: [N, d]  K: [N, d]  V: [N, d]  均存储在 HBM 中</span>
+<span class="comment"># 每个元素占 2 bytes (FP16)</span>
+
+<span class="comment"># ═══════ Step 1: 计算 Attention Score 矩阵 ═══════</span>
+<span class="comment"># 从 HBM 读取 Q[N,d] 和 K[N,d]</span>
+<span class="comment">#   读取量 = N×d + N×d = 2Nd 个元素</span>
+S = Q @ K.T
+<span class="comment"># S 的 shape: [N, d] × [d, N] = [N, N]</span>
+<span class="comment"># 将 S[N,N] 写回 HBM</span>
+<span class="comment">#   写入量 = N×N = N² 个元素  ← 这是灾难性的!</span>
+
+<span class="comment"># ═══════ Step 2: Softmax ═══════</span>
+<span class="comment"># 从 HBM 读取 S[N,N]</span>
+<span class="comment">#   读取量 = N² 个元素</span>
+P = softmax(S / sqrt(d))
+<span class="comment"># P 的 shape: [N, N] (每行 sum=1)</span>
+<span class="comment"># 将 P[N,N] 写回 HBM</span>
+<span class="comment">#   写入量 = N² 个元素</span>
+
+<span class="comment"># ═══════ Step 3: 加权求和 Value ═══════</span>
+<span class="comment"># 从 HBM 读取 P[N,N] 和 V[N,d]</span>
+<span class="comment">#   读取量 = N² + Nd 个元素</span>
+O = P @ V
+<span class="comment"># O 的 shape: [N, N] × [N, d] = [N, d]</span>
+<span class="comment"># 将 O[N,d] 写回 HBM</span>
+<span class="comment">#   写入量 = Nd 个元素</span>
+
+<span class="comment"># ═══════ 总 HBM 访问量汇总 ═══════</span>
+<span class="comment"># 读: 2Nd + N² + N² + Nd = 3Nd + 2N²</span>
+<span class="comment"># 写: N² + N² + Nd       = 2N² + Nd</span>
+<span class="comment"># 合计: 4N² + 4Nd = Θ(N² + Nd)</span>
+<span class="comment">#</span>
+<span class="comment"># 代入 N=4096, d=128:</span>
+<span class="comment">#   N² = 16,777,216  |  Nd = 524,288</span>
+<span class="comment">#   总计 ≈ 4×16.7M + 4×0.5M ≈ 69M 个元素 ≈ 132 MB</span>
+<span class="comment">#</span>
+<span class="comment"># 额外 HBM 内存 (存储中间结果):</span>
+<span class="comment">#   S[N,N] + P[N,N] = 2×N² = 2×4096² = 32M 个元素 = 64 MB!</span></code></pre>
+
+<div class="warning">
+<strong>关键瓶颈</strong>：中间矩阵 S 和 P 都是 <strong>[N, N]</strong> 大小。当 N=4096, d=128 时：
+<br>• S[4096×4096] 占用 4096²×2 = <strong>32MB</strong>
+<br>• Q, K, V 各只占 4096×128×2 = <strong>1MB</strong>
+<br>• 中间结果比输入/输出大 <strong>32 倍</strong>！
+<br>我们为了存一个临时中间矩阵，付出了 O(N²) 的额外内存和大量的 HBM 读写。
+</div>
+</div>
+
+<div class="card">
+<h4>Flash Attention 的解法：分块 + 在线 Softmax</h4>
+<p>核心思想：<strong>永远不把 N×N 矩阵写入 HBM</strong>。将 Q, K, V 切成小块，在 <strong>Shared Memory</strong>（每个 SM 上的可编程 SRAM，A100 上最大 ~192KB/SM）中完成所有计算。注意这不是 L2 Cache（40MB，硬件管理），而是程序员可直接控制的片上存储。</p>
+
+<h4>分块策略</h4>
+<p>设单个 SM 的 Shared Memory 容量为 M 个元素（如 A100 上 M ≈ 100K FP16 elements ≈ 192KB）。我们需要在 Shared Memory 中同时容纳：</p>
+<ul style="margin-left: 20px; margin-bottom: 1rem;">
+  <li>K 的一个块：B<sub>c</sub> × d 个元素</li>
+  <li>V 的一个块：B<sub>c</sub> × d 个元素</li>
+  <li>Q 的一个块：B<sub>r</sub> × d 个元素</li>
+  <li>输出 O 的一个块：B<sub>r</sub> × d 个元素</li>
+  <li>中间 score 矩阵：B<sub>r</sub> × B<sub>c</sub> 个元素</li>
+</ul>
+
+<div class="formula">
+SRAM 约束: 2 × B<sub>c</sub> × d + 2 × B<sub>r</sub> × d + B<sub>r</sub> × B<sub>c</sub> ≤ M
+<br><br>
+最优 block size: B<sub>c</sub> = ⌈M / (4d)⌉, B<sub>r</sub> = min(⌈M / (4d)⌉, d)
+</div>
+</div>
+
+<div class="card card-highlight">
+<h4>IO 复杂度推导 (核心！)</h4>
+
+<p><strong>标准 Attention 的 HBM 访问量：</strong></p>
+<div class="formula" style="text-align: left; font-size: 0.95rem;">
+读 Q: Nd &nbsp;|&nbsp; 读 K: Nd &nbsp;|&nbsp; 写 S: N² &nbsp;|&nbsp; 读 S: N² &nbsp;|&nbsp; 写 P: N² &nbsp;|&nbsp; 读 P: N² &nbsp;|&nbsp; 读 V: Nd &nbsp;|&nbsp; 写 O: Nd
+<br><br>
+总计 = Θ(Nd + N²) 次 HBM 访问
+<br>
+额外内存 = O(N²)（存储 S 和 P 矩阵）
+</div>
+
+<p style="margin-top: 20px;"><strong>Flash Attention 的 HBM 访问量推导：</strong></p>
+<p>外循环遍历 K, V 的块数 = N / B<sub>c</sub> 次。内循环遍历 Q 的块数 = N / B<sub>r</sub> 次。</p>
+
+<div class="formula" style="text-align: left; font-size: 0.95rem;">
+每次外循环：加载 K<sub>j</sub> (B<sub>c</sub>×d) + V<sub>j</sub> (B<sub>c</sub>×d) = 2 × B<sub>c</sub> × d
+<br>
+每次内循环：加载 Q<sub>i</sub> (B<sub>r</sub>×d) + 加载/写回 O<sub>i</sub> (B<sub>r</sub>×d) = 2 × B<sub>r</sub> × d
+<br><br>
+总 HBM 访问 = (N/B<sub>c</sub>) × [2B<sub>c</sub>d + (N/B<sub>r</sub>) × 2B<sub>r</sub>d]
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= (N/B<sub>c</sub>) × [2B<sub>c</sub>d + 2Nd]
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= 2Nd + 2N²d/B<sub>c</sub>
+<br><br>
+代入 B<sub>c</sub> = Θ(M/d)：
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;= 2Nd + 2N²d/(M/d) = 2Nd + <strong>2N²d²/M</strong>
+<br><br>
+∴ Flash Attention HBM 访问 = <strong>O(N²d²/M)</strong>
+<br>
+&nbsp;&nbsp;额外内存 = O(N)（只需存储每行的 running max 和 running sum）
+</div>
+
+<div class="note" style="margin-top: 15px;">
+<strong>为什么这么好？</strong> 当 M &gt; d²（典型: M=100K, d²=16K）时，N²d²/M &lt; N²。
+<br>例：N=4096, d=128, M=100K →
+<br>标准: 4096² + 4096×128 ≈ <strong>17.3M</strong> 次 HBM 访问
+<br>Flash: 4096²×128²/100K ≈ <strong>2.75M</strong> 次 HBM 访问 (节省 <strong>84%</strong>!)
+</div>
+</div>
+
+<h3>交互动画：Flash Attention 分块计算过程</h3>
+<p>下面用 N=8, d=4, B<sub>r</sub>=B<sub>c</sub>=2 的例子，展示每一步中各 block 矩阵的 shape、计算过程，以及结果如何累加到最终输出矩阵 O 的对应位置。</p>
+
+<div class="animation-container" id="flash-animation" style="min-height: 500px;">
+  <div class="controls">
+    <button class="btn" onclick="flashDemo.next()">下一步 →</button>
+    <button class="btn btn-secondary" onclick="flashDemo.prev()">← 上一步</button>
+    <button class="btn btn-secondary" onclick="flashDemo.reset()">重置</button>
+  </div>
+  <div class="step-info" id="flash-step-info" style="font-weight: bold; margin-bottom: 10px;">Step 0: 初始状态 — Q, K, V 在 HBM，O 初始化为 0</div>
+
+  <!-- Top row: Source matrices Q, K, V with block highlights -->
+  <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 15px;">
+    <!-- Q matrix -->
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: #2196f3; margin-bottom: 4px; font-weight: bold;">Q [8×4]</div>
+      <div id="flash-q-matrix" style="display: grid; grid-template-columns: repeat(4, 22px); gap: 1px;"></div>
+      <div style="font-size: 0.65rem; color: #888; margin-top: 3px;">行 = token, 列 = d</div>
+    </div>
+    <!-- K^T matrix (transposed: d×N, so columns = tokens) -->
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: #4caf50; margin-bottom: 4px; font-weight: bold;">K<sup>T</sup> [4×8]</div>
+      <div id="flash-k-matrix" style="display: grid; grid-template-columns: repeat(8, 22px); gap: 1px;"></div>
+      <div style="font-size: 0.65rem; color: #888; margin-top: 3px;">行 = d, 列 = token</div>
+    </div>
+    <!-- V matrix -->
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: #ff9800; margin-bottom: 4px; font-weight: bold;">V [8×4]</div>
+      <div id="flash-v-matrix" style="display: grid; grid-template-columns: repeat(4, 22px); gap: 1px;"></div>
+      <div style="font-size: 0.65rem; color: #888; margin-top: 3px;">行 = token, 列 = d</div>
+    </div>
+    <!-- Arrow -->
+    <div style="display: flex; align-items: center; color: #888; font-size: 1.5rem; padding-top: 20px;">→</div>
+    <!-- O matrix (output, accumulating) -->
+    <div style="text-align: center;">
+      <div style="font-size: 0.75rem; color: #9c27b0; margin-bottom: 4px; font-weight: bold;">O [8×4] (输出)</div>
+      <div id="flash-o-matrix" style="display: grid; grid-template-columns: repeat(4, 22px); gap: 1px;"></div>
+      <div style="font-size: 0.65rem; color: #888; margin-top: 3px;">逐步累加更新</div>
+    </div>
+  </div>
+
+  <!-- Middle: SRAM computation detail -->
+  <div style="background: #0a0a1a; border: 2px solid #76b90044; border-radius: 10px; padding: 15px; margin-bottom: 10px;">
+    <div style="font-size: 0.8rem; color: #76b900; margin-bottom: 8px; font-weight: bold;">📦 Shared Memory (SRAM) 中的当前计算:</div>
+    <div id="flash-sram-detail" style="font-size: 0.8rem; color: #ccc; min-height: 80px;"></div>
+  </div>
+
+  <!-- Bottom: Attention score matrix (N×N) with block accumulation view -->
+  <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start;">
+    <div>
+      <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px; font-weight: bold;">Score 矩阵 S [8×8] 计算进度 (不写入 HBM!)</div>
+      <div id="flash-grid" style="display: grid; grid-template-columns: repeat(8, 22px); gap: 1px;"></div>
+      <div style="display: flex; gap: 8px; margin-top: 6px; font-size: 0.65rem;">
+        <span style="color: #76b900;">■ 当前 S<sub>ij</sub></span>
+        <span style="color: #00d4aa88;">■ 已处理</span>
+        <span style="color: #222;">■ 未计算</span>
+      </div>
+    </div>
+    <div id="flash-formula-box" style="flex: 1; min-width: 250px; background: #1a1a2e; border-radius: 8px; padding: 12px; font-size: 0.78rem; color: #aaa; border: 1px solid #333;">
+      <div id="flash-formula-content">点击 "下一步" 开始动画</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+<h4>Flash Attention 的在线 Softmax 算法（完整推导）</h4>
+<p>标准 softmax 需要两次遍历序列（pass 1: 求 max；pass 2: 求 exp 之和），这要求 S 矩阵完全 materialize。Flash Attention 使用<strong>在线（online）算法</strong>，只需一次遍历：</p>
+
+<h3>交互动画：在线 Softmax 累积过程</h3>
+<p>下面用一个具体的 1×8 score 向量（分成 4 个块，每块 2 个元素），动态展示 m, l, O 如何逐块更新。注意观察当新块出现更大 max 时，旧值如何被 correction factor α 修正。</p>
+
+<div class="animation-container" id="online-softmax-animation" style="min-height: 380px;">
+  <div class="controls">
+    <button class="btn" onclick="onlineSoftmaxDemo.next()">处理下一个块 →</button>
+    <button class="btn btn-secondary" onclick="onlineSoftmaxDemo.reset()">重置</button>
+  </div>
+  <div class="step-info" id="osm-step-info" style="font-weight: bold;">初始状态: m=-∞, l=0, O=0。4 个 KV 块待处理</div>
+
+  <!-- Score bar visualization -->
+  <div style="margin: 15px 0;">
+    <div style="font-size: 0.8rem; color: #888; margin-bottom: 6px;">Score 向量 s = [q_i × K^T] — 共 8 个值，分 4 块:</div>
+    <div id="osm-scores" style="display: flex; gap: 2px; flex-wrap: wrap;"></div>
+  </div>
+
+  <!-- Running statistics -->
+  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 15px 0;">
+    <div style="background: #0a0a1a; border: 1px solid #ff9800; border-radius: 8px; padding: 12px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #ff9800; margin-bottom: 4px;">m (running max)</div>
+      <div id="osm-m" style="font-size: 1.4rem; font-weight: bold; color: #ff9800;">-∞</div>
+    </div>
+    <div style="background: #0a0a1a; border: 1px solid #4caf50; border-radius: 8px; padding: 12px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #4caf50; margin-bottom: 4px;">l (rescaled Σexp)</div>
+      <div id="osm-l" style="font-size: 1.4rem; font-weight: bold; color: #4caf50;">0</div>
+    </div>
+    <div style="background: #0a0a1a; border: 1px solid #9c27b0; border-radius: 8px; padding: 12px; text-align: center;">
+      <div style="font-size: 0.75rem; color: #9c27b0; margin-bottom: 4px;">O (rescaled Σexp×v)</div>
+      <div id="osm-o" style="font-size: 1.4rem; font-weight: bold; color: #9c27b0;">[0, 0]</div>
+      <div style="font-size: 0.65rem; color: #888;">简化为 2-d</div>
+    </div>
+  </div>
+
+  <!-- Correction factor display -->
+  <div id="osm-correction" style="background: #0a0a1a; border: 1px solid #2196f3; border-radius: 8px; padding: 12px; margin: 10px 0; min-height: 60px; font-size: 0.85rem; color: #ccc;"></div>
+
+  <!-- Final result -->
+  <div id="osm-result" style="background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 0.85rem; color: #888;"></div>
+</div>
+
+<h4>数学原理：Softmax 的递推分解</h4>
+<p>设我们正在处理 Q 的第 i 行，已经遍历了前 j-1 个 KV 块。</p>
+
+<p><strong>先回顾标准 softmax attention 的最终目标：</strong></p>
+<pre style="background: #0a0a1a; border: 1px solid #444; border-radius: 8px; padding: 15px; line-height: 1.8; font-size: 0.88rem;"><code style="color: #e0e0e0;"><span class="comment"># 标准 softmax attention (第 i 行):</span>
+output_i = Σ_k  softmax(s_k) × v_k
+         = Σ_k  [exp(s_k) / Σ_j exp(s_j)] × v_k
+         = <span style="color:#9c27b0;">(Σ_k exp(s_k) × v_k)</span> / <span style="color:#4caf50;">(Σ_k exp(s_k))</span>
+         = <span style="color:#9c27b0;">numerator</span> / <span style="color:#4caf50;">denominator</span></code></pre>
+
+<p style="margin-top:15px;">所以 attention 输出本质上就是 <strong>分子 / 分母</strong>。Flash Attention 的在线算法就是增量式地累积分子和分母，同时用一个 running max 来保持数值稳定：</p>
+
+<pre style="background: #0a0a1a; border: 1px solid #76b900; border-radius: 8px; padding: 20px; line-height: 2; font-size: 0.88rem;"><code style="color: #e0e0e0;"><span class="comment"># ═══ 维护三个统计量（处理完前 j-1 个 KV 块后）═══</span>
+
+<span style="color:#ff9800;">m</span> = 目前见过的所有 score 的 max               <span class="comment"># 标量, 用于数值稳定</span>
+<span style="color:#4caf50;">l</span> = Σ exp(s_k - <span style="color:#ff9800;">m</span>)                            <span class="comment"># 标量, rescaled 分母</span>
+<span style="color:#9c27b0;">O</span> = Σ exp(s_k - <span style="color:#ff9800;">m</span>) × v_k                     <span class="comment"># [1×d], rescaled 分子</span>
+
+<span class="comment"># 注意关系: O / l = Σ softmax(s_k) × v_k = 最终 attention 输出!</span>
+<span class="comment"># 所以 O 就是 l 的 "向量版本"，每个 v_k 的贡献按相同 weight 加权</span>
+
+<span class="comment"># ═══ 处理第 j 个 KV 块 ═══</span>
+<span class="comment"># 计算新 score: S_j = q_i × K_j^T  (在 SRAM 中)</span>
+
+<span style="color:#ff9800;">m_new</span> = max(<span style="color:#ff9800;">m</span>, max(S_j))                      <span class="comment"># 可能发现更大的值</span>
+<span style="color:#2196f3;">α</span>     = exp(<span style="color:#ff9800;">m</span> - <span style="color:#ff9800;">m_new</span>)                       <span class="comment"># correction factor (≤1)</span>
+
+<span class="comment"># 更新分母: 旧的 exp 都要乘 α 修正, 再加新块的贡献</span>
+<span style="color:#4caf50;">l_new</span> = <span style="color:#2196f3;">α</span> × <span style="color:#4caf50;">l</span>  +  Σ exp(S_j - <span style="color:#ff9800;">m_new</span>)
+
+<span class="comment"># 更新分子: 同样 rescale 旧值, 再加新块的 exp(score) × value</span>
+<span style="color:#9c27b0;">O_new</span> = <span style="color:#2196f3;">α</span> × <span style="color:#9c27b0;">O</span>  +  exp(S_j - <span style="color:#ff9800;">m_new</span>) × V_j
+
+<span class="comment"># l 和 O 的更新公式结构完全相同!</span>
+<span class="comment"># l 累加的是 exp(score)        → 标量</span>
+<span class="comment"># O 累加的是 exp(score) × v_k  → 向量 (每个 score 乘对应的 value)</span>
+
+<span class="comment"># ═══ 遍历完所有块后 ═══</span>
+output_i = <span style="color:#9c27b0;">O</span> / <span style="color:#4caf50;">l</span>    <span class="comment"># 分子 / 分母 = softmax attention 输出 ✓</span></code></pre>
+
+<p style="margin-top: 15px;"><strong>直觉理解</strong>：</p>
+<ul style="margin-left: 20px; margin-bottom: 1rem;">
+  <li><strong>O 和 l 的关系</strong> — l 累加 exp(score)，O 累加 exp(score)×v。最后 O/l 就是 softmax 加权平均。它们的更新方式完全对称</li>
+  <li><strong>为什么需要 α = exp(m_old - m_new)?</strong> — 遇到更大 score 后，之前所有 exp(s - m_old) 应该变成 exp(s - m_new)。由 exp(s - m_new) = exp(s - m_old) × exp(m_old - m_new)，所以旧值全部乘 α 即可</li>
+  <li><strong>如果新块没有更大 max?</strong> — m_new = m_old → α = 1 → 旧值不动，只加新项</li>
+  <li><strong>数学等价性</strong> — 不是近似！遍历完所有块后 O/l 严格等于 softmax(QK^T)V</li>
+</ul>
+</div>
+
+<div class="card">
+<h4>完整伪代码</h4>
+<pre><code><span class="comment"># Flash Attention Forward Pass 完整算法</span>
+<span class="comment"># 输入: Q, K, V ∈ R^{N×d}，存储在 HBM 中</span>
+<span class="comment"># 输出: O ∈ R^{N×d}，写入 HBM</span>
+<span class="comment"># SRAM 容量: M 个元素</span>
+
+<span class="comment"># Step 1: 确定 block sizes</span>
+B_c = M // (<span class="number">4</span> * d)  <span class="comment"># KV block 行数</span>
+B_r = min(M // (<span class="number">4</span> * d), d)  <span class="comment"># Q block 行数</span>
+T_c = ceil(N / B_c)  <span class="comment"># K,V 的块数</span>
+T_r = ceil(N / B_r)  <span class="comment"># Q 的块数</span>
+
+<span class="comment"># Step 2: 初始化输出和统计量（在 HBM 中）</span>
+O = zeros(N, d)
+l = zeros(N)    <span class="comment"># softmax denominator</span>
+m = full(N, -inf)  <span class="comment"># running max</span>
+
+<span class="comment"># Step 3: 外循环 - 遍历 K, V 块</span>
+<span class="keyword">for</span> j <span class="keyword">in</span> range(T_c):
+    <span class="comment"># 从 HBM 加载一块 K, V 到 SRAM</span>
+    K_j = K[j*B_c : (j+<span class="number">1</span>)*B_c]  <span class="comment"># [B_c, d] → HBM 读取</span>
+    V_j = V[j*B_c : (j+<span class="number">1</span>)*B_c]  <span class="comment"># [B_c, d] → HBM 读取</span>
+
+    <span class="comment"># 内循环 - 遍历 Q 块</span>
+    <span class="keyword">for</span> i <span class="keyword">in</span> range(T_r):
+        <span class="comment"># 从 HBM 加载一块 Q, O, l, m 到 SRAM</span>
+        Q_i = Q[i*B_r : (i+<span class="number">1</span>)*B_r]  <span class="comment"># [B_r, d]</span>
+        O_i = O[i*B_r : (i+<span class="number">1</span>)*B_r]  <span class="comment"># [B_r, d]</span>
+        l_i = l[i*B_r : (i+<span class="number">1</span>)*B_r]  <span class="comment"># [B_r]</span>
+        m_i = m[i*B_r : (i+<span class="number">1</span>)*B_r]  <span class="comment"># [B_r]</span>
+
+        <span class="comment"># === 以下全部在 SRAM 中完成 ===</span>
+
+        <span class="comment"># 计算 attention scores (这是唯一的矩阵乘)</span>
+        S_ij = Q_i @ K_j.T  <span class="comment"># [B_r, B_c] ← 在 SRAM 中!</span>
+
+        <span class="comment"># 在线 softmax 更新</span>
+        m_new = max(m_i, S_ij.max(dim=-<span class="number">1</span>))
+        P_ij = exp(S_ij - m_new[:, None])
+        l_new = exp(m_i - m_new) * l_i + P_ij.sum(dim=-<span class="number">1</span>)
+
+        <span class="comment"># 更新输出 (rescale 旧结果 + 加入新贡献)</span>
+        O_i = (l_i / l_new)[:, None] * exp(m_i - m_new)[:, None] * O_i \
+              + (<span class="number">1</span> / l_new)[:, None] * P_ij @ V_j
+
+        <span class="comment"># 更新统计量</span>
+        m_i, l_i = m_new, l_new
+
+        <span class="comment"># === 写回 HBM ===</span>
+        O[i*B_r : (i+<span class="number">1</span>)*B_r] = O_i
+        l[i*B_r : (i+<span class="number">1</span>)*B_r] = l_i
+        m[i*B_r : (i+<span class="number">1</span>)*B_r] = m_i
+
+<span class="keyword">return</span> O  <span class="comment"># 数学上 ≡ softmax(QK^T / √d) @ V</span></code></pre>
+</div>
+
+<div class="card">
+<h4>IO 复杂度总结</h4>
+<table class="comparison-table">
+  <tr><th>指标</th><th>标准 Attention</th><th>Flash Attention</th><th>优势</th></tr>
+  <tr><td>HBM 读写次数</td><td>Θ(Nd + N²)</td><td>Θ(N²d²/M)</td><td>当 M &gt; d² 时减少</td></tr>
+  <tr><td>额外 HBM 内存</td><td>O(N²) (存 S, P)</td><td>O(N) (存 l, m)</td><td>从二次降到线性!</td></tr>
+  <tr><td>SRAM 使用</td><td>不利用</td><td>O(M) (满载利用)</td><td>—</td></tr>
+  <tr><td>计算量 (FLOPs)</td><td>O(N²d)</td><td>O(N²d) (相同!)</td><td>计算量不变</td></tr>
+  <tr><td>数值结果</td><td>精确</td><td>精确 (bit-identical)</td><td>不是近似!</td></tr>
+</table>
+
+<div class="note">
+<strong>Flash Attention 不是近似算法！</strong>它与标准 Attention 产生 bit-identical 的结果。差异仅在 IO 模式：Flash Attention 用更多计算换更少的内存访问（因为 GPU 计算远快于内存带宽）。
+</div>
+</div>
+</section>
+
+<!-- Section 4: Cross Attention vs Self Attention -->
+<section id="section4" class="fade-in">
+<h2>1.4 Cross Attention vs Self Attention</h2>
+
+<div class="card">
+<p>Self Attention 和 Cross Attention 的核心区别在于 Q, K, V 的来源：</p>
+
+<table class="comparison-table">
+  <tr><th>特性</th><th>Self Attention</th><th>Cross Attention</th></tr>
+  <tr><td>Q 来源</td><td>同一序列</td><td>Decoder 序列</td></tr>
+  <tr><td>K, V 来源</td><td>同一序列</td><td>Encoder 输出</td></tr>
+  <tr><td>典型用途</td><td>语言建模、BERT</td><td>翻译、图文理解</td></tr>
+  <tr><td>Causal Mask</td><td>Decoder 中使用</td><td>通常不使用</td></tr>
+  <tr><td>KV Cache</td><td>每步增长</td><td>编码后固定不变</td></tr>
+</table>
+
+<h4>应用场景</h4>
+<ul style="margin-left: 20px; margin-bottom: 1rem;">
+  <li><strong>Self Attention</strong>：GPT 系列（causal）、BERT（bidirectional）</li>
+  <li><strong>Cross Attention</strong>：机器翻译（Encoder-Decoder）、多模态模型（image tokens attend to text tokens）、Stable Diffusion（text→image conditioning）</li>
+</ul>
+</div>
+
+<div class="animation-container">
+  <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; padding: 20px;">
+    <div style="text-align: center;">
+      <h4 style="color: #76b900;">Self Attention</h4>
+      <div style="margin: 15px 0;">
+        <div style="background: #1a1a2e; padding: 10px; border-radius: 8px; border: 2px solid #76b900; display: inline-block;">
+          <div style="color: #76b900; font-size: 0.8rem;">同一序列 X</div>
+          <div style="margin-top: 5px; font-size: 0.85rem;">"The cat sat on"</div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 10px; margin: 10px 0;">
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">Q = XW<sup>Q</sup></div>
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">K = XW<sup>K</sup></div>
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">V = XW<sup>V</sup></div>
+      </div>
+      <div style="color: #888; font-size: 0.8rem; margin-top: 10px;">↓ 每个 token 关注所有 token</div>
+    </div>
+    <div style="text-align: center;">
+      <h4 style="color: #00d4aa;">Cross Attention</h4>
+      <div style="margin: 15px 0; display: flex; gap: 10px; justify-content: center;">
+        <div style="background: #1a1a2e; padding: 10px; border-radius: 8px; border: 2px solid #00d4aa; display: inline-block;">
+          <div style="color: #00d4aa; font-size: 0.8rem;">Decoder Y</div>
+          <div style="margin-top: 5px; font-size: 0.85rem;">"Le chat"</div>
+        </div>
+        <div style="background: #1a1a2e; padding: 10px; border-radius: 8px; border: 2px solid #76b900; display: inline-block;">
+          <div style="color: #76b900; font-size: 0.8rem;">Encoder X</div>
+          <div style="margin-top: 5px; font-size: 0.85rem;">"The cat sat on"</div>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 10px; margin: 10px 0;">
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">Q = YW<sup>Q</sup></div>
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">K = XW<sup>K</sup></div>
+        <div style="background: #2a2a4e; padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;">V = XW<sup>V</sup></div>
+      </div>
+      <div style="color: #888; font-size: 0.8rem; margin-top: 10px;">↓ Decoder token 关注 Encoder 输出</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Section 5: KV Cache -->
+<section id="section5" class="fade-in">
+<h2>1.5 KV Cache 原理</h2>
+
+<div class="card">
+<p>在 autoregressive 生成中，每生成一个新 token 都需要重新计算所有前序 token 的 attention。KV Cache 通过缓存已计算的 K 和 V 矩阵，避免重复计算。</p>
+
+<h4>为什么只缓存 K 和 V，不缓存 Q？</h4>
+<p>因为在 autoregressive 生成时，我们只需要计算 <strong>新生成 token 的 Q</strong> 与所有之前 token 的 K, V 之间的 attention。之前 token 的 Q 不再需要（它们的输出已经确定）。</p>
+
+<div class="formula">
+Attention(q<sub>new</sub>, [K<sub>cached</sub>; k<sub>new</sub>], [V<sub>cached</sub>; v<sub>new</sub>])
+</div>
+
+<h4>内存占用分析</h4>
+<p>KV Cache 大小 = 2 (K+V) × num_layers × num_heads × head_dim × seq_len × dtype_size</p>
+<div class="note">
+<strong>例如</strong>：LLaMA-2-70B（80层, 64 heads, head_dim=128, FP16）在 seq_len=4096 时：<br>
+KV Cache = 2 × 80 × 64 × 128 × 4096 × 2 bytes = <strong>~10.7 GB per request</strong>
+</div>
+</div>
+
+<h3>交互动画：KV Cache 生成过程</h3>
+<div class="animation-container" id="kvcache-animation">
+  <div class="controls">
+    <button class="btn" onclick="kvCacheDemo.generate()">生成下一个 Token</button>
+    <button class="btn btn-secondary" onclick="kvCacheDemo.reset()">重置</button>
+  </div>
+  <div class="step-info" id="kvcache-step-info">点击 "生成下一个 Token" 观察 Attention 计算过程和 KV Cache 变化</div>
+
+  <!-- Token sequence display -->
+  <div style="margin-top: 15px; margin-bottom: 15px;">
+    <strong style="color: #76b900;">已生成序列：</strong>
+    <div id="kv-tokens" style="margin-top: 8px; min-height: 44px; display: flex; flex-wrap: wrap; gap: 4px;"></div>
+  </div>
+
+  <!-- Main visualization: Attention computation detail -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;">
+    <!-- Left: Attention matrix view -->
+    <div>
+      <strong style="color: #00d4aa; font-size: 0.9rem;">Attention 计算 (当前步):</strong>
+      <div id="kv-attn-matrix" style="margin-top: 10px; background: #0a0a1a; border-radius: 8px; padding: 15px; border: 1px solid #333; min-height: 180px;"></div>
+    </div>
+    <!-- Right: KV Cache state -->
+    <div>
+      <strong style="color: #ff9800; font-size: 0.9rem;">KV Cache 状态:</strong>
+      <div id="kv-cache-visual" style="margin-top: 10px; background: #0a0a1a; border-radius: 8px; padding: 15px; border: 1px solid #333; min-height: 180px;"></div>
+    </div>
+  </div>
+
+  <!-- Bottom: Computation explanation -->
+  <div id="kv-explanation" style="margin-top: 15px; background: #1a1a2e; border-radius: 8px; padding: 15px; border: 1px solid #333; font-size: 0.9rem; min-height: 80px;"></div>
+
+  <!-- Stats comparison -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+    <div style="background: #76b90011; border: 1px solid #76b90044; border-radius: 8px; padding: 12px;">
+      <div style="color: #76b900; font-weight: bold; font-size: 0.85rem;">有 KV Cache</div>
+      <div id="kv-stats-cache" style="font-size: 0.8rem; color: #aaa; margin-top: 5px;"></div>
+    </div>
+    <div style="background: #ff444411; border: 1px solid #ff444444; border-radius: 8px; padding: 12px;">
+      <div style="color: #ff6b6b; font-weight: bold; font-size: 0.85rem;">无 KV Cache</div>
+      <div id="kv-stats-nocache" style="font-size: 0.8rem; color: #aaa; margin-top: 5px;"></div>
+    </div>
+  </div>
+</div>
+
+<h3>代码实现：KV Cache</h3>
+<div class="card">
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+
+<span class="keyword">class</span> <span class="function">CachedAttention</span>(nn.Module):
+    <span class="string">"""带有 KV Cache 的 Attention 实现"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, d_model, num_heads):
+        <span class="builtin">super</span>().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+        <span class="comment"># KV Cache: 初始为空</span>
+        self.k_cache = <span class="builtin">None</span>
+        self.v_cache = <span class="builtin">None</span>
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x, use_cache=<span class="builtin">False</span>):
+        <span class="string">"""
+        x: (batch, seq_len, d_model)
+           - Prefill 阶段: seq_len = 完整 prompt 长度
+           - Decode 阶段: seq_len = 1 (只有新 token)
+        """</span>
+        B, L, _ = x.shape
+
+        <span class="comment"># 计算当前输入的 Q, K, V</span>
+        q = self.W_q(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        k = self.W_k(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        v = self.W_v(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+
+        <span class="keyword">if</span> use_cache:
+            <span class="keyword">if</span> self.k_cache <span class="keyword">is not</span> <span class="builtin">None</span>:
+                <span class="comment"># Decode 阶段：拼接缓存的 K, V</span>
+                k = torch.cat([self.k_cache, k], dim=<span class="number">2</span>)
+                v = torch.cat([self.v_cache, v], dim=<span class="number">2</span>)
+            <span class="comment"># 更新缓存</span>
+            self.k_cache = k.detach()
+            self.v_cache = v.detach()
+
+        <span class="comment"># 标准 attention 计算</span>
+        scale = self.head_dim ** -<span class="number">0.5</span>
+        scores = torch.matmul(q, k.transpose(-<span class="number">2</span>, -<span class="number">1</span>)) * scale
+
+        <span class="comment"># Causal mask (decode 时 q 只有 1 个 token，不需要 mask)</span>
+        <span class="keyword">if</span> L > <span class="number">1</span>:
+            mask = torch.tril(torch.ones(L, k.size(<span class="number">2</span>), device=x.device))
+            scores = scores.masked_fill(mask[-L:] == <span class="number">0</span>, <span class="builtin">float</span>(<span class="string">'-inf'</span>))
+
+        attn = torch.softmax(scores, dim=-<span class="number">1</span>)
+        out = torch.matmul(attn, v)
+
+        <span class="comment"># reshape 并输出投影</span>
+        out = out.transpose(<span class="number">1</span>, <span class="number">2</span>).contiguous().view(B, L, self.d_model)
+        <span class="keyword">return</span> self.W_o(out)
+
+    <span class="keyword">def</span> <span class="function">clear_cache</span>(self):
+        self.k_cache = <span class="builtin">None</span>
+        self.v_cache = <span class="builtin">None</span>
+
+
+<span class="comment"># 使用示例：模拟 autoregressive 生成</span>
+model = CachedAttention(d_model=<span class="number">512</span>, num_heads=<span class="number">8</span>)
+model.eval()
+
+<span class="comment"># Prefill: 处理完整 prompt</span>
+prompt = torch.randn(<span class="number">1</span>, <span class="number">10</span>, <span class="number">512</span>)  <span class="comment"># 10 个 token</span>
+<span class="keyword">with</span> torch.no_grad():
+    out = model(prompt, use_cache=<span class="builtin">True</span>)
+    <span class="builtin">print</span>(f<span class="string">"Prefill: cache size = {model.k_cache.shape}"</span>)
+    <span class="comment"># cache shape: (1, 8, 10, 64)</span>
+
+<span class="comment"># Decode: 每次只输入 1 个新 token</span>
+<span class="keyword">for</span> step <span class="keyword">in</span> <span class="builtin">range</span>(<span class="number">5</span>):
+    new_token = torch.randn(<span class="number">1</span>, <span class="number">1</span>, <span class="number">512</span>)
+    <span class="keyword">with</span> torch.no_grad():
+        out = model(new_token, use_cache=<span class="builtin">True</span>)
+    <span class="builtin">print</span>(f<span class="string">"Step {step+1}: cache size = {model.k_cache.shape}"</span>)
+    <span class="comment"># cache 逐步增长: (1, 8, 11, 64) → (1, 8, 12, 64) → ...</span>
+</code></pre>
+</div>
+</section>
+
+<!-- Section 6: Special Tokens & Chat Templates -->
+<section id="section6" class="fade-in">
+<h2>1.6 Special Tokens 与 Chat Templates</h2>
+
+<div class="card">
+<p>现代 LLM 使用特殊 token 来标记序列的结构和控制生成行为。这些 token 在训练时就已经定义，模型学会了它们的语义。</p>
+
+<h4>常见 Special Tokens</h4>
+<table class="comparison-table">
+  <tr><th>Token</th><th>用途</th><th>示例模型</th></tr>
+  <tr><td><code>&lt;BOS&gt;</code> / <code>&lt;s&gt;</code></td><td>序列开始（Begin of Sequence）</td><td>LLaMA, Mistral</td></tr>
+  <tr><td><code>&lt;EOS&gt;</code> / <code>&lt;/s&gt;</code></td><td>序列结束（End of Sequence），停止生成</td><td>LLaMA, Mistral</td></tr>
+  <tr><td><code>&lt;PAD&gt;</code></td><td>填充到固定长度</td><td>BERT, T5</td></tr>
+  <tr><td><code>&lt;UNK&gt;</code></td><td>未知 token（OOV 处理）</td><td>多数模型</td></tr>
+  <tr><td><code>[INST]</code>...<code>[/INST]</code></td><td>指令标记</td><td>LLaMA-2-Chat</td></tr>
+  <tr><td><code>&lt;|im_start|&gt;</code> / <code>&lt;|im_end|&gt;</code></td><td>Chat 消息边界</td><td>ChatML format</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h4>Chat Template 示例</h4>
+<p>Chat Template 将多轮对话转换为模型可以理解的 token 序列。不同模型的模板格式不同：</p>
+
+<pre><code><span class="comment"># LLaMA-2-Chat 格式</span>
+<span class="string">"""
+&lt;s&gt;[INST] &lt;&lt;SYS&gt;&gt;
+You are a helpful assistant.
+&lt;&lt;/SYS&gt;&gt;
+
+What is attention? [/INST] Attention is a mechanism that... &lt;/s&gt;
+&lt;s&gt;[INST] Can you explain more? [/INST]
+"""</span>
+
+<span class="comment"># ChatML 格式 (used by many models)</span>
+<span class="string">"""
+&lt;|im_start|&gt;system
+You are a helpful assistant.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+What is attention?&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+Attention is a mechanism that...&lt;|im_end|&gt;
+"""</span>
+
+<span class="comment"># 使用 Hugging Face transformers 应用 chat template</span>
+<span class="keyword">from</span> transformers <span class="keyword">import</span> AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained(<span class="string">"meta-llama/Llama-2-7b-chat-hf"</span>)
+
+messages = [
+    {<span class="string">"role"</span>: <span class="string">"system"</span>, <span class="string">"content"</span>: <span class="string">"You are a helpful assistant."</span>},
+    {<span class="string">"role"</span>: <span class="string">"user"</span>, <span class="string">"content"</span>: <span class="string">"What is Flash Attention?"</span>},
+]
+
+<span class="comment"># 自动应用模型对应的 chat template</span>
+formatted = tokenizer.apply_chat_template(messages, tokenize=<span class="builtin">False</span>)
+<span class="builtin">print</span>(formatted)
+
+<span class="comment"># tokenize 并准备模型输入</span>
+inputs = tokenizer.apply_chat_template(messages, return_tensors=<span class="string">"pt"</span>)
+</code></pre>
+
+<div class="note">
+<strong>重要</strong>：错误的 chat template 会导致模型输出质量严重下降。每个模型都有其期望的格式，必须严格遵守。使用 <code>tokenizer.apply_chat_template()</code> 是最安全的方式。
+</div>
+</div>
+
+<div class="card">
+<h4>角色划分与 Attention Mask</h4>
+<p>在 chat 场景中，不同角色的 token 可能有不同的 attention 策略：</p>
+<ul style="margin-left: 20px;">
+  <li><strong>System</strong>：全局上下文，所有后续 token 都能 attend 到它</li>
+  <li><strong>User</strong>：用户输入，assistant 生成时需要关注</li>
+  <li><strong>Assistant</strong>：模型输出，训练时只对这部分计算 loss</li>
+</ul>
+<p style="margin-top: 1rem;">在 SFT（Supervised Fine-Tuning）中，通常只对 assistant 部分的 token 计算交叉熵 loss，system 和 user 部分作为 context 但不参与 loss 计算。</p>
+</div>
+</section>
+
+<!-- Exercises -->
+<section id="exercises" class="fade-in">
+<h2>练习题</h2>
+
+<div class="exercise">
+  <div class="exercise-title">练习 1：手动计算 Scaled Dot-Product Attention</div>
+  <p>给定以下矩阵（d<sub>k</sub> = 2）：</p>
+  <pre><code>Q = [[1, 0],     K = [[1, 0],     V = [[1, 0],
+     [0, 1]]         [0, 1],          [0, 1],
+                      [1, 1]]          [1, 1]]</code></pre>
+  <p>请计算 Attention(Q, K, V) 的结果（不使用 causal mask）。</p>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>1. 先计算 QK<sup>T</sup>（2x2 乘 2x3 → 2x3 矩阵）</p>
+      <p>2. 除以 √d<sub>k</sub> = √2 ≈ 1.414</p>
+      <p>3. 对每行做 softmax</p>
+      <p>4. 将 softmax 结果乘以 V</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <p><strong>Step 1: QK<sup>T</sup></strong></p>
+      <pre><code>QK^T = [[1,0], [0,1]] @ [[1,0,1], [0,1,1]]
+     = [[1, 0, 1],
+        [0, 1, 1]]</code></pre>
+
+      <p><strong>Step 2: 缩放 (÷ √2)</strong></p>
+      <pre><code>Scaled = [[0.707, 0,     0.707],
+          [0,     0.707, 0.707]]</code></pre>
+
+      <p><strong>Step 3: Softmax (每行)</strong></p>
+      <pre><code>Row 1: softmax([0.707, 0, 0.707])
+  exp values: [2.028, 1.0, 2.028]
+  sum = 5.056
+  result: [0.401, 0.198, 0.401]
+
+Row 2: softmax([0, 0.707, 0.707])
+  exp values: [1.0, 2.028, 2.028]
+  sum = 5.056
+  result: [0.198, 0.401, 0.401]</code></pre>
+
+      <p><strong>Step 4: 乘以 V</strong></p>
+      <pre><code>Weights @ V = [[0.401, 0.198, 0.401],  @  [[1, 0],
+               [0.198, 0.401, 0.401]]      [0, 1],
+                                            [1, 1]]
+
+Row 1: [0.401*1 + 0.198*0 + 0.401*1, 0.401*0 + 0.198*1 + 0.401*1]
+     = [0.802, 0.599]
+
+Row 2: [0.198*1 + 0.401*0 + 0.401*1, 0.198*0 + 0.401*1 + 0.401*1]
+     = [0.599, 0.802]
+
+最终结果 ≈ [[0.802, 0.599],
+            [0.599, 0.802]]</code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <div class="exercise-title">练习 2：Flash Attention IO 复杂度分析</div>
+  <p>假设序列长度 N=4096，head 维度 d=128，SRAM 大小 M=100KB（可存储约 M/(2 bytes) = 50K 个 FP16 元素）。</p>
+  <ol style="margin-left: 20px;">
+    <li>标准 Attention 的 HBM 读写量是多少？</li>
+    <li>Flash Attention 的 block size 应如何选择？</li>
+    <li>Flash Attention 的 HBM 读写量是多少？节省了多少？</li>
+  </ol>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>标准 Attention 需要：读 Q,K,V (3Nd)，写 S=QK<sup>T</sup> (N<sup>2</sup>)，读 S 做 softmax (N<sup>2</sup>)，写 softmax 结果 (N<sup>2</sup>)，读 softmax 和 V (N<sup>2</sup> + Nd)，写 output (Nd)。</p>
+      <p>Flash Attention 的 block size B<sub>c</sub> ≈ M/(4d)，外循环 N/B<sub>c</sub> 次。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <p><strong>标准 Attention HBM 访问量：</strong></p>
+      <pre><code>Step 1: 读 Q[N,d] + K[N,d]: 2Nd = 2×4096×128 = 1,048,576 元素
+        写 S[N,N] 到 HBM:   N²  = 4096²       = 16,777,216 元素
+Step 2: 读 S[N,N]:           N²  = 16,777,216 元素
+        写 P[N,N] 到 HBM:   N²  = 16,777,216 元素
+Step 3: 读 P[N,N] + V[N,d]: N²+Nd = 16,777,216 + 524,288 = 17,301,504 元素
+        写 O[N,d] 到 HBM:   Nd  = 524,288 元素
+
+汇总:
+  读: 2Nd + N² + (N² + Nd) = 3Nd + 2N² ≈ 35,127,808 元素
+  写: N² + N² + Nd         = 2N² + Nd   ≈ 34,078,720 元素
+  合计: 4N² + 4Nd ≈ 69,206,528 元素 × 2 bytes ≈ 132 MB
+
+注意: V 只在 Step 3 才需要读取, 不是和 Q,K 一起读的!</code></pre>
+
+      <p><strong>Flash Attention 配置：</strong></p>
+      <pre><code>SRAM 容量: M = 50,000 个 FP16 元素
+需要存储: K_block (B_c × d) + V_block (B_c × d) + Q_block (B_r × d) + output (B_r × d)
+Block size: B_c = M / (4d) = 50000 / (4 × 128) ≈ 97
+取 B_c = B_r = 64 (2的幂次，便于对齐)
+
+外循环次数: T_c = N / B_c = 4096 / 64 = 64
+内循环次数: T_r = N / B_r = 4096 / 64 = 64</code></pre>
+
+      <p><strong>Flash Attention HBM 访问量：</strong></p>
+      <pre><code>每次外循环加载 K_block + V_block: 2 × B_c × d = 2 × 64 × 128 = 16,384
+每次内循环加载 Q_block + O_block: 2 × B_r × d = 16,384
+总读写: T_c × (2×B_c×d + T_r × 4×B_r×d)
+      = 64 × (16384 + 64 × 32768)
+      ≈ O(N^2 × d / B_c) = O(N^2 × d^2 / M)
+
+具体: ≈ N^2 × d / B_c = 4096^2 × 128 / 64 ≈ 33,554,432 元素
+相比标准: 33.5M vs 69.7M，节省约 52%
+
+更重要的是: 不需要 O(N^2) 的额外内存存储完整 attention 矩阵！
+标准方法需要 4096^2 × 2 bytes = 32MB 额外内存
+Flash Attention 只需要 O(N) ≈ 几 KB 额外内存</code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <div class="exercise-title">练习 3：估算 KV Cache 内存占用</div>
+  <p>对于以下模型配置，计算 batch_size=32、max_seq_len=8192 时的 KV Cache 内存占用：</p>
+  <ul style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>模型：LLaMA-3-70B</li>
+    <li>层数：80</li>
+    <li>注意力头数：64（使用 GQA，KV heads = 8）</li>
+    <li>Head 维度：128</li>
+    <li>数据类型：FP16（2 bytes per element）</li>
+  </ul>
+  <p>额外思考：如果使用 FP8 量化 KV Cache，能节省多少内存？</p>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>KV Cache 大小 = 2 (K+V) × num_layers × num_kv_heads × head_dim × seq_len × batch_size × dtype_size</p>
+      <p>注意这里用的是 KV heads (8) 而不是 query heads (64)，因为 GQA 中 KV 是共享的。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <pre><code><span class="comment"># KV Cache 内存计算</span>
+
+num_layers = 80
+num_kv_heads = 8       <span class="comment"># GQA: 只有 8 个 KV head</span>
+head_dim = 128
+seq_len = 8192
+batch_size = 32
+dtype_bytes = 2        <span class="comment"># FP16</span>
+
+<span class="comment"># 每个 token 的 KV Cache</span>
+per_token = 2 * num_layers * num_kv_heads * head_dim * dtype_bytes
+<span class="comment"># = 2 × 80 × 8 × 128 × 2 = 327,680 bytes ≈ 320 KB / token</span>
+
+<span class="comment"># 单个请求的 KV Cache</span>
+per_request = per_token * seq_len
+<span class="comment"># = 327,680 × 8192 = 2,684,354,560 bytes ≈ 2.5 GB / request</span>
+
+<span class="comment"># 整个 batch 的 KV Cache</span>
+total = per_request * batch_size
+<span class="comment"># = 2.5 GB × 32 = 80 GB</span>
+
+<span class="comment"># 对比：如果不用 GQA（64 个 KV heads）</span>
+total_mha = total * (64 / 8)
+<span class="comment"># = 80 GB × 8 = 640 GB （不可行！）</span>
+
+<span class="comment"># FP8 量化后</span>
+total_fp8 = total / 2
+<span class="comment"># = 40 GB （节省 50%）</span>
+
+print(f"""
+KV Cache 分析 (LLaMA-3-70B, GQA with 8 KV heads):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+每 token KV Cache: {per_token/1024:.1f} KB
+单请求 (seq=8192): {per_request/1024**3:.2f} GB
+Batch=32 总计:     {total/1024**3:.1f} GB (FP16)
+                   {total_fp8/1024**3:.1f} GB (FP8)
+
+对比 MHA (64 KV heads): {total_mha/1024**3:.0f} GB (不可行)
+GQA 节省:              {(1-8/64)*100:.0f}% 的 KV Cache 内存
+""")</code></pre>
+
+      <p><strong>结论</strong>：</p>
+      <ul style="margin-left: 20px;">
+        <li>GQA (8 KV heads) 使 KV Cache 从 640GB 降至 80GB，节省 87.5%</li>
+        <li>FP8 量化可进一步降至 40GB</li>
+        <li>KV Cache 是 LLM serving 中内存占用的主要来源之一</li>
+        <li>这也是为什么 PagedAttention (vLLM) 等技术很重要——高效管理 KV Cache 内存</li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <div class="exercise-title">练习 4（Bonus）：比较 Prefill 和 Decode 阶段的计算特性</div>
+  <p>解释为什么 Prefill 阶段是 <strong>compute-bound</strong>，而 Decode 阶段是 <strong>memory-bound</strong>。提示：考虑每个阶段的 arithmetic intensity（计算量/内存访问量）。</p>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>Arithmetic Intensity = FLOPs / Bytes Accessed</p>
+      <p>Prefill: 输入是完整 prompt (N tokens)，做的是大矩阵乘法</p>
+      <p>Decode: 输入是 1 个 token，但需要读取整个 KV Cache</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <p><strong>Prefill 阶段（Compute-bound）：</strong></p>
+      <pre><code>输入: N 个 token 同时处理 (如 N=4096)
+设 D = d_model = 4096, num_heads = 32, h = head_dim = D/num_heads = 128
+
+══ 计算 1: QKV 线性投影 (大 GEMM) ══
+  X[N, D] @ W_QKV[D, 3D] → QKV[N, 3D]
+  FLOPs = 2 × N × D × 3D = 6ND²
+        = 6 × 4096 × 4096² ≈ 412 GFLOPs
+  读取 = (X + W) × 2 bytes = (ND + 3D²) × 2 ≈ 128 MB
+  AI = 6ND² / [(ND + 3D²) × 2] = 3ND/(N+3D)
+     ≈ 3×4096×4096 / (4096+12288) ≈ 3072 FLOPs/byte
+
+══ 计算 2: Attention (per head, 共 32 个 head 并行) ══
+  Q_h[N, h] @ K_h^T[h, N] → S[N, N]:   FLOPs = 2N²h per head
+  S[N, N] @ V_h[N, h] → O_h[N, h]:     FLOPs = 2N²h per head
+  所有 head 总计: num_heads × 4N²h = 4N²D
+        = 4 × 4096² × 4096 ≈ 275 GFLOPs
+  读取 = (Q + K + V) × 2 bytes = 3ND × 2 ≈ 96 MB  (忽略中间 S, 用 Flash Attention)
+  AI = 4N²D / (3ND × 2) = 2N/3 ≈ 2730 FLOPs/byte
+
+══ 汇总 ══
+  总 FLOPs ≈ 412 + 275 ≈ 687 GFLOPs
+  两部分 AI 都 >> 295 (H100 计算带宽比)
+  → <strong>Compute-bound ✓</strong>  GPU 算力是瓶颈</code></pre>
+
+      <p><strong>Decode 阶段（Memory-bound）：</strong></p>
+      <pre><code>输入: 仅 1 个新 token, 但需读取整个 KV Cache
+设已生成 N 个 token, D = 4096, h = 128
+
+主要计算: Attention (q × K_cache^T → scores → × V_cache)
+  q: [1, h],  K_cache: [N, h],  V_cache: [N, h]  (单个 head)
+  FLOPs = 2 × 1 × h × N + 2 × 1 × N × h = 4Nh
+        = 4 × 4096 × 128 ≈ 2M FLOPs (per head)
+        × num_heads = 32 → 总计 ≈ 67M FLOPs
+
+  读取 bytes = KV Cache = 2 × N × h × num_heads × 2 bytes
+             = 2 × 4096 × 128 × 32 × 2 ≈ 64 MB
+
+Arithmetic Intensity = 67M FLOPs / 64 MB ≈ 1.05 FLOPs/byte
+
+Roofline 判断:
+  AI (1.05) << 295 (H100 计算/带宽比) → <strong>Memory-bound ✓</strong>
+  GPU 大部分时间在等 HBM 把 KV Cache 读上来, 计算单元空闲
+
+结论: Prefill AI ≈ 3000, Decode AI ≈ 1
+      差了 3000 倍! 这就是为什么需要分开调度。</code></pre>
+
+      <p><strong>实际影响</strong>：这就是为什么 LLM serving 系统会区分 prefill 和 decode，可能将它们分配到不同的硬件或使用不同的批处理策略（如 continuous batching、chunked prefill）。</p>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <div class="exercise-title">Coding Exercise A：实现 Multi-Head Attention (from scratch)</div>
+  <p>不使用 <code>nn.MultiheadAttention</code>，从零实现 Multi-Head Attention 模块。要求实现 split heads、scaled dot-product attention、concat 和 output projection，并验证输出与 PyTorch 官方实现一致。</p>
+
+  <h4 style="margin-top: 1rem;">要求</h4>
+  <ul style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>输入: <code>x [batch, seq_len, d_model]</code>，输出: <code>[batch, seq_len, d_model]</code></li>
+    <li>实现完整的 Q, K, V 投影 → split heads → scaled dot-product attention → concat → output projection</li>
+    <li>支持 causal mask（用于 decoder-style attention）</li>
+    <li>与 <code>torch.nn.MultiheadAttention</code> 对比输出，验证数值一致（误差 &lt; 1e-5）</li>
+  </ul>
+
+  <h4>起始代码模板</h4>
+  <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+<span class="keyword">import</span> math
+
+<span class="keyword">class</span> <span class="function">MyMultiHeadAttention</span>(nn.Module):
+    <span class="string">"""从零实现 Multi-Head Attention"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, d_model, num_heads):
+        <span class="builtin">super</span>().__init__()
+        <span class="keyword">assert</span> d_model % num_heads == <span class="number">0</span>
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+
+        <span class="comment"># TODO: 定义 Q, K, V 的线性投影层</span>
+        <span class="comment"># self.W_q = ...</span>
+        <span class="comment"># self.W_k = ...</span>
+        <span class="comment"># self.W_v = ...</span>
+        <span class="comment"># self.W_o = ...</span>
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x, causal_mask=<span class="builtin">False</span>):
+        <span class="string">"""
+        Args:
+            x: (batch, seq_len, d_model)
+            causal_mask: 是否应用 causal mask
+        Returns:
+            output: (batch, seq_len, d_model)
+        """</span>
+        B, N, D = x.shape
+
+        <span class="comment"># TODO Step 1: 线性投影得到 Q, K, V (each: [B, N, d_model])</span>
+
+        <span class="comment"># TODO Step 2: 拆分为多个 head</span>
+        <span class="comment"># reshape 为 [B, num_heads, N, head_dim]</span>
+
+        <span class="comment"># TODO Step 3: 计算 scaled dot-product attention</span>
+        <span class="comment"># scores = Q @ K^T / sqrt(head_dim)</span>
+        <span class="comment"># 如果 causal_mask=True, 应用下三角 mask</span>
+        <span class="comment"># attention_weights = softmax(scores)</span>
+        <span class="comment"># attention_output = weights @ V</span>
+
+        <span class="comment"># TODO Step 4: 合并所有 head (concat)</span>
+        <span class="comment"># reshape 回 [B, N, d_model]</span>
+
+        <span class="comment"># TODO Step 5: 输出投影</span>
+        <span class="comment"># output = self.W_o(concatenated)</span>
+
+        <span class="keyword">return</span> output
+
+
+<span class="comment"># ===== 验证代码 =====</span>
+<span class="keyword">def</span> <span class="function">verify_implementation</span>():
+    <span class="string">"""验证自己的实现和 PyTorch 官方实现输出一致"""</span>
+    torch.manual_seed(<span class="number">42</span>)
+    d_model, num_heads = <span class="number">64</span>, <span class="number">8</span>
+    batch_size, seq_len = <span class="number">2</span>, <span class="number">10</span>
+
+    <span class="comment"># 创建输入</span>
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    <span class="comment"># 你的实现</span>
+    my_mha = MyMultiHeadAttention(d_model, num_heads)
+
+    <span class="comment"># PyTorch 官方实现</span>
+    official_mha = nn.MultiheadAttention(d_model, num_heads, batch_first=<span class="builtin">True</span>)
+
+    <span class="comment"># TODO: 将你的权重复制到官方实现中 (确保参数一致)</span>
+    <span class="comment"># 然后对比输出是否一致</span>
+
+    <span class="builtin">print</span>(<span class="string">"验证完成!"</span>)
+
+verify_implementation()
+</code></pre>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>1. 注意 <code>nn.MultiheadAttention</code> 的 <code>in_proj_weight</code> 是将 Q, K, V 的权重拼在一起的（shape 为 <code>[3*d_model, d_model]</code>）。验证时需要将你的 W_q, W_k, W_v 的权重 concat 后赋值过去。</p>
+      <p>2. Split heads 的关键操作是 <code>reshape(B, N, num_heads, head_dim).transpose(1, 2)</code>，得到 <code>[B, num_heads, N, head_dim]</code>。</p>
+      <p>3. Causal mask 用 <code>torch.triu(torch.ones(N, N), diagonal=1).bool()</code> 生成上三角 mask，然后用 <code>masked_fill</code> 填充 <code>-inf</code>。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+<span class="keyword">import</span> math
+
+<span class="keyword">class</span> <span class="function">MyMultiHeadAttention</span>(nn.Module):
+    <span class="string">"""从零实现 Multi-Head Attention"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, d_model, num_heads):
+        <span class="builtin">super</span>().__init__()
+        <span class="keyword">assert</span> d_model % num_heads == <span class="number">0</span>
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+
+        <span class="comment"># Q, K, V 线性投影</span>
+        self.W_q = nn.Linear(d_model, d_model, bias=<span class="builtin">True</span>)
+        self.W_k = nn.Linear(d_model, d_model, bias=<span class="builtin">True</span>)
+        self.W_v = nn.Linear(d_model, d_model, bias=<span class="builtin">True</span>)
+        <span class="comment"># 输出投影</span>
+        self.W_o = nn.Linear(d_model, d_model, bias=<span class="builtin">True</span>)
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x, causal_mask=<span class="builtin">False</span>):
+        B, N, D = x.shape
+
+        <span class="comment"># Step 1: 线性投影</span>
+        Q = self.W_q(x)  <span class="comment"># [B, N, d_model]</span>
+        K = self.W_k(x)
+        V = self.W_v(x)
+
+        <span class="comment"># Step 2: 拆分为多个 head [B, N, d_model] → [B, num_heads, N, head_dim]</span>
+        Q = Q.view(B, N, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        K = K.view(B, N, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        V = V.view(B, N, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+
+        <span class="comment"># Step 3: Scaled Dot-Product Attention</span>
+        scores = torch.matmul(Q, K.transpose(-<span class="number">2</span>, -<span class="number">1</span>)) / math.sqrt(self.head_dim)
+        <span class="comment"># scores shape: [B, num_heads, N, N]</span>
+
+        <span class="keyword">if</span> causal_mask:
+            <span class="comment"># 上三角为 True 的 mask</span>
+            mask = torch.triu(torch.ones(N, N, device=x.device), diagonal=<span class="number">1</span>).bool()
+            scores = scores.masked_fill(mask, <span class="builtin">float</span>(<span class="string">'-inf'</span>))
+
+        attention_weights = F.softmax(scores, dim=-<span class="number">1</span>)
+        attention_output = torch.matmul(attention_weights, V)
+        <span class="comment"># attention_output shape: [B, num_heads, N, head_dim]</span>
+
+        <span class="comment"># Step 4: Concat heads → [B, N, d_model]</span>
+        output = attention_output.transpose(<span class="number">1</span>, <span class="number">2</span>).contiguous().view(B, N, D)
+
+        <span class="comment"># Step 5: 输出投影</span>
+        output = self.W_o(output)
+
+        <span class="keyword">return</span> output
+
+
+<span class="keyword">def</span> <span class="function">verify_implementation</span>():
+    <span class="string">"""验证与 PyTorch 官方 MHA 输出一致"""</span>
+    torch.manual_seed(<span class="number">42</span>)
+    d_model, num_heads = <span class="number">64</span>, <span class="number">8</span>
+    batch_size, seq_len = <span class="number">2</span>, <span class="number">10</span>
+
+    x = torch.randn(batch_size, seq_len, d_model)
+
+    <span class="comment"># 初始化自己的实现</span>
+    my_mha = MyMultiHeadAttention(d_model, num_heads)
+    my_mha.eval()
+
+    <span class="comment"># 初始化官方实现，并同步权重</span>
+    official_mha = nn.MultiheadAttention(d_model, num_heads, batch_first=<span class="builtin">True</span>)
+    official_mha.eval()
+
+    <span class="comment"># 同步权重: nn.MultiheadAttention 的 in_proj_weight = [W_q; W_k; W_v]</span>
+    <span class="keyword">with</span> torch.no_grad():
+        official_mha.in_proj_weight.copy_(
+            torch.cat([my_mha.W_q.weight, my_mha.W_k.weight, my_mha.W_v.weight], dim=<span class="number">0</span>)
+        )
+        official_mha.in_proj_bias.copy_(
+            torch.cat([my_mha.W_q.bias, my_mha.W_k.bias, my_mha.W_v.bias], dim=<span class="number">0</span>)
+        )
+        official_mha.out_proj.weight.copy_(my_mha.W_o.weight)
+        official_mha.out_proj.bias.copy_(my_mha.W_o.bias)
+
+    <span class="comment"># 前向计算</span>
+    <span class="keyword">with</span> torch.no_grad():
+        my_output = my_mha(x, causal_mask=<span class="builtin">False</span>)
+        <span class="comment"># 官方实现: self-attention 时 q=k=v=x</span>
+        official_output, _ = official_mha(x, x, x)
+
+    <span class="comment"># 对比</span>
+    max_diff = (my_output - official_output).abs().max().item()
+    <span class="builtin">print</span>(f<span class="string">"最大差异: {max_diff:.2e}"</span>)
+    <span class="keyword">assert</span> max_diff &lt; <span class="number">1e-5</span>, f<span class="string">"差异过大: {max_diff}"</span>
+    <span class="builtin">print</span>(<span class="string">"✓ 验证通过! 自定义实现与 PyTorch 官方 MHA 输出一致。"</span>)
+
+verify_implementation()</code></pre>
+
+      <p><strong>预期输出：</strong></p>
+      <pre><code>最大差异: 0.00e+00
+✓ 验证通过! 自定义实现与 PyTorch 官方 MHA 输出一致。</code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <div class="exercise-title">Coding Exercise B：实现 KV Cache 的增量 Decode</div>
+  <p>实现一个支持 KV Cache 的 <code>generate</code> 函数，包含 prefill 阶段（处理完整 prompt）和 decode 阶段（逐 token 生成）。验证有 cache 和无 cache 的输出完全一致，并展示加速效果。</p>
+
+  <h4 style="margin-top: 1rem;">要求</h4>
+  <ul style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>实现 prefill 阶段：一次性处理完整 prompt，建立初始 KV Cache</li>
+    <li>实现 decode 阶段：逐 token 生成，每步只计算新 token 的 Q，复用 cached K, V</li>
+    <li>实现无 cache 的 baseline（每步重新计算完整 attention）</li>
+    <li>验证两者输出完全一致（bit-identical）</li>
+    <li>用 <code>time.time()</code> 展示加速效果</li>
+  </ul>
+
+  <h4>起始代码模板</h4>
+  <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+<span class="keyword">import</span> time
+
+<span class="keyword">class</span> <span class="function">SimpleTransformerLayer</span>(nn.Module):
+    <span class="string">"""简化的 Transformer layer (只有 attention, 没有 FFN)"""</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, d_model, num_heads):
+        <span class="builtin">super</span>().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+        self.W_q = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_k = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_v = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_o = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x, kv_cache=<span class="builtin">None</span>):
+        <span class="string">"""
+        Args:
+            x: (batch, seq_len, d_model) - 新 token(s) 的 embedding
+            kv_cache: None 或 (k_cache, v_cache)，每个 shape (batch, num_heads, past_len, head_dim)
+        Returns:
+            output: (batch, seq_len, d_model)
+            new_kv_cache: (k_cache, v_cache) 更新后的 cache
+        """</span>
+        <span class="comment"># TODO: 实现带 KV Cache 的 attention forward</span>
+        <span class="keyword">pass</span>
+
+
+<span class="keyword">def</span> <span class="function">generate_with_cache</span>(model, prompt_embeddings, num_new_tokens):
+    <span class="string">"""
+    使用 KV Cache 生成 tokens
+
+    Args:
+        model: SimpleTransformerLayer
+        prompt_embeddings: (1, prompt_len, d_model)
+        num_new_tokens: 要生成的 token 数量
+    Returns:
+        all_outputs: 所有步骤的输出拼接
+    """</span>
+    <span class="comment"># TODO: 实现 prefill + decode with cache</span>
+    <span class="keyword">pass</span>
+
+
+<span class="keyword">def</span> <span class="function">generate_without_cache</span>(model, prompt_embeddings, num_new_tokens):
+    <span class="string">"""
+    不使用 KV Cache 生成 tokens (每步重新计算完整 attention)
+
+    Args:
+        model: SimpleTransformerLayer
+        prompt_embeddings: (1, prompt_len, d_model)
+        num_new_tokens: 要生成的 token 数量
+    Returns:
+        all_outputs: 所有步骤的输出拼接
+    """</span>
+    <span class="comment"># TODO: 实现无 cache 的 baseline</span>
+    <span class="keyword">pass</span>
+
+
+<span class="comment"># ===== 验证 + 计时 =====</span>
+torch.manual_seed(<span class="number">42</span>)
+d_model, num_heads = <span class="number">256</span>, <span class="number">8</span>
+prompt_len, gen_len = <span class="number">64</span>, <span class="number">32</span>
+
+model = SimpleTransformerLayer(d_model, num_heads)
+model.eval()
+
+prompt = torch.randn(<span class="number">1</span>, prompt_len, d_model)
+
+<span class="comment"># TODO: 比较输出 + 计时</span>
+</code></pre>
+
+  <details>
+    <summary>提示</summary>
+    <div class="solution">
+      <p>1. <strong>Prefill 阶段</strong>：将完整 prompt 一次性通过 model，得到输出和初始 KV Cache。初始 cache 的 K/V shape 为 <code>[B, num_heads, prompt_len, head_dim]</code>。</p>
+      <p>2. <strong>Decode 阶段</strong>：每步只输入最后一个 token 的输出（<code>seq_len=1</code>），但 attention 会对整个 cache（包含所有历史 K, V）做 dot product。新的 k, v 追加到 cache 末尾。</p>
+      <p>3. <strong>无 cache baseline</strong>：每生成一个新 token，把所有已生成的 token 拼接起来，重新跑整个序列的 attention。这样每步计算量是 O(seq^2)，很慢但结果正确。</p>
+      <p>4. 注意 causal mask：有 cache 时，新 token 的 Q 只有 1 行，它可以 attend 到所有 past tokens，所以不需要额外 mask。无 cache 时需要下三角 mask。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>完整解答</summary>
+    <div class="solution">
+      <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+<span class="keyword">import</span> math
+<span class="keyword">import</span> time
+
+<span class="keyword">class</span> <span class="function">SimpleTransformerLayer</span>(nn.Module):
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, d_model, num_heads):
+        <span class="builtin">super</span>().__init__()
+        self.d_model = d_model
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+        self.W_q = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_k = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_v = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+        self.W_o = nn.Linear(d_model, d_model, bias=<span class="builtin">False</span>)
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x, kv_cache=<span class="builtin">None</span>):
+        B, L, _ = x.shape
+
+        <span class="comment"># 投影</span>
+        q = self.W_q(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        k = self.W_k(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+        v = self.W_v(x).view(B, L, self.num_heads, self.head_dim).transpose(<span class="number">1</span>, <span class="number">2</span>)
+
+        <span class="comment"># 拼接 KV Cache</span>
+        <span class="keyword">if</span> kv_cache <span class="keyword">is not</span> <span class="builtin">None</span>:
+            k_cache, v_cache = kv_cache
+            k = torch.cat([k_cache, k], dim=<span class="number">2</span>)  <span class="comment"># [B, H, past+L, D]</span>
+            v = torch.cat([v_cache, v], dim=<span class="number">2</span>)
+        new_kv_cache = (k.detach(), v.detach())
+
+        <span class="comment"># Attention</span>
+        total_len = k.size(<span class="number">2</span>)
+        scores = torch.matmul(q, k.transpose(-<span class="number">2</span>, -<span class="number">1</span>)) / math.sqrt(self.head_dim)
+
+        <span class="comment"># Causal mask: q 的位置 i 只能看 k 的位置 0..i</span>
+        <span class="keyword">if</span> L > <span class="number">1</span>:
+            <span class="comment"># Prefill: 需要完整的 causal mask</span>
+            mask = torch.triu(torch.ones(L, total_len, device=x.device), diagonal=total_len - L + <span class="number">1</span>).bool()
+            scores = scores.masked_fill(mask, <span class="builtin">float</span>(<span class="string">'-inf'</span>))
+        <span class="comment"># Decode (L=1): 新 token 可以看所有过去的 token, 无需 mask</span>
+
+        attn = F.softmax(scores, dim=-<span class="number">1</span>)
+        out = torch.matmul(attn, v)
+
+        <span class="comment"># 合并 head + 输出投影</span>
+        out = out.transpose(<span class="number">1</span>, <span class="number">2</span>).contiguous().view(B, L, self.d_model)
+        out = self.W_o(out)
+        <span class="keyword">return</span> out, new_kv_cache
+
+
+<span class="keyword">def</span> <span class="function">generate_with_cache</span>(model, prompt_embeddings, num_new_tokens):
+    <span class="string">"""使用 KV Cache 的生成"""</span>
+    outputs = []
+
+    <span class="comment"># Prefill: 处理完整 prompt</span>
+    <span class="keyword">with</span> torch.no_grad():
+        out, kv_cache = model(prompt_embeddings, kv_cache=<span class="builtin">None</span>)
+        outputs.append(out)
+        <span class="comment"># 取最后一个 token 的输出作为下一步输入</span>
+        next_input = out[:, -<span class="number">1</span>:, :]  <span class="comment"># [1, 1, d_model]</span>
+
+    <span class="comment"># Decode: 逐 token 生成</span>
+    <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="builtin">range</span>(num_new_tokens - <span class="number">1</span>):
+        <span class="keyword">with</span> torch.no_grad():
+            out, kv_cache = model(next_input, kv_cache=kv_cache)
+            outputs.append(out)
+            next_input = out  <span class="comment"># [1, 1, d_model]</span>
+
+    <span class="keyword">return</span> outputs
+
+
+<span class="keyword">def</span> <span class="function">generate_without_cache</span>(model, prompt_embeddings, num_new_tokens):
+    <span class="string">"""无 KV Cache 的生成 (每步重算)"""</span>
+    outputs = []
+    all_embeddings = prompt_embeddings.clone()
+
+    <span class="keyword">for</span> step <span class="keyword">in</span> <span class="builtin">range</span>(num_new_tokens):
+        <span class="keyword">with</span> torch.no_grad():
+            <span class="comment"># 每次传入完整序列, 不用 cache</span>
+            out, _ = model(all_embeddings, kv_cache=<span class="builtin">None</span>)
+            <span class="comment"># 取最后一个 token 的输出</span>
+            last_out = out[:, -<span class="number">1</span>:, :]
+            outputs.append(last_out)
+            <span class="comment"># 将新输出拼接到序列末尾</span>
+            all_embeddings = torch.cat([all_embeddings, last_out], dim=<span class="number">1</span>)
+
+    <span class="keyword">return</span> outputs
+
+
+<span class="comment"># ===== 验证 + 计时 =====</span>
+torch.manual_seed(<span class="number">42</span>)
+d_model, num_heads = <span class="number">256</span>, <span class="number">8</span>
+prompt_len, gen_len = <span class="number">64</span>, <span class="number">32</span>
+
+model = SimpleTransformerLayer(d_model, num_heads)
+model.eval()
+
+prompt = torch.randn(<span class="number">1</span>, prompt_len, d_model)
+
+<span class="comment"># --- 带 Cache ---</span>
+t0 = time.time()
+cached_outputs = generate_with_cache(model, prompt, gen_len)
+t_cache = time.time() - t0
+
+<span class="comment"># --- 不带 Cache ---</span>
+t0 = time.time()
+nocache_outputs = generate_without_cache(model, prompt, gen_len)
+t_nocache = time.time() - t0
+
+<span class="comment"># --- 验证结果一致性 ---</span>
+<span class="comment"># cached_outputs[0] 是 prefill 输出 [1, prompt_len, d_model]</span>
+<span class="comment"># cached_outputs[1:] 是 decode 输出, 每个 [1, 1, d_model]</span>
+<span class="comment"># nocache_outputs[i] 对应第 i 步生成的最后一个 token 输出 [1, 1, d_model]</span>
+
+<span class="comment"># 对比 decode 阶段的输出</span>
+<span class="builtin">print</span>(<span class="string">"验证输出一致性:"</span>)
+all_match = <span class="builtin">True</span>
+<span class="keyword">for</span> i <span class="keyword">in</span> <span class="builtin">range</span>(gen_len - <span class="number">1</span>):
+    cached_out = cached_outputs[i + <span class="number">1</span>]  <span class="comment"># decode 输出</span>
+    nocache_out = nocache_outputs[i + <span class="number">1</span>]  <span class="comment"># 无 cache 对应步骤</span>
+    max_diff = (cached_out - nocache_out).abs().max().item()
+    <span class="keyword">if</span> max_diff > <span class="number">1e-5</span>:
+        <span class="builtin">print</span>(f<span class="string">"  Step {i+1}: 不一致! max_diff = {max_diff:.2e}"</span>)
+        all_match = <span class="builtin">False</span>
+
+<span class="keyword">if</span> all_match:
+    <span class="builtin">print</span>(f<span class="string">"  ✓ 所有 {gen_len} 步输出完全一致!"</span>)
+
+<span class="builtin">print</span>(f<span class="string">"\n计时对比 (prompt_len={prompt_len}, gen_len={gen_len}):"</span>)
+<span class="builtin">print</span>(f<span class="string">"  有 KV Cache: {t_cache*1000:.2f} ms"</span>)
+<span class="builtin">print</span>(f<span class="string">"  无 KV Cache: {t_nocache*1000:.2f} ms"</span>)
+<span class="builtin">print</span>(f<span class="string">"  加速比: {t_nocache/t_cache:.2f}x"</span>)</code></pre>
+
+      <p><strong>预期输出（CPU 上，数值会略有不同）：</strong></p>
+      <pre><code>验证输出一致性:
+  ✓ 所有 32 步输出完全一致!
+
+计时对比 (prompt_len=64, gen_len=32):
+  有 KV Cache: 12.45 ms
+  无 KV Cache: 38.72 ms
+  加速比: 3.11x</code></pre>
+
+      <p><strong>解读：</strong></p>
+      <ul style="margin-left: 20px;">
+        <li>无 cache 时，每步都要对完整序列（prompt + 已生成）做 O(seq^2) 的 attention，总计算量是 O(gen_len * (prompt + gen_len)^2)</li>
+        <li>有 cache 时，每步只需计算新 token 的 Q 与所有 cached K 的 dot product，计算量是 O(prompt + gen_len)，总计算量 O(gen_len * (prompt + gen_len))</li>
+        <li>加速比随序列长度增长而增大 — 在实际 LLM (seq_len=4096+) 中可达 10-50x</li>
+      </ul>
+    </div>
+  </details>
+</div>
+
+</section>
+
+<!-- Summary -->
+<div class="card fade-in" style="margin-top: 40px; border-color: #76b900;">
+  <h3 style="margin-top: 0;">本章小结</h3>
+  <ul style="margin-left: 20px;">
+    <li><strong>Self-Attention</strong> 通过 Q, K, V 矩阵乘法实现 token 间的信息交互</li>
+    <li><strong>Multi-Head Attention</strong> 将注意力拆分到多个子空间，增强表达能力</li>
+    <li><strong>Flash Attention</strong> 通过 tiling + 在线 softmax 减少 HBM 访问，是 IO-aware 的精确算法</li>
+    <li><strong>KV Cache</strong> 通过缓存已计算的 K, V 避免 decode 阶段的重复计算</li>
+    <li><strong>Chat Templates</strong> 定义了多轮对话的 token 化格式，对模型输出质量至关重要</li>
+  </ul>
+  <p style="margin-top: 1rem; color: #888;">下一章将深入探讨 LLM 的推理优化技术，包括量化、投机解码和 Continuous Batching。</p>
+</div>
+
+<script>
+// ========== Scroll-triggered animations ==========
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// ========== Progress bar ==========
+window.addEventListener('scroll', () => {
+  const scrollTop = document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = (scrollTop / scrollHeight) * 100;
+  document.getElementById('progressBar').style.width = progress + '%';
+});
+
+// ========== Demo 1: Attention Matrix Computation ==========
+const attentionDemo = (() => {
+  const Q = [[1, 0.5], [0.3, 1]];
+  const K = [[1, 0], [0, 1], [0.5, 0.5]];
+  const V = [[1, 0], [0, 1], [1, 1]];
+  let currentStep = 0;
+  const steps = [
+    'Step 0: 初始矩阵 Q (2x2), K (3x2), V (3x2)',
+    'Step 1: 计算 QK^T → Scores (2x3)',
+    'Step 2: 缩放 Scores / √d_k (d_k=2, √2≈1.41)',
+    'Step 3: Softmax (每行归一化)',
+    'Step 4: Attention Weights × V → Output (2x2)'
+  ];
+
+  function matMul(A, B_T) {
+    const rows = A.length, cols = B_T.length;
+    const result = [];
+    for (let i = 0; i < rows; i++) {
+      result[i] = [];
+      for (let j = 0; j < cols; j++) {
+        let sum = 0;
+        for (let k = 0; k < A[0].length; k++) {
+          sum += A[i][k] * B_T[j][k];
+        }
+        result[i][j] = sum;
+      }
+    }
+    return result;
+  }
+
+  function softmax(row) {
+    const max = Math.max(...row);
+    const exps = row.map(x => Math.exp(x - max));
+    const sum = exps.reduce((a, b) => a + b, 0);
+    return exps.map(x => x / sum);
+  }
+
+  function renderMatrix(data, label, className) {
+    const rows = data.length;
+    const cols = data[0].length;
+    let html = `<div style="display:inline-block; margin: 5px 10px; vertical-align: top;">`;
+    html += `<div class="matrix-label">${label}</div>`;
+    html += `<div class="matrix-grid" style="grid-template-columns: repeat(${cols}, 40px);">`;
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        const val = typeof data[i][j] === 'number' ? data[i][j].toFixed(2) : data[i][j];
+        html += `<div class="matrix-cell ${className}">${val}</div>`;
+      }
+    }
+    html += `</div></div>`;
+    return html;
+  }
+
+  function render() {
+    const container = document.getElementById('attention-matrices');
+    const info = document.getElementById('attention-step-info');
+    info.textContent = steps[currentStep] || '';
+
+    let html = '';
+    if (currentStep >= 0) {
+      html += renderMatrix(Q, 'Q (2×2)', '');
+      html += renderMatrix(K, 'K (3×2)', '');
+      html += renderMatrix(V, 'V (3×2)', '');
+    }
+    if (currentStep >= 1) {
+      const scores = matMul(Q, K);
+      html += `<div style="display:inline-block; margin: 5px; vertical-align:top; padding-top:30px; color:#76b900;">→</div>`;
+      html += renderMatrix(scores, 'QK<sup>T</sup> (2×3)', 'highlight');
+    }
+    if (currentStep >= 2) {
+      const scores = matMul(Q, K);
+      const scaled = scores.map(row => row.map(x => x / Math.sqrt(2)));
+      html += renderMatrix(scaled, 'Scaled (÷√2)', 'highlight');
+    }
+    if (currentStep >= 3) {
+      const scores = matMul(Q, K);
+      const scaled = scores.map(row => row.map(x => x / Math.sqrt(2)));
+      const sm = scaled.map(row => softmax(row));
+      html += renderMatrix(sm, 'Softmax', 'highlight');
+    }
+    if (currentStep >= 4) {
+      const scores = matMul(Q, K);
+      const scaled = scores.map(row => row.map(x => x / Math.sqrt(2)));
+      const sm = scaled.map(row => softmax(row));
+      // sm (2x3) * V (3x2)
+      const output = [];
+      for (let i = 0; i < 2; i++) {
+        output[i] = [];
+        for (let j = 0; j < 2; j++) {
+          let sum = 0;
+          for (let k = 0; k < 3; k++) {
+            sum += sm[i][k] * V[k][j];
+          }
+          output[i][j] = sum;
+        }
+      }
+      html += `<div style="display:inline-block; margin: 5px; vertical-align:top; padding-top:30px; color:#00d4aa;">→</div>`;
+      html += renderMatrix(output, 'Output (2×2)', 'result');
+    }
+    container.innerHTML = html;
+  }
+
+  return {
+    start() { currentStep = 0; render(); this._interval = setInterval(() => { if (currentStep < 4) { currentStep++; render(); } else { clearInterval(this._interval); } }, 1200); },
+    step() { if (currentStep < 4) { currentStep++; render(); } },
+    reset() { clearInterval(this._interval); currentStep = 0; render(); }
+  };
+})();
+attentionDemo.reset();
+
+// ========== Demo 2: Multi-Head Split Animation ==========
+const multiHeadDemo = (() => {
+  let animating = false;
+
+  function render(phase) {
+    const input = document.getElementById('mh-input');
+    const heads = document.getElementById('mh-heads');
+    const output = document.getElementById('mh-output');
+    const info = document.getElementById('multihead-step-info');
+
+    if (phase === 0) {
+      info.textContent = '输入 tensor: shape (batch, seq_len, d_model=512)';
+      input.innerHTML = `<div class="head-block tensor-full" style="animation: fadeScale 0.5s ease;">Input: (B, N, 512)</div>`;
+      heads.innerHTML = '';
+      output.innerHTML = '';
+    } else if (phase === 1) {
+      info.textContent = 'Step 1: 线性投影后拆分为 8 个 head，每个 head 维度 = 64';
+      const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0'];
+      let headHtml = '';
+      for (let i = 0; i < 8; i++) {
+        headHtml += `<div class="head-block tensor-head" style="background:${colors[i]}; animation: slideIn 0.3s ease ${i * 0.1}s both;">Head ${i}<br><span style="font-size:0.7rem;">(B,N,64)</span></div>`;
+      }
+      heads.innerHTML = headHtml;
+    } else if (phase === 2) {
+      info.textContent = 'Step 2: 每个 head 独立计算 Attention（可并行）';
+      const colors = ['#ff6b6b', '#feca57', '#48dbfb', '#ff9ff3', '#54a0ff', '#5f27cd', '#01a3a4', '#f368e0'];
+      let headHtml = '';
+      for (let i = 0; i < 8; i++) {
+        headHtml += `<div class="head-block tensor-head" style="background:${colors[i]}; border: 2px solid #fff; animation: pulse 0.5s ease infinite ${i * 0.1}s;">Attn ${i}<br><span style="font-size:0.7rem;">QK<sup>T</sup>V</span></div>`;
+      }
+      heads.innerHTML = headHtml;
+    } else if (phase === 3) {
+      info.textContent = 'Step 3: Concat 所有 head 输出，通过 W_O 投影回 d_model 维度';
+      heads.innerHTML = `<div style="display:flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap;">
+        <span style="color:#888;">Concat →</span>
+        <div class="head-block" style="background: linear-gradient(90deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3, #54a0ff, #5f27cd, #01a3a4, #f368e0); color:#000; min-width:200px; animation: fadeScale 0.5s ease;">(B, N, 512)</div>
+        <span style="color:#888;">→ W<sup>O</sup></span>
+      </div>`;
+      output.innerHTML = `<div class="head-block tensor-full" style="animation: fadeScale 0.5s ease 0.3s both;">Output: (B, N, 512)</div>`;
+    }
+  }
+
+  return {
+    start() {
+      if (animating) return;
+      animating = true;
+      let phase = 0;
+      render(phase);
+      const iv = setInterval(() => {
+        phase++;
+        if (phase > 3) { clearInterval(iv); animating = false; return; }
+        render(phase);
+      }, 1500);
+    },
+    reset() { animating = false; render(0); }
+  };
+})();
+multiHeadDemo.reset();
+
+// ========== Demo 3: Flash Attention Block Matrix Visualization ==========
+const flashDemo = (() => {
+  const N = 8, d = 4, Br = 2, Bc = 2;
+  const Tr = N / Br, Tc = N / Bc; // 4 blocks each
+  let currentStep = 0;
+  // Total steps: 0 (init) + Tc*Tr (16 compute steps) + 1 (done) = 18
+  const totalSteps = Tc * Tr + 1;
+  let scoreCells = [];
+
+  const colors = {
+    q: '#2196f3', k: '#4caf50', v: '#ff9800', o: '#9c27b0',
+    active: '#76b900', computed: '#00d4aa', dim: '#1a1a2e', border: '#333'
+  };
+
+  function makeGrid(containerId, rows, cols) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    const cells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:2px;font-size:0.55rem;transition:all 0.3s;background:#1a1a2e;border:1px solid #2a2a3e;';
+        el.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+    return cells;
+  }
+
+  function highlightBlock(cells, cols, rowStart, rowEnd, colStart, colEnd, color, borderColor) {
+    for (let r = rowStart; r < rowEnd; r++) {
+      for (let c = colStart; c < colEnd; c++) {
+        const idx = r * cols + c;
+        if (idx < cells.length) {
+          cells[idx].style.background = color;
+          cells[idx].style.borderColor = borderColor;
+        }
+      }
+    }
+  }
+
+  function dimAll(cells) {
+    cells.forEach(c => { c.style.background = '#1a1a2e'; c.style.borderColor = '#2a2a3e'; c.textContent = ''; });
+  }
+
+  let qCells, kCells, vCells, oCells;
+
+  function init() {
+    qCells = makeGrid('flash-q-matrix', N, d);    // Q: N rows × d cols
+    kCells = makeGrid('flash-k-matrix', d, N);    // K^T: d rows × N cols (transposed!)
+    vCells = makeGrid('flash-v-matrix', N, d);
+    oCells = makeGrid('flash-o-matrix', N, d);
+    // Score grid
+    const sg = document.getElementById('flash-grid');
+    sg.innerHTML = '';
+    scoreCells = [];
+    for (let i = 0; i < N * N; i++) {
+      const cell = document.createElement('div');
+      cell.style.cssText = 'width:22px;height:22px;border-radius:2px;transition:all 0.3s;background:#111;border:1px solid #222;';
+      sg.appendChild(cell);
+      scoreCells.push(cell);
+    }
+    currentStep = 0;
+    renderStep();
+  }
+
+  function getBlockIndices(step) {
+    // step 1..16 → j (KV outer), i (Q inner)
+    const s = step - 1;
+    const j = Math.floor(s / Tr); // outer: KV block index
+    const i = s % Tr;             // inner: Q block index
+    return { i, j };
+  }
+
+  function renderStep() {
+    // Reset all highlights
+    dimAll(qCells); dimAll(kCells); dimAll(vCells);
+
+    // Score grid: mark previously computed blocks
+    scoreCells.forEach(c => { c.style.background = '#111'; c.style.borderColor = '#222'; });
+    for (let s = 1; s < currentStep && s <= Tc * Tr; s++) {
+      const { i, j } = getBlockIndices(s);
+      for (let r = i * Br; r < (i + 1) * Br; r++) {
+        for (let c = j * Bc; c < (j + 1) * Bc; c++) {
+          scoreCells[r * N + c].style.background = '#00d4aa33';
+          scoreCells[r * N + c].style.borderColor = '#00d4aa55';
+        }
+      }
+    }
+
+    // O matrix: show which rows have been partially accumulated
+    dimAll(oCells);
+    if (currentStep > 0) {
+      for (let s = 1; s <= Math.min(currentStep, Tc * Tr); s++) {
+        const { i, j } = getBlockIndices(s);
+        const alpha = Math.min(0.3 + (j + 1) * 0.15, 0.9);
+        for (let r = i * Br; r < (i + 1) * Br; r++) {
+          for (let c = 0; c < d; c++) {
+            const idx = r * d + c;
+            oCells[idx].style.background = `rgba(156, 39, 176, ${alpha})`;
+            oCells[idx].style.borderColor = '#9c27b0';
+          }
+        }
+      }
+    }
+
+    const info = document.getElementById('flash-step-info');
+    const sramDetail = document.getElementById('flash-sram-detail');
+    const formulaBox = document.getElementById('flash-formula-content');
+
+    if (currentStep === 0) {
+      info.textContent = 'Step 0: 初始状态 — Q[8×4], K[8×4], V[8×4] 在 HBM 中, O 初始化为全 0';
+      sramDetail.innerHTML = '<span style="color:#666;">Shared Memory 空闲，等待加载第一个 block...</span>';
+      formulaBox.innerHTML = `
+        <div style="color:#76b900; font-weight:bold;">参数设定:</div>
+        N=${N}, d=${d}, B<sub>r</sub>=${Br}, B<sub>c</sub>=${Bc}<br>
+        T<sub>r</sub> = N/B<sub>r</sub> = ${Tr} 个 Q 块<br>
+        T<sub>c</sub> = N/B<sub>c</sub> = ${Tc} 个 KV 块<br>
+        总迭代: T<sub>c</sub> × T<sub>r</sub> = ${Tc * Tr} 步<br><br>
+        <span style="color:#888;">每步只在 SRAM 中存: Q<sub>i</sub>[${Br}×${d}] + K<sub>j</sub>[${Bc}×${d}] + V<sub>j</sub>[${Bc}×${d}] + O<sub>i</sub>[${Br}×${d}] + S<sub>ij</sub>[${Br}×${Bc}]</span>
+      `;
+    } else if (currentStep <= Tc * Tr) {
+      const { i, j } = getBlockIndices(currentStep);
+      const qRowStart = i * Br, qRowEnd = (i + 1) * Br;
+      const kRowStart = j * Bc, kRowEnd = (j + 1) * Bc;
+
+      info.textContent = `Step ${currentStep}/${Tc * Tr}: 外循环 j=${j} (KV块 rows ${kRowStart}-${kRowEnd-1}), 内循环 i=${i} (Q块 rows ${qRowStart}-${qRowEnd-1})`;
+
+      // Highlight active blocks in source matrices
+      highlightBlock(qCells, d, qRowStart, qRowEnd, 0, d, '#2196f333', '#2196f3');
+      // K^T is [d×N], so K_j block = all rows (0..d), columns kRowStart..kRowEnd
+      highlightBlock(kCells, N, 0, d, kRowStart, kRowEnd, '#4caf5033', '#4caf50');
+      highlightBlock(vCells, d, kRowStart, kRowEnd, 0, d, '#ff980033', '#ff9800');
+
+      // Highlight current block in score matrix
+      for (let r = qRowStart; r < qRowEnd; r++) {
+        for (let c = kRowStart; c < kRowEnd; c++) {
+          scoreCells[r * N + c].style.background = '#76b900';
+          scoreCells[r * N + c].style.borderColor = '#76b900';
+        }
+      }
+
+      // Highlight O rows being updated
+      highlightBlock(oCells, d, qRowStart, qRowEnd, 0, d, 'rgba(156,39,176,0.8)', '#e040fb');
+
+      // SRAM detail
+      sramDetail.innerHTML = `
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+          <span style="background:#2196f322; border:1px solid #2196f3; padding:3px 8px; border-radius:4px; color:#2196f3;">Q<sub>${i}</sub> [${Br}×${d}]<br><span style="font-size:0.65rem;">Q rows ${qRowStart}-${qRowEnd-1}</span></span>
+          <span style="color:#888;">×</span>
+          <span style="background:#4caf5022; border:1px solid #4caf50; padding:3px 8px; border-radius:4px; color:#4caf50;">K<sub>${j}</sub><sup>T</sup> [${d}×${Bc}]<br><span style="font-size:0.65rem;">K<sup>T</sup> cols ${kRowStart}-${kRowEnd-1}</span></span>
+          <span style="color:#888;">=</span>
+          <span style="background:#76b90022; border:1px solid #76b900; padding:3px 8px; border-radius:4px; color:#76b900;">S<sub>${i},${j}</sub> [${Br}×${Bc}]<br><span style="font-size:0.65rem;">score 块</span></span>
+          <span style="color:#888;">→ online softmax →</span>
+          <span style="background:#76b90022; border:1px solid #76b900; padding:3px 8px; border-radius:4px; color:#76b900;">P<sub>${i},${j}</sub> [${Br}×${Bc}]</span>
+          <span style="color:#888;">×</span>
+          <span style="background:#ff980022; border:1px solid #ff9800; padding:3px 8px; border-radius:4px; color:#ff9800;">V<sub>${j}</sub> [${Bc}×${d}]<br><span style="font-size:0.65rem;">V rows ${kRowStart}-${kRowEnd-1}</span></span>
+          <span style="color:#888;">→ 累加到</span>
+          <span style="background:#9c27b022; border:1px solid #9c27b0; padding:3px 8px; border-radius:4px; color:#9c27b0;">O<sub>${i}</sub> [${Br}×${d}]<br><span style="font-size:0.65rem;">O rows ${qRowStart}-${qRowEnd-1}</span></span>
+        </div>
+      `;
+
+      // Formula box
+      const prevBlocks = j > 0 ? `已累加 KV 块 0..${j-1} 的贡献` : '首次计算';
+      formulaBox.innerHTML = `
+        <div style="color:#76b900; font-weight:bold; margin-bottom:5px;">当前计算 (全在 SRAM 中):</div>
+        <code style="color:#e0e0e0;">
+        S<sub>${i}${j}</sub> = Q<sub>${i}</sub>[${Br}×${d}] @ K<sub>${j}</sub>[${Bc}×${d}]<sup>T</sup> = [${Br}×${Bc}]</code><br>
+        <code style="color:#e0e0e0;">
+        m_new = max(m<sub>${i}</sub>, rowmax(S<sub>${i}${j}</sub>))</code><br>
+        <code style="color:#e0e0e0;">
+        P<sub>${i}${j}</sub> = exp(S<sub>${i}${j}</sub> - m_new) → [${Br}×${Bc}]</code><br>
+        <code style="color:#e0e0e0;">
+        l_new = e<sup>(m_old-m_new)</sup> × l<sub>${i}</sub> + rowsum(P<sub>${i}${j}</sub>)</code><br>
+        <code style="color:#e0e0e0;">
+        <strong style="color:#9c27b0;">O<sub>${i}</sub></strong> = rescale(O<sub>${i}</sub>) + (1/l_new) × P<sub>${i}${j}</sub>[${Br}×${Bc}] @ V<sub>${j}</sub>[${Bc}×${d}] = [${Br}×${d}]</code><br><br>
+        <span style="color:#888;">${prevBlocks} | O<sub>${i}</sub> 写回 HBM 的 O[${qRowStart}:${qRowEnd}] 行</span><br>
+        <span style="color:#ff9800;">S<sub>${i}${j}</sub> 的 [${Br}×${Bc}] 块对应最终 Attention 矩阵的 rows [${qRowStart},${qRowEnd-1}], cols [${kRowStart},${kRowEnd-1}]</span>
+      `;
+    } else {
+      info.textContent = `✓ 完成! ${Tc * Tr} 步迭代后, O[${N}×${d}] 包含完整的 Attention 输出`;
+      sramDetail.innerHTML = '<span style="color:#76b900; font-weight:bold;">所有计算完成! N×N 的 Attention 矩阵从未在 HBM 中存在过。</span>';
+      formulaBox.innerHTML = `
+        <div style="color:#76b900; font-weight:bold;">总结:</div>
+        • 每个 O<sub>i</sub> 块经过 T<sub>c</sub>=${Tc} 次外循环逐步累加完成<br>
+        • 第 j 次外循环贡献了 K[${Bc}j:${Bc}(j+1)] 和 V[${Bc}j:${Bc}(j+1)] 对应的 attention<br>
+        • 在线 softmax 的 rescale 保证数学等价性<br>
+        • <strong>HBM 额外内存: O(N) = ${N} (仅 l, m 向量)</strong><br>
+        • <strong>S[${N}×${N}] 矩阵从未被物化!</strong>
+      `;
+      // Mark all score cells as computed
+      scoreCells.forEach(c => { c.style.background = '#00d4aa33'; c.style.borderColor = '#00d4aa55'; });
+    }
+  }
+
+  return {
+    next() { if (currentStep <= Tc * Tr) { currentStep++; renderStep(); } },
+    prev() { if (currentStep > 0) { currentStep--; renderStep(); } },
+    reset() { init(); }
+  };
+})();
+flashDemo.reset();
+
+// ========== Demo 4: KV Cache (Enhanced) ==========
+const kvCacheDemo = (() => {
+  const tokens = ['The', 'cat', 'sat', 'on', 'the', 'mat', '.', 'It'];
+  let generated = [];
+  let totalComputeCache = 0;
+  let totalComputeNoCache = 0;
+
+  function render() {
+    const n = generated.length;
+
+    // Token sequence
+    const tokenDiv = document.getElementById('kv-tokens');
+    tokenDiv.innerHTML = generated.map((t, i) => {
+      const isNew = (i === n - 1);
+      return `<span class="kv-token ${isNew ? 'computing' : 'generated'}">${t}${isNew ? ' (new)' : ''}</span>`;
+    }).join('');
+
+    // Attention matrix visualization
+    const attnDiv = document.getElementById('kv-attn-matrix');
+    if (n === 0) {
+      attnDiv.innerHTML = '<div style="color:#666; text-align:center; padding-top:60px;">等待生成第一个 token...</div>';
+    } else {
+      let html = '<div style="font-size:0.75rem; color:#888; margin-bottom:8px;">Q (query) × K<sup>T</sup> (keys) → attention scores:</div>';
+      // Show attention matrix: rows = query tokens, cols = key tokens
+      // With cache: only new token's Q row is computed
+      html += '<div style="overflow-x:auto;">';
+      html += '<table style="border-collapse:collapse; font-size:0.7rem; width:100%;">';
+      // Header row (K tokens)
+      html += '<tr><td style="padding:3px;"></td>';
+      for (let j = 0; j < n; j++) {
+        html += `<td style="padding:3px 5px; text-align:center; color:#4caf50; font-weight:bold; border-bottom:1px solid #333;">k<sub>${generated[j]}</sub></td>`;
+      }
+      html += '</tr>';
+      // Rows
+      for (let i = 0; i < n; i++) {
+        const isNewRow = (i === n - 1);
+        const rowColor = isNewRow ? '#76b900' : '#555';
+        html += `<tr>`;
+        html += `<td style="padding:3px 5px; color:${isNewRow ? '#2196f3' : '#555'}; font-weight:bold; white-space:nowrap;">q<sub>${generated[i]}</sub></td>`;
+        for (let j = 0; j < n; j++) {
+          const isComputed = isNewRow; // with cache: only last row computed this step
+          const isCausal = j <= i; // causal mask
+          let bg = '#1a1a2e';
+          let color = '#666';
+          if (!isCausal) {
+            bg = '#0a0a0a'; color = '#333'; // masked
+          } else if (isComputed) {
+            bg = '#76b90033'; color = '#76b900'; // computed this step
+          } else {
+            bg = '#ffffff08'; color = '#888'; // previously computed (not needed again)
+          }
+          const val = isCausal ? (isComputed ? '●' : '○') : '✕';
+          html += `<td style="padding:3px 5px; text-align:center; background:${bg}; color:${color}; border:1px solid #222;">${val}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</table></div>';
+      html += `<div style="margin-top:8px; font-size:0.7rem; display:flex; gap:10px; flex-wrap:wrap;">
+        <span><span style="color:#76b900;">●</span> 本步计算</span>
+        <span><span style="color:#888;">○</span> 历史(已缓存结果)</span>
+        <span><span style="color:#333;">✕</span> causal mask</span>
+      </div>`;
+      attnDiv.innerHTML = html;
+    }
+
+    // KV Cache state
+    const cacheDiv = document.getElementById('kv-cache-visual');
+    if (n === 0) {
+      cacheDiv.innerHTML = '<div style="color:#666; text-align:center; padding-top:60px;">KV Cache 为空</div>';
+    } else {
+      let html = '<div style="font-size:0.75rem; color:#888; margin-bottom:8px;">缓存的 K 和 V 向量 (每层每头):</div>';
+      for (let i = 0; i < n; i++) {
+        const isNew = (i === n - 1);
+        const borderColor = isNew ? '#ff9800' : '#4caf50';
+        const bg = isNew ? '#ff980022' : '#4caf5011';
+        const label = isNew ? '← 新加入' : '';
+        html += `<div style="display:flex; align-items:center; gap:6px; margin:3px 0;">
+          <span style="font-size:0.7rem; color:#888; min-width:45px;">${generated[i]}</span>
+          <div style="flex:1; display:flex; gap:3px;">
+            <div style="flex:1; height:14px; background:${bg}; border:1px solid ${borderColor}; border-radius:3px; position:relative;">
+              <span style="position:absolute; left:4px; top:0; font-size:0.6rem; color:${borderColor};">K</span>
+            </div>
+            <div style="flex:1; height:14px; background:${bg}; border:1px solid ${borderColor}; border-radius:3px; position:relative;">
+              <span style="position:absolute; left:4px; top:0; font-size:0.6rem; color:${borderColor};">V</span>
+            </div>
+          </div>
+          <span style="font-size:0.65rem; color:#ff9800;">${label}</span>
+        </div>`;
+      }
+      html += `<div style="margin-top:8px; font-size:0.7rem; color:#888;">Cache 大小: ${n} 行 × d 维 × 2 (K+V)</div>`;
+      cacheDiv.innerHTML = html;
+    }
+
+    // Explanation
+    const explDiv = document.getElementById('kv-explanation');
+    if (n === 0) {
+      explDiv.innerHTML = '<span style="color:#888;">点击按钮开始生成。每一步会展示 Attention 计算的输入、输出和 KV Cache 变化。</span>';
+    } else if (n === 1) {
+      explDiv.innerHTML = `
+        <div style="color:#76b900; font-weight:bold; margin-bottom:5px;">Prefill 阶段 (第 1 个 token: "${generated[0]}")</div>
+        <div style="color:#ccc;">
+          <strong>计算:</strong> q<sub>${generated[0]}</sub> × k<sub>${generated[0]}</sub><sup>T</sup> → score → softmax → × v<sub>${generated[0]}</sub> → output<br>
+          <strong>KV Cache:</strong> 将 k<sub>${generated[0]}</sub>, v<sub>${generated[0]}</sub> 存入 Cache (1 行)<br>
+          <strong>本步 Attention 矩阵:</strong> 1×1 (只有 1 个 token 对 1 个 token)
+        </div>`;
+    } else {
+      const newTok = generated[n-1];
+      const prevToks = generated.slice(0, n-1).join(', ');
+      explDiv.innerHTML = `
+        <div style="color:#76b900; font-weight:bold; margin-bottom:5px;">Decode 阶段 (第 ${n} 步: 生成 "${newTok}")</div>
+        <div style="color:#ccc;">
+          <strong>Q 输入:</strong> 只有新 token 的 query → q<sub>${newTok}</sub> (1×d 向量)<br>
+          <strong>K 来源:</strong> Cache 中已有 [${prevToks}] 的 K + 新的 k<sub>${newTok}</sub> → 共 ${n} 个 key 向量<br>
+          <strong>V 来源:</strong> Cache 中已有 [${prevToks}] 的 V + 新的 v<sub>${newTok}</sub> → 共 ${n} 个 value 向量<br>
+          <strong>Attention 计算:</strong> q<sub>${newTok}</sub> × [k<sub>${generated[0]}</sub>, ..., k<sub>${newTok}</sub>]<sup>T</sup> = <strong>1×${n} 的 score 向量</strong> → softmax → 加权求和 V → output<br>
+          <span style="color:#76b900;">★ 只需计算 1 行 (1×${n})，而非重算整个 ${n}×${n} 矩阵!</span>
+        </div>`;
+    }
+
+    // Stats
+    const cacheStats = document.getElementById('kv-stats-cache');
+    const noCacheStats = document.getElementById('kv-stats-nocache');
+    if (n === 0) {
+      cacheStats.innerHTML = '累计计算量: 0';
+      noCacheStats.innerHTML = '累计计算量: 0';
+    } else {
+      cacheStats.innerHTML = `本步: 1×${n} = ${n} 次 dot product<br>累计: ${totalComputeCache} 次<br><span style="color:#76b900;">每步只算新 token 的一行</span>`;
+      noCacheStats.innerHTML = `本步: ${n}×${n} = ${n*n} 次 dot product<br>累计: ${totalComputeNoCache} 次<br><span style="color:#ff6b6b;">每步重算完整 N×N 矩阵</span>`;
+    }
+
+    // Step info
+    const info = document.getElementById('kvcache-step-info');
+    if (n === 0) {
+      info.textContent = '点击 "生成下一个 Token" 观察 Attention 计算过程和 KV Cache 变化';
+    } else {
+      const saving = n > 1 ? ` | 节省 ${((1 - totalComputeCache / totalComputeNoCache) * 100).toFixed(0)}% 计算` : '';
+      info.textContent = `Step ${n}: q_"${generated[n-1]}" 与 ${n} 个 cached K 做 dot product${saving}`;
+    }
+  }
+
+  return {
+    generate() {
+      if (generated.length >= tokens.length) return;
+      generated.push(tokens[generated.length]);
+      const n = generated.length;
+      totalComputeCache += n; // 1 query × n keys
+      totalComputeNoCache += n * n; // recompute full n×n
+      render();
+    },
+    reset() {
+      generated = [];
+      totalComputeCache = 0;
+      totalComputeNoCache = 0;
+      render();
+    }
+  };
+})();
+kvCacheDemo.reset();
+
+// ========== Demo 5: Online Softmax Animation ==========
+const onlineSoftmaxDemo = (() => {
+  // Concrete example: 8 scores split into 4 blocks of 2
+  const scores = [1.2, 0.5,  3.1, 0.8,  2.0, 1.5,  0.3, 0.9];
+  // Simplified 2-d "value" vectors for each position
+  const values = [[1,0],[0,1],[1,1],[0.5,0.5],[0,1],[1,0],[0.5,1],[1,0.5]];
+  const blockSize = 2;
+  const numBlocks = scores.length / blockSize;
+
+  let step = 0; // 0 = init, 1..4 = process block j
+  let m = -Infinity, l = 0, O = [0, 0];
+
+  function renderScores() {
+    const container = document.getElementById('osm-scores');
+    let html = '';
+    for (let b = 0; b < numBlocks; b++) {
+      const processed = b < step;
+      const current = b === step - 1;
+      const borderColor = current ? '#76b900' : processed ? '#00d4aa' : '#444';
+      const bg = current ? '#76b90022' : processed ? '#00d4aa11' : '#1a1a2e';
+      html += `<div style="display:flex; gap:2px; padding:4px 6px; border:2px solid ${borderColor}; border-radius:6px; background:${bg};">`;
+      for (let i = 0; i < blockSize; i++) {
+        const idx = b * blockSize + i;
+        const isMax = scores[idx] === Math.max(...scores.slice(0, step * blockSize));
+        html += `<div style="width:36px; height:50px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0a0a1a; border-radius:4px; border:1px solid ${isMax && processed ? '#ff9800' : '#333'};">
+          <div style="font-size:0.7rem; color:${processed ? '#e0e0e0' : '#555'}; font-weight:bold;">${scores[idx]}</div>
+          <div style="font-size:0.55rem; color:#888;">v=[${values[idx]}]</div>
+        </div>`;
+      }
+      html += `<div style="font-size:0.6rem; color:${borderColor}; align-self:flex-end; margin-left:2px;">块${b}</div>`;
+      html += '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  function render() {
+    renderScores();
+    document.getElementById('osm-m').textContent = m === -Infinity ? '-∞' : m.toFixed(2);
+    document.getElementById('osm-l').textContent = l.toFixed(4);
+    document.getElementById('osm-o').textContent = `[${O[0].toFixed(3)}, ${O[1].toFixed(3)}]`;
+
+    const info = document.getElementById('osm-step-info');
+    const corrDiv = document.getElementById('osm-correction');
+    const resultDiv = document.getElementById('osm-result');
+
+    if (step === 0) {
+      info.textContent = '初始状态: m=-∞, l=0, O=[0,0]。点击 "处理下一个块" 开始';
+      corrDiv.innerHTML = '<span style="color:#888;">等待处理第一个块...</span>';
+      resultDiv.innerHTML = '';
+    } else if (step <= numBlocks) {
+      const b = step - 1;
+      const s0 = scores[b * blockSize], s1 = scores[b * blockSize + 1];
+      const blockMax = Math.max(s0, s1);
+      // Show what just happened
+      info.textContent = `处理块 ${b}: scores = [${s0}, ${s1}], 块内 max = ${blockMax.toFixed(2)}`;
+
+      if (step === 1) {
+        corrDiv.innerHTML = `
+          <div style="color:#2196f3; font-weight:bold; margin-bottom:5px;">第一个块 — 无需修正 (α=1)</div>
+          <code>m_new = max(-∞, ${blockMax}) = <span style="color:#ff9800;">${m.toFixed(2)}</span></code><br>
+          <code>l = exp(${s0}-${m.toFixed(2)}) + exp(${s1}-${m.toFixed(2)}) = <span style="color:#4caf50;">${l.toFixed(4)}</span></code><br>
+          <code>O = exp(${s0}-${m.toFixed(2)})×v₀ + exp(${s1}-${m.toFixed(2)})×v₁ = <span style="color:#9c27b0;">[${O[0].toFixed(3)}, ${O[1].toFixed(3)}]</span></code>
+        `;
+      } else {
+        // We need to show the alpha correction
+        // Recompute to show the before/after
+        const mOld = step >= 2 ? (() => {
+          let mTemp = -Infinity;
+          for (let k = 0; k < (step - 1) * blockSize; k++) mTemp = Math.max(mTemp, scores[k]);
+          return mTemp;
+        })() : -Infinity;
+        const alpha = Math.exp(mOld - m);
+        const needsCorrection = m > mOld;
+
+        if (needsCorrection) {
+          corrDiv.innerHTML = `
+            <div style="color:#ff4444; font-weight:bold; margin-bottom:5px;">⚠️ 新 max 出现! 需要修正旧值</div>
+            <code>m_old = ${mOld.toFixed(2)} → m_new = <span style="color:#ff9800;">${m.toFixed(2)}</span> (块中有更大的 score!)</code><br>
+            <code><span style="color:#2196f3;">α</span> = exp(m_old - m_new) = exp(${mOld.toFixed(2)} - ${m.toFixed(2)}) = <span style="color:#2196f3;">${alpha.toFixed(4)}</span></code><br>
+            <code>l_new = <span style="color:#2196f3;">${alpha.toFixed(4)}</span> × l_old + new_exps = <span style="color:#4caf50;">${l.toFixed(4)}</span></code><br>
+            <code>O_new = <span style="color:#2196f3;">${alpha.toFixed(4)}</span> × O_old + new_exp×v = <span style="color:#9c27b0;">[${O[0].toFixed(3)}, ${O[1].toFixed(3)}]</span></code><br>
+            <div style="margin-top:5px; color:#ff9800; font-size:0.8rem;">↑ 旧的 l 和 O 都乘了 α &lt; 1，相当于把之前的 exp 都 "缩小" 了</div>
+          `;
+        } else {
+          corrDiv.innerHTML = `
+            <div style="color:#76b900; font-weight:bold; margin-bottom:5px;">✓ max 没变 → α = 1，旧值不动，只加新项</div>
+            <code>m_new = max(${mOld.toFixed(2)}, ${blockMax.toFixed(2)}) = <span style="color:#ff9800;">${m.toFixed(2)}</span> (没变)</code><br>
+            <code><span style="color:#2196f3;">α</span> = exp(0) = <span style="color:#2196f3;">1.0</span></code><br>
+            <code>l_new = 1.0 × l_old + exp(${s0}-${m.toFixed(2)}) + exp(${s1}-${m.toFixed(2)}) = <span style="color:#4caf50;">${l.toFixed(4)}</span></code><br>
+            <code>O_new = 1.0 × O_old + new contributions = <span style="color:#9c27b0;">[${O[0].toFixed(3)}, ${O[1].toFixed(3)}]</span></code>
+          `;
+        }
+      }
+
+      // Show intermediate normalized result
+      if (l > 0) {
+        const normO = [O[0] / l, O[1] / l];
+        resultDiv.innerHTML = `<span style="color:#76b900;">当前归一化输出 O/l = [${normO[0].toFixed(4)}, ${normO[1].toFixed(4)}]</span>` +
+          (step === numBlocks ? `<br><span style="color:#ffd700; font-weight:bold;">✓ 所有块处理完毕! 这就是最终 attention 输出 (= softmax(scores) × V)</span>` : `<br><span style="color:#888;">还有 ${numBlocks - step} 个块待处理，O/l 会继续变化...</span>`);
+      }
+    }
+  }
+
+  return {
+    next() {
+      if (step >= numBlocks) return;
+      step++;
+      const b = step - 1;
+      const idx0 = b * blockSize, idx1 = b * blockSize + 1;
+      const s0 = scores[idx0], s1 = scores[idx1];
+      const blockMax = Math.max(s0, s1);
+
+      // Online softmax update
+      const mNew = Math.max(m, blockMax);
+      const alpha = m === -Infinity ? 0 : Math.exp(m - mNew);
+
+      const e0 = Math.exp(s0 - mNew), e1 = Math.exp(s1 - mNew);
+      l = (m === -Infinity ? 0 : alpha * l) + e0 + e1;
+      O[0] = (m === -Infinity ? 0 : alpha * O[0]) + e0 * values[idx0][0] + e1 * values[idx1][0];
+      O[1] = (m === -Infinity ? 0 : alpha * O[1]) + e0 * values[idx0][1] + e1 * values[idx1][1];
+      m = mNew;
+
+      render();
+    },
+    reset() {
+      step = 0;
+      m = -Infinity; l = 0; O = [0, 0];
+      render();
+    }
+  };
+})();
+onlineSoftmaxDemo.reset();
+
+// ========== Smooth scroll for TOC links ==========
+document.querySelectorAll('.toc-item a').forEach(link => {
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+</body>
+</html>

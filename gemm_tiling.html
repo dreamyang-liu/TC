@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>GEMM Tiling: 矩阵乘法如何拆到 Tensor Core</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #08080f;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 1.8em;
+            margin-bottom: 6px;
+            background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .subtitle { text-align: center; color: #555; font-size: 0.82em; margin-bottom: 20px; font-family: monospace; }
+
+        /* Stage uses flex layout, no absolute positioning for content */
+        .stage {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #0a0a14;
+            border: 1px solid #1a1a3a;
+            border-radius: 16px;
+            padding: 25px;
+            min-height: 550px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scene-badge {
+            align-self: flex-start;
+            padding: 4px 14px;
+            border-radius: 20px;
+            font-size: 0.78em;
+            font-weight: bold;
+            background: rgba(0,210,255,0.12);
+            border: 1px solid #00d2ff;
+            color: #00d2ff;
+            margin-bottom: 15px;
+        }
+
+        .scene-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .scene-caption {
+            align-self: stretch;
+            padding: 10px 16px;
+            border-radius: 8px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid #2a2a4a;
+            font-size: 0.82em;
+            color: #ccc;
+            text-align: center;
+            line-height: 1.5;
+            margin-top: auto;
+        }
+        .scene-caption b { color: #fff; }
+        .g { color: #50c878; }
+        .o { color: #f4a460; }
+        .bl { color: #4a90d9; }
+        .p { color: #c77dff; }
+        .r { color: #ff6b6b; }
+        .cy { color: #00d2ff; }
+
+        /* Flex rows for matrices side by side */
+        .mat-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .mat-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .mat-label {
+            font-size: 0.75em;
+            color: #888;
+        }
+
+        /* Matrix grid */
+        .matrix {
+            display: grid;
+            gap: 1px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .matrix.brd-a { border: 2px solid #50c878; }
+        .matrix.brd-b { border: 2px solid #f4a460; }
+        .matrix.brd-c { border: 2px solid #4a90d9; }
+        .matrix.brd-p { border: 2px solid #c77dff; }
+        .matrix.brd-r { border: 2px solid #ff6b6b; }
+        .mcell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.55em;
+            font-weight: bold;
+            transition: all 0.4s;
+        }
+        .mcell-a { background: rgba(80,200,120,0.1); color: rgba(80,200,120,0.4); }
+        .mcell-b { background: rgba(244,164,96,0.1); color: rgba(244,164,96,0.4); }
+        .mcell-c { background: rgba(74,144,217,0.08); color: rgba(74,144,217,0.3); }
+        .mcell-p { background: rgba(199,125,255,0.08); color: rgba(199,125,255,0.3); }
+        .mcell.hl-a { background: rgba(80,200,120,0.55); color: #fff; }
+        .mcell.hl-b { background: rgba(244,164,96,0.55); color: #fff; }
+        .mcell.hl-c { background: rgba(74,144,217,0.5); color: #fff; }
+        .mcell.hl-p { background: rgba(199,125,255,0.6); color: #fff; box-shadow: 0 0 4px #c77dff; }
+        .mcell.dim { opacity: 0.15; }
+        .mcell.zero { background: #0a0a0a; color: #333; }
+
+        .opsym {
+            font-size: 1.8em;
+            color: #667eea;
+            flex-shrink: 0;
+        }
+
+        /* Hardware boxes (inline, not absolute) */
+        .hw-box {
+            padding: 12px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.75em;
+            font-weight: bold;
+            transition: all 0.5s;
+        }
+        .hw-hbm { background: rgba(255,107,107,0.08); border: 2px solid #ff6b6b; color: #ff6b6b; }
+        .hw-sram { background: rgba(107,255,107,0.05); border: 2px solid #6bff6b; color: #6bff6b; }
+        .hw-reg { background: rgba(107,181,255,0.06); border: 1px solid #6bb5ff; color: #6bb5ff; }
+        .hw-tc { background: rgba(199,125,255,0.08); border: 2px solid #c77dff; color: #c77dff; }
+        .hw-sm { background: rgba(0,210,255,0.04); border: 2px dashed rgba(0,210,255,0.4); color: #00d2ff; }
+        .hw-box.glow { box-shadow: 0 0 18px currentColor; }
+
+        /* SM mini grid */
+        .sm-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 18px);
+            gap: 3px;
+        }
+        .sm-dot {
+            width: 18px;
+            height: 12px;
+            background: #1a1a2e;
+            border: 1px solid #2a2a4a;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .sm-dot.lit { background: rgba(0,210,255,0.3); border-color: #00d2ff; }
+
+        /* Warp boxes */
+        .warp-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .warp-box {
+            padding: 6px 12px;
+            border: 1px solid #2a2a4a;
+            border-radius: 6px;
+            font-size: 0.65em;
+            color: #555;
+            text-align: center;
+            transition: all 0.4s;
+        }
+        .warp-box.active { border-color: #00d2ff; color: #00d2ff; background: rgba(0,210,255,0.06); }
+
+        /* Progress bar */
+        .prog-bar {
+            width: 100%;
+            max-width: 500px;
+            height: 10px;
+            background: #1a1a2e;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .prog-fill {
+            height: 100%;
+            border-radius: 5px;
+            background: linear-gradient(90deg, #50c878, #00d2ff);
+            transition: width 0.6s;
+        }
+
+        /* Arrow between levels */
+        .flow-arrow {
+            color: #667eea;
+            font-size: 1.3em;
+            opacity: 0.6;
+        }
+        .flow-arrow.active { opacity: 1; color: #00d2ff; }
+
+        /* Data flow packets (relative positioned within flex) */
+        .packet-track {
+            position: relative;
+            width: 100%;
+            height: 20px;
+            overflow: hidden;
+        }
+        .pkt {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            top: 5px;
+            animation: pktMove 1.2s ease-in-out infinite;
+        }
+        .pkt-a { background: #50c878; box-shadow: 0 0 5px #50c878; }
+        .pkt-b { background: #f4a460; box-shadow: 0 0 5px #f4a460; }
+        .pkt-c { background: #c77dff; box-shadow: 0 0 5px #c77dff; }
+        @keyframes pktMove {
+            0% { left: 10%; opacity: 0; }
+            20% { opacity: 1; }
+            80% { opacity: 1; }
+            100% { left: 85%; opacity: 0; }
+        }
+
+        /* TC result cells */
+        .tc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 22px);
+            gap: 2px;
+        }
+        .tc-cell {
+            width: 22px;
+            height: 22px;
+            background: #1a1a2e;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.5em;
+            transition: all 0.3s;
+        }
+        .tc-cell.done { background: rgba(199,125,255,0.6); color: #fff; box-shadow: 0 0 4px #c77dff; }
+
+        /* Comparison layout */
+        .compare-row {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .compare-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        /* Controls */
+        .controls {
+            max-width: 1100px;
+            margin: 12px auto 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #00d2ff;
+            color: #000;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.88em;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { background: #33ddff; }
+        .btn.stop { background: #ff6b6b; }
+        .btn.stop:hover { background: #ff8888; }
+        .prog-text { font-size: 0.82em; color: #888; min-width: 90px; text-align: center; }
+    </style>
+</head>
+<body>
+<h1>GEMM Tiling: 矩阵乘法怎么拆到 Tensor Core</h1>
+<div class="subtitle">C[64, 24576] = A[64, 8192] × B[8192, 24576]</div>
+
+<div class="stage" id="S">
+    <div class="scene-badge" id="badge">准备</div>
+    <div class="scene-content" id="content">
+        <div style="color:#555; font-size:0.9em;">点击「下一步」开始动画</div>
+    </div>
+    <div class="scene-caption" id="cap">Grid 切空间 → Block 切 K → Warp 发指令 → Tensor Core 算 16×16×16</div>
+</div>
+
+<div class="controls">
+    <button class="btn" id="playBtn" onclick="play()">▶ 播放</button>
+    <button class="btn" onclick="next()">⏭ 下一步</button>
+    <button class="btn" onclick="prev()">⏮ 上一步</button>
+    <button class="btn stop" onclick="rst()">↺ 重置</button>
+    <div class="prog-text" id="prog"></div>
+</div>
+
+<script>
+const content = document.getElementById('content');
+let scene = -1, running = false, tmr = null;
+
+function badge(t) { document.getElementById('badge').textContent = t; }
+function cap(h) { document.getElementById('cap').innerHTML = h; }
+
+function buildMatrix(rows, cols, cw, ch, cellCls, brdCls) {
+    const m = document.createElement('div');
+    m.className = `matrix ${brdCls}`;
+    m.style.gridTemplateColumns = `repeat(${cols}, ${cw}px)`;
+    for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++) {
+            const cell = document.createElement('div');
+            cell.className = `mcell ${cellCls}`;
+            Object.assign(cell.style, { width: cw+'px', height: ch+'px' });
+            cell.dataset.r = r; cell.dataset.c = c;
+            m.appendChild(cell);
+        }
+    return m;
+}
+
+// ============================= SCENES =============================
+const scenes = [
+
+// 0: Overview — three matrices
+function() {
+    content.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'mat-row';
+
+    // A
+    const colA = document.createElement('div');
+    colA.className = 'mat-col';
+    colA.innerHTML = '<div class="mat-label"><span class="g">A [64 × 8192]</span> — 输入</div>';
+    colA.appendChild(buildMatrix(8, 8, 16, 16, 'mcell-a', 'brd-a'));
+    row.appendChild(colA);
+
+    row.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'×' }));
+
+    // B
+    const colB = document.createElement('div');
+    colB.className = 'mat-col';
+    colB.innerHTML = '<div class="mat-label"><span class="o">B [8192 × 24576]</span> — 权重</div>';
+    colB.appendChild(buildMatrix(8, 16, 16, 16, 'mcell-b', 'brd-b'));
+    row.appendChild(colB);
+
+    row.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'=' }));
+
+    // C
+    const colC = document.createElement('div');
+    colC.className = 'mat-col';
+    colC.innerHTML = '<div class="mat-label"><span class="bl">C [64 × 24576]</span> — 输出</div>';
+    colC.appendChild(buildMatrix(8, 16, 16, 16, 'mcell-c', 'brd-c'));
+    row.appendChild(colC);
+
+    content.appendChild(row);
+
+    // Dimension note
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:0.8em;color:#888;text-align:center;margin-top:10px;';
+    note.innerHTML = 'M=64 (batch) | N=8192 (hidden) | K=24576 (output) — 每个格子代表一个 tile';
+    content.appendChild(note);
+
+    badge('全局矩阵');
+    cap('<span class="g">A[64,8192]</span> × <span class="o">B[8192,24576]</span> = <span class="bl">C[64,24576]</span> — 接下来按层级拆解');
+},
+
+// 1: Grid — slice C into tiles
+function() {
+    content.innerHTML = '';
+
+    // C as tiles
+    const colC = document.createElement('div');
+    colC.className = 'mat-col';
+    colC.innerHTML = '<div class="mat-label">输出 <span class="bl">C</span> 切成 192 个 Block — 每块 [64×128]</div>';
+    const mC = buildMatrix(1, 12, 55, 65, 'mcell-c', 'brd-c');
+    mC.querySelectorAll('.mcell').forEach((c,i) => { c.textContent = `B${i}`; c.style.fontSize='0.65em'; });
+    colC.appendChild(mC);
+    content.appendChild(colC);
+
+    // Highlight one + show what it needs
+    setTimeout(() => {
+        const cells = mC.querySelectorAll('.mcell');
+        cells[2].classList.add('hl-c');
+        cells[2].style.border = '2px solid #fff';
+    }, 300);
+
+    // What this block needs
+    const needs = document.createElement('div');
+    needs.className = 'mat-row';
+    needs.style.marginTop = '15px';
+    const needA = document.createElement('div');
+    needA.className = 'mat-col';
+    needA.innerHTML = '<div class="mat-label"><span class="g">需要 A 的全部行</span> [64, 8192]</div>';
+    const mA = buildMatrix(4, 4, 16, 14, 'mcell-a', 'brd-a');
+    mA.querySelectorAll('.mcell').forEach(c => c.classList.add('hl-a'));
+    needA.appendChild(mA);
+    needs.appendChild(needA);
+
+    needs.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'×' }));
+
+    const needB = document.createElement('div');
+    needB.className = 'mat-col';
+    needB.innerHTML = '<div class="mat-label"><span class="o">需要 B 的第 256~384 列</span> [8192, 128]</div>';
+    const mB = buildMatrix(4, 2, 16, 14, 'mcell-b', 'brd-b');
+    mB.querySelectorAll('.mcell').forEach(c => c.classList.add('hl-b'));
+    needB.appendChild(mB);
+    needs.appendChild(needB);
+    content.appendChild(needs);
+
+    // SM grid
+    const smSection = document.createElement('div');
+    smSection.className = 'mat-col';
+    smSection.style.marginTop = '15px';
+    smSection.innerHTML = '<div class="mat-label">192 Blocks 分配到 132 个 SM 并行执行:</div>';
+    const smG = document.createElement('div');
+    smG.className = 'sm-grid';
+    for (let i = 0; i < 48; i++) {
+        const d = document.createElement('div');
+        d.className = 'sm-dot';
+        setTimeout(() => d.classList.add('lit'), 500 + i*30);
+        smG.appendChild(d);
+    }
+    smSection.appendChild(smG);
+    content.appendChild(smSection);
+
+    badge('① Grid 层');
+    cap('按 <span class="bl">Output C</span> 的空间切 Block — 每个 Block 独立 → 分到不同 SM 并行 — <b>Block 之间零通信</b>');
+},
+
+// 2: Block — SRAM load + K loop start
+function() {
+    content.innerHTML = '';
+
+    // SM frame
+    const frame = document.createElement('div');
+    frame.className = 'hw-box hw-sm';
+    frame.style.cssText = 'width:100%;padding:15px;';
+    frame.innerHTML = '<div style="text-align:left;margin-bottom:12px;font-size:0.9em;">SM #17 — Block(0,2) — 256 线程 = 8 Warps</div>';
+
+    // HBM → SRAM flow
+    const flow = document.createElement('div');
+    flow.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:10px;';
+
+    const hbm = document.createElement('div');
+    hbm.className = 'hw-box hw-hbm';
+    hbm.textContent = 'HBM — A 和 B 的权重';
+    flow.appendChild(hbm);
+
+    // Packet animation track
+    const track = document.createElement('div');
+    track.className = 'packet-track';
+    for (let i = 0; i < 5; i++) {
+        const p = document.createElement('div');
+        p.className = `pkt ${i%2===0?'pkt-a':'pkt-b'}`;
+        p.style.animationDelay = (i*0.2)+'s';
+        track.appendChild(p);
+    }
+    flow.appendChild(track);
+    flow.appendChild(Object.assign(document.createElement('div'), { className:'flow-arrow active', textContent:'▼ 256 线程协作搬运' }));
+
+    // SRAM with tiles
+    const sram = document.createElement('div');
+    sram.className = 'hw-box hw-sram';
+    sram.style.cssText = 'display:flex;gap:20px;align-items:center;justify-content:center;padding:15px 25px;flex-wrap:wrap;';
+    const tA = document.createElement('div');
+    tA.className = 'mat-col';
+    tA.innerHTML = '<div class="mat-label"><span class="g">A_tile [64×16] = 2KB</span></div>';
+    tA.appendChild(buildMatrix(4, 2, 18, 16, 'mcell-a', 'brd-a'));
+    tA.querySelector('.matrix').querySelectorAll('.mcell').forEach(c => c.classList.add('hl-a'));
+    sram.appendChild(tA);
+    sram.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'×', style:'font-size:1.2em' }));
+    const tB = document.createElement('div');
+    tB.className = 'mat-col';
+    tB.innerHTML = '<div class="mat-label"><span class="o">B_tile [16×128] = 4KB</span></div>';
+    tB.appendChild(buildMatrix(2, 6, 18, 16, 'mcell-b', 'brd-b'));
+    tB.querySelector('.matrix').querySelectorAll('.mcell').forEach(c => c.classList.add('hl-b'));
+    sram.appendChild(tB);
+    flow.appendChild(sram);
+
+    // K progress
+    const kDiv = document.createElement('div');
+    kDiv.style.cssText = 'width:100%;max-width:500px;text-align:center;';
+    kDiv.innerHTML = '<div class="mat-label" style="margin-bottom:4px;">K 维度循环: <span id="ktxt">1 / 512</span> (每次 K_step=16 → 因为 Tensor Core mma.K=16)</div>';
+    const bar = document.createElement('div');
+    bar.className = 'prog-bar';
+    bar.innerHTML = '<div class="prog-fill" id="kfill" style="width:2%"></div>';
+    kDiv.appendChild(bar);
+    flow.appendChild(kDiv);
+
+    // Warps
+    const wRow = document.createElement('div');
+    wRow.className = 'warp-row';
+    for (let i = 0; i < 8; i++) {
+        const w = document.createElement('div');
+        w.className = 'warp-box active';
+        w.innerHTML = `<b>Warp ${i}</b><br>C[${i*8}:${i*8+16},...]`;
+        wRow.appendChild(w);
+    }
+    flow.appendChild(wRow);
+
+    frame.appendChild(flow);
+    content.appendChild(frame);
+
+    badge('② Block 层 — 加载 SRAM');
+    cap('从 <span class="r">HBM</span> 搬 <span class="g">A[64×16]</span> + <span class="o">B[16×128]</span> 到 <span style="color:#6bff6b">SRAM</span> → 8 Warps 共享读取 → 沿 K 循环 512 次累加');
+},
+
+// 3: K-loop animating
+function() {
+    const kfill = document.getElementById('kfill');
+    const ktxt = document.getElementById('ktxt');
+    if (!kfill) { scenes[2](); return; }
+
+    let k = 1;
+    const iv = setInterval(() => {
+        k += 25;
+        if (k >= 512) { k = 512; clearInterval(iv); }
+        kfill.style.width = (k/512*100)+'%';
+        ktxt.textContent = `${k} / 512`;
+    }, 80);
+
+    badge('② K 循环中');
+    cap('每次: 新 <span class="g">A[64×16]</span> × <span class="o">B[16×128]</span> → <b>累加</b>到 Register 中的结果 — 循环直到 K=8192 消耗完');
+},
+
+// 4: Warp → Register → Tensor Core
+function() {
+    content.innerHTML = '';
+    const flow = document.createElement('div');
+    flow.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;';
+
+    // SRAM source
+    flow.appendChild(Object.assign(document.createElement('div'), { className:'hw-box hw-sram', textContent:'SRAM — A_tile + B_tile 在这里', style:'padding:10px 30px;' }));
+
+    // Track
+    const track = document.createElement('div');
+    track.className = 'packet-track';
+    for (let i = 0; i < 4; i++) {
+        const p = document.createElement('div');
+        p.className = `pkt ${i%2===0?'pkt-a':'pkt-b'}`;
+        p.style.animationDelay = (i*0.25)+'s';
+        track.appendChild(p);
+    }
+    flow.appendChild(track);
+    flow.appendChild(Object.assign(document.createElement('div'), { className:'flow-arrow active', textContent:'▼ wmma::load_matrix_sync' }));
+
+    // Fragments in Register
+    const fragRow = document.createElement('div');
+    fragRow.className = 'mat-row';
+    const fA = document.createElement('div');
+    fA.className = 'mat-col';
+    fA.innerHTML = '<div class="mat-label"><span class="bl">Register: A_frag [16×16]</span></div>';
+    const mfA = buildMatrix(4, 4, 22, 22, 'mcell-a', 'brd-a');
+    mfA.querySelectorAll('.mcell').forEach((c,i) => setTimeout(() => c.classList.add('hl-a'), i*40));
+    fA.appendChild(mfA);
+    fragRow.appendChild(fA);
+
+    fragRow.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'×' }));
+
+    const fB = document.createElement('div');
+    fB.className = 'mat-col';
+    fB.innerHTML = '<div class="mat-label"><span class="bl">Register: B_frag [16×16]</span></div>';
+    const mfB = buildMatrix(4, 4, 22, 22, 'mcell-b', 'brd-b');
+    mfB.querySelectorAll('.mcell').forEach((c,i) => setTimeout(() => c.classList.add('hl-b'), i*40+200));
+    fB.appendChild(mfB);
+    fragRow.appendChild(fB);
+    flow.appendChild(fragRow);
+
+    // Track 2
+    const track2 = document.createElement('div');
+    track2.className = 'packet-track';
+    for (let i = 0; i < 3; i++) {
+        const p = document.createElement('div');
+        p.className = 'pkt pkt-c';
+        p.style.animationDelay = (i*0.3)+'s';
+        track2.appendChild(p);
+    }
+    flow.appendChild(track2);
+    flow.appendChild(Object.assign(document.createElement('div'), { className:'flow-arrow active', textContent:'▼ wmma::mma_sync' }));
+
+    // TC + result
+    const tcRow = document.createElement('div');
+    tcRow.className = 'mat-row';
+    const tc = document.createElement('div');
+    tc.className = 'hw-box hw-tc glow';
+    tc.style.padding = '15px 25px';
+    tc.innerHTML = '<div style="font-size:1.2em;margin-bottom:6px;">⚡ Tensor Core</div><div style="font-size:0.8em;color:#aaa;">D[16,16] += A × B<br>8192 FLOPs / 1-2 cycles</div>';
+    tcRow.appendChild(tc);
+
+    tcRow.appendChild(Object.assign(document.createElement('div'), { className:'flow-arrow active', textContent:'→' }));
+
+    const accum = document.createElement('div');
+    accum.className = 'hw-box hw-reg';
+    accum.style.padding = '12px 20px';
+    accum.innerHTML = 'Accumulator D[16×16]<br><span style="font-size:0.85em;color:#888;">留在 Register 累加</span>';
+    tcRow.appendChild(accum);
+    flow.appendChild(tcRow);
+
+    content.appendChild(flow);
+
+    badge('③ Warp → Tensor Core');
+    cap('<span style="color:#6bff6b">SRAM</span> → <span class="bl">Register</span> (fragment 16×16) → <span class="p">Tensor Core</span> 一拍出结果 → <b>结果留在 Register，不写回内存</b>');
+},
+
+// 5: TC zoom — 16x16x16 with row×col animation
+function() {
+    content.innerHTML = '';
+    const row = document.createElement('div');
+    row.className = 'mat-row';
+
+    // A frag
+    const colA = document.createElement('div');
+    colA.className = 'mat-col';
+    colA.innerHTML = '<div class="mat-label"><span class="g">A [16×16] FP16</span></div>';
+    const mA = buildMatrix(4, 4, 28, 28, 'mcell-a', 'brd-a');
+    mA.id = 'tcA';
+    colA.appendChild(mA);
+    row.appendChild(colA);
+
+    row.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'×' }));
+
+    // B frag
+    const colB = document.createElement('div');
+    colB.className = 'mat-col';
+    colB.innerHTML = '<div class="mat-label"><span class="o">B [16×16] FP16</span></div>';
+    const mB = buildMatrix(4, 4, 28, 28, 'mcell-b', 'brd-b');
+    mB.id = 'tcB';
+    colB.appendChild(mB);
+    row.appendChild(colB);
+
+    row.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'+=' }));
+
+    // D result
+    const colD = document.createElement('div');
+    colD.className = 'mat-col';
+    colD.innerHTML = '<div class="mat-label"><span class="p">D [16×16] FP32</span></div>';
+    const mD = buildMatrix(4, 4, 28, 28, 'mcell-p', 'brd-p');
+    mD.id = 'tcD';
+    colD.appendChild(mD);
+    row.appendChild(colD);
+
+    content.appendChild(row);
+
+    // TC chip info
+    const info = document.createElement('div');
+    info.className = 'hw-box hw-tc';
+    info.style.cssText = 'margin-top:15px;padding:12px 25px;';
+    info.innerHTML = '⚡ <b>8192 FLOPs / 1-2 cycles</b> — 物理上 4×4 FMA × 4 TC，硬件拆成 64 个子操作，对程序员透明';
+    content.appendChild(info);
+
+    // Animate row×col → result
+    const aCells = mA.querySelectorAll('.mcell');
+    const bCells = mB.querySelectorAll('.mcell');
+    const dCells = mD.querySelectorAll('.mcell');
+    let step = 0;
+    const iv = setInterval(() => {
+        if (step >= 16) { clearInterval(iv); return; }
+        // Clear previous highlights
+        aCells.forEach(c => c.classList.remove('hl-a'));
+        bCells.forEach(c => c.classList.remove('hl-b'));
+        const r = Math.floor(step/4), c = step%4;
+        // Highlight row r of A
+        for (let k = 0; k < 4; k++) aCells[r*4+k].classList.add('hl-a');
+        // Highlight col c of B
+        for (let k = 0; k < 4; k++) bCells[k*4+c].classList.add('hl-b');
+        // Fill D cell
+        dCells[step].classList.add('hl-p');
+        dCells[step].textContent = '✓';
+        step++;
+    }, 250);
+
+    badge('④ Tensor Core 执行');
+    cap('<span class="g">A 的行</span> · <span class="o">B 的列</span> → <span class="p">D 的元素</span> — 16×16×16 = 8192 FLOPs — 物理 4×4 但 ISA 封装成 16×16');
+},
+
+// 6: Full hierarchy with packet flow
+function() {
+    content.innerHTML = '';
+    const flow = document.createElement('div');
+    flow.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;';
+
+    const levels = [
+        ['hw-hbm', 'HBM — 80GB — 3.35 TB/s — 权重 384MB', '100%'],
+        ['hw-sram', 'SRAM — 228KB/SM — 30TB/s — A_tile + B_tile', '70%'],
+        ['hw-reg', 'Register — 256KB/SM — 60TB/s — Fragment 16×16', '50%'],
+        ['hw-tc', 'Tensor Core — 989 TFLOPS — 8192 FLOPs/指令', '35%'],
+    ];
+
+    levels.forEach((l, i) => {
+        const box = document.createElement('div');
+        box.className = `hw-box ${l[0]}`;
+        box.style.width = l[2];
+        box.textContent = l[1];
+        flow.appendChild(box);
+
+        if (i < levels.length - 1) {
+            const track = document.createElement('div');
+            track.className = 'packet-track';
+            track.style.width = l[2];
+            for (let j = 0; j < 3; j++) {
+                const p = document.createElement('div');
+                p.className = `pkt ${['pkt-a','pkt-b','pkt-c'][j%3]}`;
+                p.style.animationDelay = (j*0.3 + i*0.15)+'s';
+                track.appendChild(p);
+            }
+            flow.appendChild(track);
+        }
+    });
+
+    content.appendChild(flow);
+
+    // Bottleneck note
+    const note = document.createElement('div');
+    note.style.cssText = 'display:flex;gap:20px;margin-top:10px;flex-wrap:wrap;justify-content:center;';
+    note.innerHTML = `
+        <div style="padding:10px;border-radius:8px;border:1px solid rgba(255,107,107,0.3);background:rgba(255,107,107,0.05);font-size:0.78em;max-width:300px;">
+            <b class="r">瓶颈: HBM → SRAM</b><br>
+            989T FLOPS ÷ 3.35 TB/s = 295 FLOP/Byte<br>
+            Decode GEMV: ~1 FLOP/Byte<br>
+            <b>TC 99% 时间在等数据</b>
+        </div>
+        <div style="padding:10px;border-radius:8px;border:1px solid rgba(80,200,120,0.3);background:rgba(80,200,120,0.05);font-size:0.78em;max-width:300px;">
+            <b class="g">解法: 加大 Batch</b><br>
+            batch=1 → 权重读 1 次用 1 次<br>
+            batch=64 → 读 1 次复用 64 次<br>
+            <b>TC 利用率 6% → 100%</b>
+        </div>`;
+    content.appendChild(note);
+
+    badge('⑤ 内存层级全路径');
+    cap('<span class="r">HBM</span> → <span style="color:#6bff6b">SRAM</span> → <span class="bl">Register</span> → <span class="p">TC</span> — 越往下越快越小 — <span class="r"><b>HBM 是唯一瓶颈</b></span>');
+},
+
+// 7: Decode vs Prefill — the padding problem
+function() {
+    content.innerHTML = '';
+
+    const comp = document.createElement('div');
+    comp.className = 'compare-row';
+
+    // Decode side
+    const decCol = document.createElement('div');
+    decCol.className = 'compare-col';
+    decCol.innerHTML = '<div style="font-size:0.9em;color:#ff6b6b;font-weight:bold;">Decode: batch=1</div>';
+    const mDec = buildMatrix(4, 4, 28, 28, 'mcell-a', 'brd-r');
+    const decCells = mDec.querySelectorAll('.mcell');
+    decCells.forEach((c,i) => {
+        if (i < 4) { c.classList.add('hl-a'); c.textContent = 'x'; }
+        else { c.classList.add('zero'); c.textContent = '0'; }
+    });
+    decCol.appendChild(mDec);
+    decCol.innerHTML += '<div style="font-size:0.75em;color:#ff6b6b;"><b>1/16</b> 行有数据 → 效率 6%</div>';
+    // TC utilization visual
+    const tcDec = document.createElement('div');
+    tcDec.className = 'tc-grid';
+    for (let i = 0; i < 16; i++) {
+        const c = document.createElement('div');
+        c.className = 'tc-cell' + (i===0?' done':'');
+        tcDec.appendChild(c);
+    }
+    decCol.appendChild(tcDec);
+    decCol.innerHTML += '<div style="font-size:0.7em;color:#888;">TC: 1/16 格子在做有效计算</div>';
+    comp.appendChild(decCol);
+
+    // VS
+    comp.appendChild(Object.assign(document.createElement('div'), { className:'opsym', textContent:'vs', style:'font-size:1em;color:#555;' }));
+
+    // Prefill side
+    const preCol = document.createElement('div');
+    preCol.className = 'compare-col';
+    preCol.innerHTML = '<div style="font-size:0.9em;color:#50c878;font-weight:bold;">Prefill: batch=64</div>';
+    const mPre = buildMatrix(4, 4, 28, 28, 'mcell-a', 'brd-a');
+    mPre.querySelectorAll('.mcell').forEach((c,i) => { c.classList.add('hl-a'); c.textContent = `x${i}`; });
+    preCol.appendChild(mPre);
+    preCol.innerHTML += '<div style="font-size:0.75em;color:#50c878;"><b>16/16</b> 行全是数据 → 效率 100%</div>';
+    const tcPre = document.createElement('div');
+    tcPre.className = 'tc-grid';
+    for (let i = 0; i < 16; i++) {
+        const c = document.createElement('div');
+        c.className = 'tc-cell done';
+        tcPre.appendChild(c);
+    }
+    preCol.appendChild(tcPre);
+    preCol.innerHTML += '<div style="font-size:0.7em;color:#888;">TC: 全部格子满载计算</div>';
+    comp.appendChild(preCol);
+
+    content.appendChild(comp);
+
+    // Conclusion
+    const concl = document.createElement('div');
+    concl.style.cssText = 'margin-top:15px;padding:12px 18px;border-radius:8px;border:1px solid rgba(0,210,255,0.2);background:rgba(0,210,255,0.04);font-size:0.8em;text-align:center;line-height:1.6;max-width:700px;';
+    concl.innerHTML = '<b class="cy">结论:</b> M < 16 的维度被<b>补零 (padding)</b> — TC 硬件照常跑完 8192 FLOPs，但大部分是 0×0 = 无用功<br>Continuous Batching 的本质: 凑请求填满 fragment 的 16 行 → 每个 FLOP 都是有效计算';
+    content.appendChild(concl);
+
+    badge('⑥ 为什么 Decode 慢');
+    cap('batch=1 时 fragment <span class="r">15/16 行是零</span> → TC <span class="r">94% 做无用功</span> — 加大 batch 填满 → <span class="g">100% 利用</span>');
+},
+];
+
+// ============================= CONTROLS =============================
+function next() {
+    running=false;clearTimeout(tmr);
+    if(scene>=scenes.length-1)return;
+    scene++; scenes[scene]();
+    document.getElementById('prog').textContent=`${scene+1} / ${scenes.length}`;
+}
+function prev() {
+    running=false;clearTimeout(tmr);
+    if(scene<=0){rst();return;}
+    scene--; scenes[scene]();
+    document.getElementById('prog').textContent=`${scene+1} / ${scenes.length}`;
+}
+function play() {
+    if(running){running=false;clearTimeout(tmr);document.getElementById('playBtn').textContent='▶ 播放';return;}
+    if(scene>=scenes.length-1){scene=-1;}
+    running=true;document.getElementById('playBtn').textContent='⏸ 暂停';
+    (function tick(){
+        if(!running)return;
+        scene++;
+        if(scene>=scenes.length){running=false;document.getElementById('playBtn').textContent='▶ 播放';return;}
+        scenes[scene]();
+        document.getElementById('prog').textContent=`${scene+1} / ${scenes.length}`;
+        tmr=setTimeout(tick,4000);
+    })();
+}
+function rst() {
+    running=false;clearTimeout(tmr);scene=-1;
+    content.innerHTML='<div style="color:#555;font-size:0.9em;">点击「下一步」开始动画</div>';
+    document.getElementById('playBtn').textContent='▶ 播放';
+    document.getElementById('prog').textContent='';
+    badge('准备');
+    cap('Grid 切空间 → Block 切 K → Warp 发指令 → Tensor Core 算 16×16×16');
+}
+</script>
+</body>
+</html>

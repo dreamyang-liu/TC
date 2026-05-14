@@ -1,0 +1,1733 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ch7 - 面试题库与综合练习 | ML Systems Tutorial</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; min-height: 100vh; }
+.container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+header { text-align: center; margin-bottom: 2.5rem; }
+header h1 { font-size: 2.4rem; background: linear-gradient(135deg, #ffd700, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+header p { color: #888; font-size: 1.1rem; }
+
+.filter-bar { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 1.2rem; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.8rem; align-items: center; }
+.filter-group { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.filter-group label { color: #888; font-size: 0.85rem; margin-right: 0.3rem; }
+.filter-btn { padding: 0.4rem 0.9rem; border-radius: 20px; border: 1px solid #444; background: transparent; color: #ccc; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+.filter-btn:hover { border-color: #ffd700; color: #ffd700; }
+.filter-btn.active { background: linear-gradient(135deg, #ffd700, #ff9800); color: #000; border-color: transparent; font-weight: 600; }
+.search-box { flex: 1; min-width: 200px; padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid #444; background: #0f0f23; color: #e0e0e0; font-size: 0.9rem; outline: none; transition: border-color 0.2s; }
+.search-box:focus { border-color: #ffd700; }
+.search-box::placeholder { color: #666; }
+
+.progress { text-align: center; margin-bottom: 1.5rem; color: #888; font-size: 0.95rem; }
+.progress span { color: #ffd700; font-weight: 600; }
+
+.q-card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; margin-bottom: 1rem; overflow: hidden; opacity: 0; transform: translateY(20px); transition: opacity 0.5s, transform 0.5s, border-color 0.2s; }
+.q-card.visible { opacity: 1; transform: translateY(0); }
+.q-card:hover { border-color: #555; }
+.q-card.expanded { border-color: #ffd700; }
+
+.q-header { padding: 1rem 1.2rem; cursor: pointer; display: flex; align-items: center; gap: 0.8rem; user-select: none; }
+.q-header:hover { background: rgba(255, 215, 0, 0.03); }
+.q-diff { font-size: 1rem; flex-shrink: 0; }
+.q-text { flex: 1; font-size: 0.95rem; font-weight: 500; }
+.q-cat { font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 10px; background: rgba(255, 215, 0, 0.1); color: #ffd700; flex-shrink: 0; }
+.q-toggle { color: #666; font-size: 1.2rem; transition: transform 0.3s; flex-shrink: 0; }
+.q-card.expanded .q-toggle { transform: rotate(180deg); }
+
+.q-body { max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s; }
+.q-card.expanded .q-body { max-height: 2000px; padding: 0 1.2rem 1.2rem; }
+.q-hint { background: rgba(255, 215, 0, 0.05); border-left: 3px solid #ffd700; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; margin-bottom: 1rem; font-size: 0.9rem; }
+.q-hint strong { color: #ffd700; }
+.q-solution { background: rgba(100, 200, 100, 0.05); border-left: 3px solid #4caf50; padding: 0.8rem 1rem; border-radius: 0 8px 8px 0; font-size: 0.9rem; }
+.q-solution strong { color: #4caf50; }
+.q-solution code { background: #0f0f23; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.85rem; color: #ff9800; }
+.q-solution pre { background: #0f0f23; padding: 0.8rem; border-radius: 8px; overflow-x: auto; margin: 0.5rem 0; font-size: 0.82rem; line-height: 1.5; }
+.q-solution p, .q-hint p { margin: 0.4rem 0; }
+.q-solution ul { margin: 0.4rem 0 0.4rem 1.2rem; }
+.q-solution li { margin: 0.3rem 0; }
+
+.hidden { display: none !important; }
+
+@media (max-width: 768px) {
+  header h1 { font-size: 1.8rem; }
+  .filter-bar { flex-direction: column; }
+  .q-header { flex-wrap: wrap; }
+  .q-cat { margin-top: 0.3rem; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>面试题库与综合练习</h1>
+    <p>Chapter 7 | 精选 60 道 ML Systems 高频面试题</p>
+  </header>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label>分类:</label>
+      <button class="filter-btn active" onclick="filterByCategory('all')">全部</button>
+      <button class="filter-btn" onclick="filterByCategory('transformer')">Transformer</button>
+      <button class="filter-btn" onclick="filterByCategory('gpu')">GPU & CUDA</button>
+      <button class="filter-btn" onclick="filterByCategory('distributed')">分布式训练</button>
+      <button class="filter-btn" onclick="filterByCategory('inference')">推理系统</button>
+      <button class="filter-btn" onclick="filterByCategory('rlhf')">RLHF</button>
+      <button class="filter-btn" onclick="filterByCategory('sysdesign')">系统设计</button>
+      <button class="filter-btn" onclick="filterByCategory('debugging')">Debugging</button>
+    </div>
+    <div class="filter-group">
+      <label>难度:</label>
+      <button class="filter-btn active" onclick="filterByDifficulty('all')">全部</button>
+      <button class="filter-btn" onclick="filterByDifficulty('easy')">🟢 Easy</button>
+      <button class="filter-btn" onclick="filterByDifficulty('medium')">🟡 Medium</button>
+      <button class="filter-btn" onclick="filterByDifficulty('hard')">🔴 Hard</button>
+    </div>
+    <input type="text" class="search-box" placeholder="搜索题目关键词..." oninput="searchQuestions(this.value)">
+  </div>
+
+  <div class="progress">显示 <span id="visible-count">60</span> / <span id="total-count">60</span> 题</div>
+
+  <div id="questions-container">
+
+    <!-- Question 1 -->
+    <div class="q-card" data-cat="transformer" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">1. 为什么 Attention 需要除以 √d_k？不除会怎样？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 考虑 Q 和 K 做点积后的数值分布，以及 softmax 在大数值输入时的行为。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p>假设 Q 和 K 的每个元素是独立的均值为 0、方差为 1 的随机变量，则 Q·K^T 的每个元素的方差为 d_k（d_k 个方差为 1 的乘积之和）。</p>
+          <p>如果不除以 √d_k：</p>
+          <ul>
+            <li>点积值的方差随 d_k 线性增长，数值变得很大</li>
+            <li>softmax 输入过大时，梯度趋近于 0（进入饱和区）</li>
+            <li>输出几乎变成 one-hot，失去了对多个 token 加权的能力</li>
+          </ul>
+          <p>除以 √d_k 后，点积的方差被归一化为 1，softmax 工作在合理区间，梯度正常流动。</p>
+          <pre>scores = Q @ K.T / math.sqrt(d_k)  # 方差归一化
+attn = softmax(scores) @ V</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 2 -->
+    <div class="q-card" data-cat="transformer" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">2. Multi-Head Attention 相比 Single-Head 的优势是什么？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 想一想不同 head 能学到什么不同的 pattern，以及对模型表达能力的影响。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p>Multi-Head Attention 的核心优势：</p>
+          <ul>
+            <li><strong>多子空间表示：</strong>每个 head 在不同的低维子空间中学习不同类型的注意力模式（如语法关系、语义关系、位置模式等）</li>
+            <li><strong>增强表达能力：</strong>Single-Head 只能学一种 attention pattern，Multi-Head 可同时关注不同位置、不同语义关系</li>
+            <li><strong>计算代价不变：</strong>每个 head 的维度 = d_model / n_heads，总参数量和计算量与 single-head 相当</li>
+            <li><strong>训练更稳定：</strong>多个 head 的集成效果类似 ensemble，降低了单一模式过拟合风险</li>
+          </ul>
+          <pre># Multi-Head: 8 heads, d_model=512, d_k=64
+# 每个 head 学习独立的 W_Q, W_K, W_V (512 -> 64)
+head_i = Attention(Q @ W_Q_i, K @ W_K_i, V @ W_V_i)
+output = Concat(head_1, ..., head_8) @ W_O</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 3 -->
+    <div class="q-card" data-cat="transformer" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">3. GQA 和 MQA 分别怎么节省内存？具体省了多少？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 关注 KV Cache 的大小。MHA 每个 head 有独立 KV，MQA 所有 head 共享一份 KV，GQA 是中间方案。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>MHA (Multi-Head Attention):</strong> 每个 head 有独立的 K, V。KV Cache 大小 = 2 * n_heads * d_k * seq_len * batch_size。</p>
+          <p><strong>MQA (Multi-Query Attention):</strong> 所有 Q heads 共享同一组 K, V。KV Cache 缩小为原来的 1/n_heads。例如 32 heads 时省 32x 内存。</p>
+          <p><strong>GQA (Grouped-Query Attention):</strong> 将 Q heads 分成 g 组，每组共享一组 KV。KV Cache 缩小为原来的 g/n_heads。</p>
+          <p>具体内存节省（以 LLaMA-2 70B 为例，n_heads=64, GQA g=8）：</p>
+          <ul>
+            <li>MHA: KV Cache per token = 2 * 64 * 128 * 2 bytes = 32 KB</li>
+            <li>GQA (g=8): KV Cache per token = 2 * 8 * 128 * 2 bytes = 4 KB（节省 8x）</li>
+            <li>MQA (g=1): KV Cache per token = 2 * 1 * 128 * 2 bytes = 0.5 KB（节省 64x）</li>
+          </ul>
+          <p>GQA 在内存节省和模型质量之间取得了较好的平衡，因此被 LLaMA-2 70B、Mistral 等模型采用。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 4 -->
+    <div class="q-card" data-cat="transformer" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">4. Flash Attention 如何实现 O(N) 额外内存？在线 softmax 的校正因子怎么推导？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 标准 Attention 需要 O(N^2) 存储完整 attention matrix。Flash Attention 用 tiling + online softmax 避免物化整个矩阵。校正因子来源于 softmax 分母的增量更新。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>核心思想：</strong>将 Q, K, V 分成小 block (tile)，在 SRAM 中逐块计算，不在 HBM 中物化 N*N 的 attention matrix。</p>
+          <p><strong>在线 Softmax 推导：</strong></p>
+          <p>标准 softmax: <code>softmax(x_i) = exp(x_i) / sum(exp(x_j))</code></p>
+          <p>分块处理时，处理完第一块得到局部 max m1 和局部 sum l1。处理第二块时，新的全局 max m_new = max(m1, m2)，需要校正：</p>
+          <pre>// 处理 block 2 后更新：
+m_new = max(m_old, m_block2)
+l_new = l_old * exp(m_old - m_new) + l_block2 * exp(m_block2 - m_new)
+// 校正之前的输出：
+O_new = O_old * (l_old * exp(m_old - m_new) / l_new)
+      + softmax_block2(S_block2) @ V_block2 * (l_block2 * exp(m_block2 - m_new) / l_new)</pre>
+          <p><strong>内存分析：</strong></p>
+          <ul>
+            <li>标准 Attention: O(N^2) 存储 attention matrix</li>
+            <li>Flash Attention: 只需 O(N) 存储 O, l, m（输出、softmax 分母、行最大值）</li>
+            <li>Block size B_r * B_c 在 SRAM 中，不计入额外 HBM 使用</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 5 -->
+    <div class="q-card" data-cat="transformer" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">5. KV Cache 在 Prefill 和 Decode 阶段分别怎么工作？为什么只缓存 K,V 不缓存 Q？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 想想 autoregressive generation 中，每个新 token 的 Q 只有一行，而 K, V 需要之前所有 token 的。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Prefill 阶段：</strong></p>
+          <ul>
+            <li>输入整个 prompt（长度 L），一次性计算所有 token 的 Q, K, V</li>
+            <li>计算完整 attention，将 K, V 存入 cache（shape: [L, d_k]）</li>
+            <li>这个阶段是 compute-bound（大矩阵乘法）</li>
+          </ul>
+          <p><strong>Decode 阶段：</strong></p>
+          <ul>
+            <li>每步只有 1 个新 token，计算其 Q, K, V（各只有 1 行）</li>
+            <li>新的 K, V append 到 cache 中</li>
+            <li>Q (1 行) 与 cached K (所有历史行) 做 attention</li>
+            <li>这个阶段是 memory-bound（读取大量 cache，计算量很小）</li>
+          </ul>
+          <p><strong>为什么不缓存 Q：</strong></p>
+          <ul>
+            <li>Attention 计算 = Q @ K^T @ V</li>
+            <li>当前 token 的 Q 只需要与所有历史 K 做点积、与所有历史 V 加权求和</li>
+            <li>历史 token 的 Q 不会被后续 token 使用（causal mask 保证了这点）</li>
+            <li>因此 Q 只需当前步的，不需要缓存历史</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 6 -->
+    <div class="q-card" data-cat="transformer" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">6. 设计一个支持 1M context length 的 Attention 方案，考虑内存和计算两方面。</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 考虑 Ring Attention、稀疏注意力、分层机制、KV Cache 压缩等技术的组合。1M tokens 的 KV Cache 本身就是巨大开销。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>挑战分析（以 70B 模型, d=8192, 80 layers, GQA g=8 为例）：</strong></p>
+          <ul>
+            <li>KV Cache: 2 * 8 * 128 * 1M * 80 * 2 bytes = ~3.2 TB（单卡放不下）</li>
+            <li>Attention 计算: O(N^2 * d) = O(10^12 * 8192)（极其庞大）</li>
+          </ul>
+          <p><strong>推荐方案：多层次组合设计</strong></p>
+          <p>1. <strong>Ring Attention</strong>：将序列切分到多个设备，每个设备处理局部 block，KV 通过 ring 传递。内存从 O(N) 降为 O(N/P)，P 为设备数。</p>
+          <p>2. <strong>稀疏 + 分层注意力</strong>：</p>
+          <ul>
+            <li>Local window attention (size ~4096) 处理局部上下文</li>
+            <li>Global tokens / Landmark tokens 每隔 256 token 设一个</li>
+            <li>底层用 local，高层用 global（类似 Longformer / BigBird）</li>
+          </ul>
+          <p>3. <strong>KV Cache 压缩</strong>：</p>
+          <ul>
+            <li>对远距离 KV 做 quantization (FP16 -> INT4)，节省 4x</li>
+            <li>对重要性低的 KV 做 eviction（基于 attention score 统计）</li>
+            <li>Token merging: 合并相似 token 的 KV</li>
+          </ul>
+          <p>4. <strong>Position Encoding</strong>：使用 RoPE + YaRN/NTK-aware scaling 扩展位置编码到 1M</p>
+          <p><strong>最终效果：</strong>通过 Ring Attention (16 devices) + sparse (effective 8x reduction) + KV quant (4x)，实际内存需求降至约 3.2TB / (16*8*4) = ~6.4 GB/device，可行。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 7 -->
+    <div class="q-card" data-cat="transformer" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">7. Causal Mask 的作用是什么？如何实现？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Autoregressive 模型在预测第 i 个 token 时不能看到 i 之后的内容。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>作用：</strong>确保位置 i 的 token 只能 attend 到位置 <= i 的 tokens，实现自回归属性。没有 causal mask 的话，模型能"偷看"未来信息，训练时的 teacher forcing 会泄漏答案。</p>
+          <p><strong>实现方式：</strong></p>
+          <pre># 方法1: 上三角 mask, 将未来位置设为 -inf
+mask = torch.triu(torch.ones(seq_len, seq_len), diagonal=1) * (-1e9)
+scores = Q @ K.T / sqrt(d_k) + mask  # 加 mask
+attn = softmax(scores)  # -inf 位置 softmax 后为 0
+
+# 方法2: Flash Attention 中通过 block 计算范围隐式实现
+# 只计算 j <= i 的 (i, j) 对，跳过上三角区域</pre>
+          <p><strong>注意：</strong>Causal mask 是下三角矩阵（包含对角线），上三角为 -inf。在 Flash Attention 中，通过只遍历有效 block 来避免无谓计算，同时节省约 50% 的计算量。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 8 -->
+    <div class="q-card" data-cat="transformer" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">8. Rotary Position Embedding (RoPE) 的核心思想是什么？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> RoPE 将位置信息编码为旋转变换，使得两个 token 的点积只依赖于它们的相对距离。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>核心思想：</strong>对 Q 和 K 向量施加位置相关的旋转变换，使得 <code>q_m^T * k_n</code> 的值仅取决于相对位置 (m-n) 和内容。</p>
+          <p><strong>数学原理：</strong></p>
+          <ul>
+            <li>将 d 维向量看作 d/2 个 2D 向量</li>
+            <li>对第 i 对维度，以角度 <code>m * theta_i</code> 旋转（m 是位置, theta_i = 10000^(-2i/d)）</li>
+            <li>旋转后 q_m 和 k_n 的点积 = f(q, k, m-n)，自然包含相对位置信息</li>
+          </ul>
+          <pre># RoPE 实现核心
+def apply_rope(x, freqs):
+    # x: [batch, seq, heads, d]
+    # 将 x 拆成实部虚部对
+    x_complex = torch.view_as_complex(x.reshape(*x.shape[:-1], -1, 2))
+    # freqs: [seq, d/2], 每个位置的旋转角
+    freqs_complex = torch.polar(torch.ones_like(freqs), freqs)
+    # 复数乘法 = 2D 旋转
+    return torch.view_as_real(x_complex * freqs_complex).flatten(-2)</pre>
+          <p><strong>优势：</strong>无需额外参数；天然支持相对位置；可通过 NTK-aware 或 YaRN 方法扩展到更长序列。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 9 -->
+    <div class="q-card" data-cat="transformer" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">9. Flash Attention 2 相比 Flash Attention 1 的主要优化是什么？</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 关注并行维度的选择、warp 之间的工作分配、以及减少非矩阵乘法操作。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Flash Attention 2 的三大优化：</strong></p>
+          <p>1. <strong>减少非 matmul FLOPs：</strong></p>
+          <ul>
+            <li>FA1 中 online softmax 的 rescaling 开销占比较大</li>
+            <li>FA2 重新组织计算顺序，将 rescaling 推迟到最后，减少了中间的 rescale 操作</li>
+          </ul>
+          <p>2. <strong>并行化维度改变（sequence 维度并行）：</strong></p>
+          <ul>
+            <li>FA1: 外层循环在 K/V blocks 上，内层在 Q blocks 上</li>
+            <li>FA2: 外层循环在 Q blocks 上，内层在 K/V blocks 上</li>
+            <li>这样每个 thread block 处理一个 Q block，减少了对 output 的读写次数</li>
+          </ul>
+          <p>3. <strong>Warp 间更好的工作分配：</strong></p>
+          <ul>
+            <li>FA1: 4 个 warp 同时计算 QK^T，然后同步，再计算 PV（需要 shared memory 通信）</li>
+            <li>FA2: 将 Q 分给不同 warp，每个 warp 独立完成完整的 QK^T 和 PV，消除了 warp 间同步</li>
+          </ul>
+          <p><strong>效果：</strong>在 A100 上达到理论 FLOPs 的 ~72%（FA1 约 50%），速度提升约 2x。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 10 -->
+    <div class="q-card" data-cat="transformer" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">10. 分析 Prefill 阶段和 Decode 阶段的 Arithmetic Intensity，解释为什么它们分别是 compute-bound 和 memory-bound。</span>
+        <span class="q-cat">Transformer</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Arithmetic Intensity = FLOPs / Bytes accessed。对比 H100 的 compute-memory ratio (~1600 FLOPs/byte for FP16)。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>H100 参考数据：</strong>FP16 峰值 989 TFLOPS, HBM 带宽 3.35 TB/s, 计算/带宽比 = 989/3.35 ~= 295 FLOPs/byte (machine balance point)。</p>
+          <p><strong>Prefill 阶段 (batch=1, seq_len=L=2048, d=4096)：</strong></p>
+          <ul>
+            <li>主要操作: Q@K^T = [L, d] @ [d, L]</li>
+            <li>FLOPs: 2 * L * d * L = 2 * 2048 * 4096 * 2048 ~= 34.4 GFLOPs</li>
+            <li>Memory: 读 Q [L*d] + K [L*d] + 写 S [L*L] = (2*2048*4096 + 2048*2048) * 2 bytes ~= 41.9 MB</li>
+            <li><strong>AI = 34.4G / 41.9M ~= 820 FLOPs/byte > 295 => Compute-bound</strong></li>
+          </ul>
+          <p><strong>Decode 阶段 (batch=1, 新增 1 token, cached L=2048)：</strong></p>
+          <ul>
+            <li>主要操作: q@K^T = [1, d] @ [d, L] (矩阵向量乘)</li>
+            <li>FLOPs: 2 * 1 * d * L = 2 * 4096 * 2048 ~= 16.8 MFLOPs</li>
+            <li>Memory: 读 q [d] + K [L*d] + 写 s [L] = (4096 + 2048*4096 + 2048) * 2 bytes ~= 16.8 MB</li>
+            <li><strong>AI = 16.8M / 16.8M ~= 1 FLOP/byte << 295 => Memory-bound</strong></li>
+          </ul>
+          <p><strong>关键区别：</strong>Prefill 是矩阵乘矩阵 (GEMM)，AI ~= seq_len；Decode 是矩阵乘向量 (GEMV)，AI ~= 1。这解释了为什么 batching 对 decode 极为重要——增大 batch 将 GEMV 变为 GEMM，提高 AI。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 11 -->
+    <div class="q-card" data-cat="gpu" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">11. 什么是 warp divergence？为什么影响性能？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 一个 warp 中的 32 个线程以 SIMT 方式执行，如果遇到分支怎么办？
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>定义：</strong>Warp divergence 发生在同一个 warp 的 32 个线程遇到条件分支时，部分线程走 if 路径，部分走 else 路径。</p>
+          <p><strong>影响：</strong></p>
+          <ul>
+            <li>GPU 以 warp 为单位执行指令（SIMT），所有线程必须执行相同指令</li>
+            <li>发生 divergence 时，GPU 串行执行两个分支：先执行 if 分支（else 线程 mask 掉），再执行 else 分支（if 线程 mask 掉）</li>
+            <li>最坏情况下性能减半（两倍的指令量，一半的线程空闲）</li>
+          </ul>
+          <pre>// Bad: warp divergence
+if (threadIdx.x % 2 == 0) { do_A(); }
+else { do_B(); }
+
+// Better: 让相邻线程走同一分支
+if (threadIdx.x < 16) { do_A(); }  // 前半 warp
+else { do_B(); }  // 后半 warp (仍有 divergence 但更少 warps 受影响)
+
+// Best: 避免分支，用算术替代
+val = condition * A + (1-condition) * B;</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 12 -->
+    <div class="q-card" data-cat="gpu" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">12. GPU 的 Shared Memory 和 L1 Cache 有什么关系？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 在现代 NVIDIA GPU（Volta 及以后），它们共享同一块物理 SRAM。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>物理结构：</strong>从 Volta 架构开始，每个 SM 的 Shared Memory 和 L1 Cache 共享同一块 SRAM（如 A100 每 SM 192KB, H100 每 SM 256KB）。</p>
+          <p><strong>关键区别：</strong></p>
+          <ul>
+            <li><strong>Shared Memory:</strong> 程序员显式管理（手动 load/store），bank-based 访问，延迟极低（~20-30 cycles），可配置大小</li>
+            <li><strong>L1 Cache:</strong> 硬件自动管理（透明缓存），tag-based 访问，缓存全局内存访问</li>
+          </ul>
+          <p><strong>配置方式：</strong></p>
+          <pre>// 可通过 API 配置分配比例
+cudaFuncSetAttribute(kernel,
+    cudaFuncAttributePreferredSharedMemoryCarveout,
+    cudaSharedmemCarveoutMaxShared);  // 最大化 shared memory
+
+// H100: 最多 228KB shared memory per SM
+// A100: 最多 164KB shared memory per SM</pre>
+          <p><strong>选择策略：</strong>需要精确控制数据布局和复用模式时用 Shared Memory；访问模式不规则或难以手动管理时依赖 L1 Cache。Flash Attention 等高性能 kernel 大量使用 Shared Memory 做 tiling。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 13 -->
+    <div class="q-card" data-cat="gpu" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">13. 如何用 Roofline Model 判断 kernel 是 compute-bound 还是 memory-bound？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 画出以 Arithmetic Intensity (FLOPs/Byte) 为 x 轴、Performance (FLOPs/s) 为 y 轴的图。"屋顶线"由带宽斜线和计算峰值水平线构成。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Roofline Model 基本原理：</strong></p>
+          <p>Performance (FLOPS/s) = min(Peak Compute, Bandwidth * Arithmetic Intensity)</p>
+          <ul>
+            <li><strong>Arithmetic Intensity (AI)</strong> = Total FLOPs / Total Bytes Accessed</li>
+            <li><strong>Ridge Point</strong> = Peak Compute / Peak Bandwidth（分界点）</li>
+          </ul>
+          <p><strong>判断方法：</strong></p>
+          <pre>H100 SXM:
+  Peak FP16 Compute: 989 TFLOPS
+  HBM Bandwidth: 3.35 TB/s
+  Ridge Point = 989 / 3.35 = 295 FLOPs/Byte
+
+如果 kernel 的 AI < 295: Memory-bound (在斜线段)
+如果 kernel 的 AI > 295: Compute-bound (在水平线段)</pre>
+          <p><strong>实际例子：</strong></p>
+          <ul>
+            <li>GEMM [4096,4096]*[4096,4096]: AI ~= 4096/4 = 1024 > 295, compute-bound</li>
+            <li>Element-wise add [N]: AI = 1/12 (2 reads + 1 write, 1 FLOP), memory-bound</li>
+            <li>LayerNorm: AI ~= 5/12, memory-bound</li>
+            <li>Batch GEMV: AI ~= batch_size, batch 够大才能 compute-bound</li>
+          </ul>
+          <p><strong>优化方向：</strong>memory-bound 优化带宽利用（fusion, coalescing）；compute-bound 优化算力利用（Tensor Core, tiling）。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 14 -->
+    <div class="q-card" data-cat="gpu" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">14. CUDA Graph 的三个阶段是什么？有哪些限制条件（至少说 3 个）？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Capture -> Instantiate -> Launch。限制与动态行为有关。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>三个阶段：</strong></p>
+          <ul>
+            <li><strong>Capture（捕获）：</strong>录制一系列 CUDA 操作（kernel launches, memcpy 等）形成 graph 结构，不实际执行</li>
+            <li><strong>Instantiate（实例化）：</strong>将 graph 编译优化为可执行的 graph executable，进行验证和资源分配</li>
+            <li><strong>Launch（执行）：</strong>整个 graph 作为一个单元提交给 GPU，大幅减少 CPU launch overhead</li>
+          </ul>
+          <pre>// PyTorch 用法
+g = torch.cuda.CUDAGraph()
+with torch.cuda.graph(g):  # Capture
+    output = model(static_input)
+# Instantiate 在 context exit 时自动完成
+g.replay()  # Launch</pre>
+          <p><strong>限制条件：</strong></p>
+          <ul>
+            <li><strong>1. 不能有动态 shape：</strong>所有 tensor shape 在 capture 时固定，不能根据输入变化</li>
+            <li><strong>2. 不能有 CPU-GPU 同步：</strong>capture 期间不能调用 torch.cuda.synchronize()、.item() 等</li>
+            <li><strong>3. 不能有条件分支：</strong>不能根据 GPU 计算结果动态选择路径</li>
+            <li><strong>4. 不能有动态内存分配：</strong>capture 期间不能 malloc/free（需用 memory pool）</li>
+            <li><strong>5. 不能跨 stream 依赖变化：</strong>graph 的拓扑结构固定</li>
+          </ul>
+          <p><strong>优势：</strong>消除 kernel launch overhead（从 ~5-10us/kernel 降至整个 graph 一次 ~15us），对 decode 阶段的小 kernel 串效果显著。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 15 -->
+    <div class="q-card" data-cat="gpu" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">15. Tensor Core 的 4x4 矩阵乘加 (MMA) 操作需要什么条件？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 数据类型、对齐要求、矩阵尺寸必须是特定值的倍数。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Tensor Core MMA 基本操作：</strong> D = A * B + C，其中 A, B, C, D 是小矩阵块。</p>
+          <p><strong>条件要求：</strong></p>
+          <ul>
+            <li><strong>数据类型：</strong>输入支持 FP16, BF16, TF32, INT8, FP8 (H100+)；累加器通常为 FP32 或 FP16</li>
+            <li><strong>矩阵尺寸：</strong>硬件固定的 MMA shape，如 m16n8k16 (FP16), m16n8k32 (INT8)</li>
+            <li><strong>对齐：</strong>数据在 shared memory 中需要 128-bit 对齐</li>
+            <li><strong>Warp 级操作：</strong>一个 warp (32 threads) 协作完成一次 MMA，每个线程持有矩阵的一部分 fragment</li>
+          </ul>
+          <pre>// WMMA API 使用
+wmma::fragment&lt;wmma::matrix_a, 16, 16, 16, half, wmma::row_major&gt; a_frag;
+wmma::fragment&lt;wmma::matrix_b, 16, 16, 16, half, wmma::col_major&gt; b_frag;
+wmma::fragment&lt;wmma::accumulator, 16, 16, 16, float&gt; c_frag;
+
+wmma::load_matrix_sync(a_frag, a_ptr, lda);
+wmma::load_matrix_sync(b_frag, b_ptr, ldb);
+wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);</pre>
+          <p><strong>上层要求：</strong>PyTorch 中要利用 Tensor Core，矩阵维度需为 8 (FP16) 或 16 (INT8) 的倍数，否则会 padding 或 fallback 到 CUDA Core。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 16 -->
+    <div class="q-card" data-cat="gpu" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">16. 给定一个 H100 GPU 的 profile trace，kernel 耗时 0.5ms 处理 [4096,4096]x[4096,4096] GEMM (FP16)，计算 MFU 并判断瓶颈。</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> MFU = 实际 FLOPs / (峰值 FLOPs/s * 时间)。计算 GEMM 的理论 FLOPs，再与 H100 FP16 峰值对比。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Step 1: 计算理论 FLOPs</strong></p>
+          <p>GEMM [M,K] x [K,N] 的 FLOPs = 2 * M * K * N</p>
+          <p>= 2 * 4096 * 4096 * 4096 = 2 * 4096^3 = 137.4 GFLOPs</p>
+
+          <p><strong>Step 2: 计算实际 throughput</strong></p>
+          <p>实际 Performance = 137.4 GFLOPs / 0.5ms = 137.4 / 0.0005 = 274.9 TFLOPS</p>
+
+          <p><strong>Step 3: 计算 MFU</strong></p>
+          <p>H100 SXM FP16 Tensor Core 峰值 = 989 TFLOPS</p>
+          <p>MFU = 274.9 / 989 = <strong>27.8%</strong></p>
+
+          <p><strong>Step 4: 判断瓶颈</strong></p>
+          <ul>
+            <li>Arithmetic Intensity = 137.4G FLOPs / (3 * 4096 * 4096 * 2 bytes) = 137.4G / 100.7M = 1365 FLOPs/byte</li>
+            <li>远超 ridge point (295)，理论上应该是 compute-bound</li>
+            <li>但 MFU 只有 27.8%，说明 Tensor Core 利用率不高</li>
+          </ul>
+          <p><strong>可能原因：</strong></p>
+          <ul>
+            <li>Tiling 不够优化，shared memory bank conflict</li>
+            <li>没有充分利用 Tensor Core（数据类型或对齐问题）</li>
+            <li>Wave quantization: SM 数量不能整除 tile 数量</li>
+            <li>占用率 (occupancy) 过低，无法隐藏延迟</li>
+            <li>建议用 cuBLAS 对比，正常 cuBLAS 应达 70-80% MFU</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 17 -->
+    <div class="q-card" data-cat="gpu" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">17. 什么是 GPU Occupancy？影响它的因素有哪些？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Occupancy = active warps / max supported warps per SM。受寄存器、shared memory、block size 限制。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>定义：</strong>Occupancy = 每个 SM 上活跃 warp 数 / SM 支持的最大 warp 数。例如 H100 每 SM 最多 64 warps (2048 threads)。</p>
+          <p><strong>影响因素：</strong></p>
+          <ul>
+            <li><strong>寄存器使用量：</strong>每个线程用的寄存器越多，一个 SM 能容纳的线程越少。如 H100 每 SM 65536 个寄存器，kernel 用 64 个寄存器/thread，最多 1024 threads = 32 warps = 50% occupancy</li>
+            <li><strong>Shared Memory 使用量：</strong>每个 block 占用的 shared memory 越大，SM 能容纳的 block 越少</li>
+            <li><strong>Block Size (threads per block)：</strong>如果 block 太大或太小都可能限制 occupancy</li>
+          </ul>
+          <pre># 查看 kernel occupancy
+# 编译时: nvcc --ptxas-options=-v 查看寄存器和 shared memory 使用
+# 运行时:
+cudaOccupancyMaxActiveBlocksPerMultiprocessor(
+    &amp;numBlocks, kernel, blockSize, sharedMemSize);</pre>
+          <p><strong>注意：</strong>高 occupancy 不一定意味着高性能（有时低 occupancy 但高数据复用反而更快），但过低的 occupancy 通常意味着无法有效隐藏内存延迟。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 18 -->
+    <div class="q-card" data-cat="gpu" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">18. torch.cuda.memory_snapshot 能看到什么信息？如何排查 OOM？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> PyTorch 的 caching allocator 会保留已释放的内存块。区分 allocated vs reserved memory。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>memory_snapshot 能看到：</strong></p>
+          <ul>
+            <li>每个内存块的大小、地址、分配时间</li>
+            <li>分配时的 Python/C++ stack trace</li>
+            <li>内存块状态 (active_allocated / active_pending_free / inactive)</li>
+            <li>内存碎片化情况</li>
+          </ul>
+          <pre># 启用 memory 记录
+torch.cuda.memory._record_memory_history(max_entries=100000)
+
+# ... 运行模型 ...
+
+# 导出 snapshot
+snapshot = torch.cuda.memory._snapshot()
+torch.cuda.memory._dump_snapshot("mem_snapshot.pickle")
+
+# 也可用更简单的统计
+print(torch.cuda.memory_summary())
+# 关键指标:
+#   Allocated: 当前模型实际使用的
+#   Reserved: PyTorch caching allocator 持有的（含已释放但未归还 OS 的）</pre>
+          <p><strong>OOM 排查步骤：</strong></p>
+          <ul>
+            <li>1. <code>torch.cuda.memory_summary()</code> 看 peak memory</li>
+            <li>2. 检查 reserved >> allocated 是否有碎片化 -> <code>torch.cuda.empty_cache()</code></li>
+            <li>3. 用 snapshot 定位最大的内存块是谁分配的</li>
+            <li>4. 检查是否有意外的 tensor 引用 (gradient 累积、list append 等)</li>
+            <li>5. 考虑 gradient checkpointing、mixed precision、减少 batch size</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 19 -->
+    <div class="q-card" data-cat="gpu" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">19. CUDA Stream 是什么？多个 Stream 之间如何同步？</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Stream 是一个操作队列，同一 stream 内顺序执行，不同 stream 间可并行。Event 用于跨 stream 同步。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>CUDA Stream 定义：</strong>一个有序的 GPU 操作（kernel launch, memcpy 等）队列。同一 stream 内操作严格按序执行，不同 stream 的操作可以并行（硬件资源允许时）。</p>
+          <p><strong>用途：</strong></p>
+          <ul>
+            <li>计算与数据传输重叠 (overlap compute and data transfer)</li>
+            <li>多个独立 kernel 并行执行</li>
+            <li>Pipeline 式处理</li>
+          </ul>
+          <p><strong>同步机制：</strong></p>
+          <pre>// 1. cudaStreamSynchronize - 阻塞 CPU 直到 stream 完成
+cudaStreamSynchronize(stream1);
+
+// 2. cudaEvent - 跨 stream 同步（非阻塞 GPU 端）
+cudaEvent_t event;
+cudaEventCreate(&amp;event);
+cudaEventRecord(event, stream1);  // stream1 中记录 event
+cudaStreamWaitEvent(stream2, event);  // stream2 等待该 event
+// stream2 后续操作会在 stream1 到达 event 后才执行
+
+// 3. cudaDeviceSynchronize - 等待所有 stream 完成
+
+// PyTorch 中:
+s1 = torch.cuda.Stream()
+s2 = torch.cuda.Stream()
+with torch.cuda.stream(s1):
+    a = torch.matmul(x, y)
+event = s1.record_event()
+s2.wait_event(event)
+with torch.cuda.stream(s2):
+    b = a + 1  # 安全地使用 s1 的结果</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 20 -->
+    <div class="q-card" data-cat="gpu" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">20. 解释 GEMM Tiling 的三级层次 (Thread Block Tile -> Warp Tile -> Thread Tile)，以及每级对应的内存层次。</span>
+        <span class="q-cat">GPU & CUDA</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 三级分别对应 HBM -> Shared Memory -> Register File 的数据搬运层次。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>三级 Tiling 层次：</strong></p>
+          <p><strong>Level 1: Thread Block Tile (Block-level)</strong></p>
+          <ul>
+            <li>每个 Thread Block 负责输出矩阵 C 的一个大 tile (如 128x128)</li>
+            <li>从 HBM 加载 A 的子行和 B 的子列到 Shared Memory</li>
+            <li>内存层次: <strong>HBM -> Shared Memory</strong></li>
+            <li>通过 K 维度分块迭代: 每次加载 A[128, k_tile] 和 B[k_tile, 128]</li>
+          </ul>
+          <p><strong>Level 2: Warp Tile (Warp-level)</strong></p>
+          <ul>
+            <li>Block 内的每个 warp 负责 C tile 中的一个子块 (如 64x32)</li>
+            <li>从 Shared Memory 加载数据到 Register (通过 LDMATRIX 指令)</li>
+            <li>内存层次: <strong>Shared Memory -> Register File</strong></li>
+            <li>每个 warp 执行若干次 MMA (Tensor Core 操作)</li>
+          </ul>
+          <p><strong>Level 3: Thread Tile (Thread-level / MMA-level)</strong></p>
+          <ul>
+            <li>每个线程持有 MMA fragment 的一部分数据 (在寄存器中)</li>
+            <li>执行 Tensor Core 的 wmma::mma_sync 操作</li>
+            <li>内存层次: <strong>Register File (片内)</strong></li>
+            <li>如 m16n8k16: warp 内 32 线程协作完成 16x8x16 的矩阵乘加</li>
+          </ul>
+          <pre>// 典型配置 (CUTLASS style):
+// Block tile: 128x128x32 (M x N x K)
+// Warp tile: 64x64x32
+// MMA tile: 16x8x16
+//
+// 每个 Block 有 4 个 warps (2x2 warp grid)
+// 每个 warp 做 (64/16)*(64/8) = 4*8 = 32 次 MMA per K-step
+//
+// 数据流:
+// HBM --async_copy--> SMEM --ldmatrix--> RF --mma--> RF --store--> SMEM/HBM</pre>
+          <p><strong>优化关键：</strong>Software pipelining (多级 buffer 重叠 load 和 compute)、Shared Memory 的 swizzle/padding 避免 bank conflict、异步拷贝 (cp.async) 隐藏 HBM 延迟。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 21 -->
+    <div class="q-card" data-cat="distributed" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">21. Ring AllReduce 的通信复杂度是什么？为什么与 GPU 数量无关？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Ring AllReduce 分为 Scatter-Reduce 和 All-Gather 两个阶段，每个阶段 N-1 步。关注每个 GPU 的通信量。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Ring AllReduce 过程：</strong></p>
+          <ul>
+            <li>N 个 GPU 排成环形</li>
+            <li>数据被分成 N 个 chunk</li>
+            <li>Phase 1 (Scatter-Reduce): N-1 步，每步每 GPU 发送 1 chunk 给下一个 GPU 并做 reduce</li>
+            <li>Phase 2 (All-Gather): N-1 步，每步每 GPU 发送已完成的 chunk 给下一个 GPU</li>
+          </ul>
+          <p><strong>通信复杂度分析：</strong></p>
+          <ul>
+            <li>总数据量为 D</li>
+            <li>每 GPU 每步发送 D/N 数据</li>
+            <li>总共 2*(N-1) 步</li>
+            <li>每 GPU 总通信量 = 2*(N-1)/N * D ≈ <strong>2D</strong> (当 N 大时)</li>
+          </ul>
+          <p><strong>为什么与 GPU 数量 N 无关：</strong></p>
+          <p>虽然步数是 2*(N-1)，但每步发送的数据量是 D/N。总通信量 = 2*(N-1)*D/N = 2D*(1-1/N)，渐近为 2D，与 N 无关。这是因为增加 GPU 时，步数增加但每步数据量等比减少，二者抵消。</p>
+          <p><strong>总时间：</strong>2*(N-1) * (latency + D/(N*bandwidth)) ≈ 2D/bandwidth（带宽主导时）</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 22 -->
+    <div class="q-card" data-cat="distributed" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">22. FSDP ZeRO Stage 1/2/3 分别分片什么？通信量分别是多少？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Stage 1: Optimizer States; Stage 2: + Gradients; Stage 3: + Parameters。对比 DDP 的通信量基准。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>各 Stage 分片内容和内存节省：</strong></p>
+          <ul>
+            <li><strong>Stage 1 (Optimizer State Partitioning):</strong> 每 GPU 只保存 1/N 的 optimizer states (如 Adam 的 m, v)。内存省 ~4x（Adam 的 states 占模型参数的 2 倍，混合精度下还有 FP32 master weights）</li>
+            <li><strong>Stage 2 (+ Gradient Partitioning):</strong> 每 GPU 只保存 1/N 的 gradients。累加后用 Reduce-Scatter（而非 AllReduce）</li>
+            <li><strong>Stage 3 (+ Parameter Partitioning):</strong> 每 GPU 只保存 1/N 的 parameters。前向/反向时按需 AllGather 完整参数</li>
+          </ul>
+          <p><strong>通信量对比：</strong>设模型参数量为 M</p>
+          <ul>
+            <li><strong>DDP (baseline):</strong> AllReduce gradients = 2M (一次通信)</li>
+            <li><strong>Stage 1:</strong> 通信量 = 2M（Reduce-Scatter + AllGather optimizer后的参数），与 DDP 相同</li>
+            <li><strong>Stage 2:</strong> 通信量 = 2M（Reduce-Scatter gradients + AllGather updated params），与 DDP 相同</li>
+            <li><strong>Stage 3:</strong> 通信量 = 3M（前向 AllGather M + 反向 AllGather M + Reduce-Scatter gradients M），增加 50%</li>
+          </ul>
+          <p><strong>Trade-off:</strong> Stage 3 以 1.5x 通信量换取 N 倍内存节省，适合训练超大模型。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 23 -->
+    <div class="q-card" data-cat="distributed" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">23. Tensor Parallelism 中 Column Parallel 和 Row Parallel 哪个需要 AllReduce？为什么？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Column Parallel 按列切分权重矩阵（每 GPU 得到部分列），Row Parallel 按行切分。想想矩阵乘法 Y = XW 的切分方式。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Column Parallel Linear (按列切分 W)：</strong></p>
+          <ul>
+            <li>W 按列切分: W = [W1 | W2 | ... | Wn]</li>
+            <li>每个 GPU 计算: Y_i = X @ W_i (得到输出的一部分列)</li>
+            <li>输出是按列分片的，<strong>不需要 AllReduce</strong></li>
+            <li>可直接 feed 给下一层（如果下一层是 Row Parallel）</li>
+          </ul>
+          <p><strong>Row Parallel Linear (按行切分 W)：</strong></p>
+          <ul>
+            <li>W 按行切分: W = [W1; W2; ...; Wn]^T</li>
+            <li>输入 X 也需按列切分: X_i (每 GPU 拿一部分特征)</li>
+            <li>每个 GPU 计算: Y_i = X_i @ W_i (partial sum)</li>
+            <li><strong>需要 AllReduce</strong> 将各 GPU 的 partial sum 求和得到完整输出</li>
+          </ul>
+          <p><strong>Megatron-LM 的经典组合：</strong></p>
+          <pre>// MLP: Column Parallel -> GeLU -> Row Parallel -> AllReduce
+// 输入 X 广播给所有 GPU
+Y1 = X @ W1_col_i          // Column Parallel, 无通信
+Z1 = GeLU(Y1)              // 各 GPU 独立计算
+Y2 = Z1 @ W2_row_i         // Row Parallel, 得到 partial sum
+Output = AllReduce(Y2)     // 唯一的通信点
+
+// Attention 类似: QKV projection (Column) -> Output projection (Row) -> AllReduce</pre>
+          <p><strong>总结：</strong>Row Parallel 需要 AllReduce，因为每个 GPU 只计算了最终结果的 partial sum。Column Parallel 的输出本身就是完整结果的一个分片。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 24 -->
+    <div class="q-card" data-cat="distributed" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">24. Pipeline Parallelism 的 bubble ratio 公式是什么？1F1B 如何减少 bubble？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> Bubble ratio 与 pipeline stages 数 p 和 microbatch 数 m 有关。1F1B 交替执行前向和反向来减少内存峰值。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Bubble Ratio 公式：</strong></p>
+          <p>GPipe 方式下: bubble ratio = (p - 1) / (m + p - 1)</p>
+          <p>其中 p = pipeline stages 数, m = microbatches 数。</p>
+          <ul>
+            <li>当 m >> p 时，bubble 趋近于 0</li>
+            <li>例如 p=8, m=32: bubble = 7/39 = 17.9%</li>
+            <li>例如 p=8, m=8: bubble = 7/15 = 46.7%（很大）</li>
+          </ul>
+          <p><strong>1F1B (One Forward One Backward) 调度：</strong></p>
+          <ul>
+            <li><strong>Warm-up phase:</strong> 前 p-1 个 microbatch 只做 forward</li>
+            <li><strong>Steady state:</strong> 交替执行 1 个 forward + 1 个 backward</li>
+            <li><strong>Cool-down phase:</strong> 最后 p-1 个 microbatch 只做 backward</li>
+          </ul>
+          <p><strong>1F1B 的优势：</strong></p>
+          <ul>
+            <li><strong>内存优化：</strong>GPipe 需要同时保存 m 个 microbatch 的 activation（峰值内存高）；1F1B 在 steady state 每做一个 forward 就释放一个 backward 的 activation，峰值内存仅需保存 p 个 microbatch 的 activation</li>
+            <li><strong>Bubble 相同：</strong>1F1B 的 bubble ratio 与 GPipe 相同，都是 (p-1)/(m+p-1)</li>
+            <li><strong>实际好处：</strong>内存减少意味着可以用更大的 microbatch 或更少的 activation recomputation</li>
+          </ul>
+          <p><strong>进一步优化：</strong>Interleaved 1F1B (如 virtual stages) 将每个 GPU 分配 v 个 virtual stages，bubble 降为 (p-1)/(m*v+p-1)。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 25 -->
+    <div class="q-card" data-cat="distributed" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">25. 在 8 节点 64 GPU (每节点 8 卡 NVLink) 集群上训练 70B 模型，设计 TP/PP/DP 组合。</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> TP 需要高带宽通信（放在 NVLink 节点内），PP 通信量小（可跨节点），DP 用剩余维度。总 GPU 数 = TP * PP * DP。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>集群拓扑分析：</strong></p>
+          <ul>
+            <li>节点内: 8 GPU, NVLink (900 GB/s bidirectional on H100)</li>
+            <li>节点间: InfiniBand (400 Gbps = 50 GB/s per link, 通常多链路)</li>
+            <li>总 GPU: 64</li>
+          </ul>
+          <p><strong>推荐方案: TP=8, PP=2, DP=4</strong></p>
+          <ul>
+            <li><strong>TP=8 (节点内):</strong> 70B 模型单层参数大，TP=8 利用 NVLink 高带宽。每个 TP group 占一个完整节点。</li>
+            <li><strong>PP=2 (跨节点):</strong> 将 80 层分成 2 个 stage (各 40 层)。PP 通信量小（只传 activation），可走 InfiniBand。</li>
+            <li><strong>DP=4:</strong> 剩余维度 64/(8*2)=4 路数据并行，用 ZeRO Stage 1 减少 optimizer 内存。</li>
+          </ul>
+          <p><strong>内存验证 (每 GPU):</strong></p>
+          <ul>
+            <li>参数: 70B / TP8 / PP2 = 4.375B params * 2 bytes = 8.75 GB</li>
+            <li>Optimizer (Adam FP32): 4.375B * (4+4+4) = 52.5 GB / DP4 (ZeRO-1) = 13.1 GB</li>
+            <li>Activation + KV Cache: ~10-20 GB (取决于 batch size)</li>
+            <li>总计: ~35-45 GB，适合 80GB GPU</li>
+          </ul>
+          <p><strong>替代方案: TP=4, PP=4, DP=4</strong> — 如果节点内带宽不够 TP=8，或需要更小的 bubble。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 26 -->
+    <div class="q-card" data-cat="distributed" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">26. MoE 模型需要额外的 Expert Parallelism，All-to-All 通信的开销如何计算？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> All-to-All 是 MoE dispatch/combine 的核心通信操作。考虑 token 路由的不均衡性以及 expert 分布方式。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>MoE 的通信模式：</strong></p>
+          <p>每个 MoE 层需要两次 All-to-All:</p>
+          <ul>
+            <li><strong>Dispatch (前向前):</strong> 将 token 发送到其对应 expert 所在的 GPU</li>
+            <li><strong>Combine (前向后):</strong> 将 expert 计算结果发送回 token 所在的 GPU</li>
+          </ul>
+          <p><strong>All-to-All 通信量计算：</strong></p>
+          <pre>设:
+  N = Expert Parallel degree (EP, expert 分布的 GPU 数)
+  B = batch size (tokens per GPU)
+  d = hidden dimension
+  top_k = 每个 token 选择的 expert 数
+  E = 总 expert 数
+
+每 GPU 发送: B * top_k * d * (N-1)/N * element_size
+  (每个 token 的 top_k 选择大概率分布在其他 GPU 上)
+
+总通信量 per GPU ≈ B * top_k * d * 2 bytes (FP16)
+  (发送 + 接收各一份, 两次 All-to-All 共 4x)
+
+例: B=4096, top_k=2, d=4096, EP=8
+  单次 All-to-All per GPU: 4096 * 2 * 4096 * 2 = 64 MB
+  每层两次: 128 MB
+  如果模型有 64 个 MoE 层: 总通信 8.2 GB</pre>
+          <p><strong>不均衡性问题：</strong></p>
+          <ul>
+            <li>如果路由不均衡，某些 GPU 收到更多 token，出现 load imbalance</li>
+            <li>通常用 capacity factor (如 1.25) 限制每个 expert 的最大 token 数</li>
+            <li>超出的 token 被 drop 或用辅助 loss 鼓励均衡路由</li>
+          </ul>
+          <p><strong>优化：</strong>将 EP 放在节点内 NVLink 上；用 hierarchical All-to-All 减少跨节点通信；DeepSeek-V3 使用 fine-grained expert segmentation 来改善负载均衡。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 27 -->
+    <div class="q-card" data-cat="distributed" data-diff="easy">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟢</span>
+        <span class="q-text">27. torch.distributed.init_process_group 的 backend 参数有哪些选择？各自适用场景？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 主要有 nccl, gloo, mpi 三种。GPU 集合通信用哪个？CPU 呢？
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>三种 Backend：</strong></p>
+          <ul>
+            <li><strong>NCCL (NVIDIA Collective Communication Library):</strong>
+              <ul>
+                <li>专为 NVIDIA GPU 优化的集合通信库</li>
+                <li>支持 NVLink, NVSwitch, InfiniBand, PCIe</li>
+                <li>适用: GPU 间的 AllReduce, AllGather, ReduceScatter 等</li>
+                <li>是 GPU 训练的首选 backend</li>
+              </ul>
+            </li>
+            <li><strong>Gloo:</strong>
+              <ul>
+                <li>Facebook 开发的通信库，支持 CPU 和 GPU</li>
+                <li>适用: CPU 训练、CPU 端的集合通信、GPU 不可用时的 fallback</li>
+                <li>支持 TCP/IP，跨平台（Linux, macOS）</li>
+              </ul>
+            </li>
+            <li><strong>MPI (Message Passing Interface):</strong>
+              <ul>
+                <li>HPC 传统通信标准</li>
+                <li>适用: 已有 MPI 基础设施的 HPC 集群</li>
+                <li>需要单独安装 MPI 实现（OpenMPI, MPICH）</li>
+              </ul>
+            </li>
+          </ul>
+          <pre># 典型用法
+import torch.distributed as dist
+
+# GPU 训练 (推荐)
+dist.init_process_group(backend="nccl")
+
+# CPU 训练
+dist.init_process_group(backend="gloo")
+
+# 混合: GPU 用 nccl, CPU 用 gloo
+dist.init_process_group(backend="nccl")
+# PyTorch 会自动为 CPU tensor 操作使用 gloo</pre>
+          <p><strong>最佳实践：</strong>多 GPU 训练统一使用 <code>nccl</code>。如果有 CPU 端的通信需求（如参数服务器），可同时初始化 gloo process group。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 28 -->
+    <div class="q-card" data-cat="distributed" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">28. Gradient Accumulation 的原理是什么？它如何等效于更大的 batch size？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 多次前向+反向累加梯度，只做一次 optimizer.step()。数学上等价于大 batch 的梯度求平均。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>原理：</strong></p>
+          <p>将一个大 batch 分成 K 个 micro-batch，逐个计算梯度并累加，最后一起更新参数：</p>
+          <pre>optimizer.zero_grad()
+for i in range(accumulation_steps):
+    output = model(micro_batch[i])
+    loss = criterion(output, target[i])
+    loss = loss / accumulation_steps  # 归一化
+    loss.backward()  # 梯度累加到 .grad
+# 等价于 effective_batch = micro_batch_size * accumulation_steps
+optimizer.step()</pre>
+          <p><strong>数学等价性：</strong></p>
+          <p>大 batch 梯度: g = (1/B) * sum_{i=1}^{B} grad_i</p>
+          <p>累积 K 个 micro-batch (each size b, B=K*b):</p>
+          <p>g = (1/K) * sum_{k=1}^{K} [(1/b) * sum_{i in batch_k} grad_i] = (1/B) * sum_{i=1}^{B} grad_i</p>
+          <p>数学上完全等价（除了 BatchNorm 的统计量可能不同）。</p>
+          <p><strong>优势：</strong></p>
+          <ul>
+            <li>突破 GPU 内存限制，模拟大 batch 训练</li>
+            <li>与 DDP 结合时，可以在 accumulation 期间跳过 AllReduce（no_sync context），只在最后一步通信</li>
+          </ul>
+          <pre># DDP + Gradient Accumulation 优化
+for i, batch in enumerate(dataloader):
+    # 前 K-1 步不通信
+    ctx = model.no_sync() if (i+1) % K != 0 else nullcontext()
+    with ctx:
+        loss = model(batch) / K
+        loss.backward()
+    if (i+1) % K == 0:
+        optimizer.step()  # AllReduce 在这里自动发生
+        optimizer.zero_grad()</pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 29 -->
+    <div class="q-card" data-cat="distributed" data-diff="medium">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🟡</span>
+        <span class="q-text">29. 通信与计算重叠 (overlap) 是怎么实现的？DDP 的 gradient bucketing 怎么工作？</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> DDP 不等所有梯度算完才通信，而是边算边发。Bucketing 将小梯度打包成大 bucket 一起 AllReduce。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>Overlap 核心思想：</strong>反向传播是从后向前逐层计算梯度的。当后面几层的梯度算好后，可以立即开始 AllReduce，同时前面几层继续计算梯度。通信和计算在时间上重叠。</p>
+          <p><strong>DDP Gradient Bucketing：</strong></p>
+          <ul>
+            <li>将模型参数按反向计算顺序分成多个 bucket（默认 25MB/bucket）</li>
+            <li>当一个 bucket 内所有参数的梯度都计算完毕，立即启动该 bucket 的 AllReduce</li>
+            <li>AllReduce 在独立 CUDA stream 上执行，与后续 bucket 的梯度计算并行</li>
+          </ul>
+          <pre># DDP bucketing 示意 (从后向前)
+# 时间线:
+# 计算: [grad_layer_N] [grad_layer_N-1] ... [grad_layer_1]
+# 通信:            [AllReduce bucket_1]  [AllReduce bucket_2] ...
+#                  (overlap!)
+
+# 配置:
+model = DDP(model,
+    bucket_cap_mb=25,        # 每个 bucket 大小
+    find_unused_parameters=False,  # 静态图优化
+    gradient_as_bucket_view=True   # 减少内存拷贝
+)</pre>
+          <p><strong>实现细节：</strong></p>
+          <ul>
+            <li>DDP 注册 autograd hook，每个参数梯度就绪时通知 bucket</li>
+            <li>Bucket 按参数在模型中的逆序排列（与反向计算顺序一致）</li>
+            <li>AllReduce 使用单独的 NCCL stream，不阻塞计算 stream</li>
+            <li>Bucket 太小: 通信次数多，启动开销大；太大: overlap 不充分</li>
+          </ul>
+          <p><strong>效果：</strong>理想情况下通信几乎完全被计算隐藏，training throughput 接近无通信的理论值。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Question 30 -->
+    <div class="q-card" data-cat="distributed" data-diff="hard">
+      <div class="q-header" onclick="toggleQuestion(this)">
+        <span class="q-diff">🔴</span>
+        <span class="q-text">30. 设计一个 1000B MoE 模型的训练并行策略 (假设 2048 个 H100 GPU)。</span>
+        <span class="q-cat">分布式训练</span>
+        <span class="q-toggle">&#9662;</span>
+      </div>
+      <div class="q-body">
+        <div class="q-hint">
+          <strong>提示：</strong> 需要结合 TP + PP + DP + EP 四维并行。考虑 MoE 层 (sparse) 和 Attention 层 (dense) 的不同并行需求。
+        </div>
+        <div class="q-solution">
+          <strong>解答：</strong>
+          <p><strong>模型假设：</strong></p>
+          <ul>
+            <li>1000B MoE (如: 64 experts, top-2, dense 参数 ~50B, 总参数 ~1000B)</li>
+            <li>128 layers, hidden_dim=8192, 每层 FFN 被替换为 MoE</li>
+            <li>集群: 2048 H100 (256 nodes * 8 GPUs, NVLink 节点内, IB 节点间)</li>
+          </ul>
+          <p><strong>并行策略设计: TP=8, EP=16, PP=4, DP=4</strong></p>
+          <p>验证: 8 * 16 * 4 * 4 = 不对。需要重新设计，因为 EP 和 TP/DP 有重叠：</p>
+          <p><strong>修正方案 (分层设计)：</strong></p>
+          <ul>
+            <li><strong>TP=8 (节点内):</strong> Dense 层 (Attention) 用 TP=8</li>
+            <li><strong>PP=4 (跨节点):</strong> 128 层分成 4 个 stage (各 32 层)</li>
+            <li><strong>DP=8:</strong> 数据并行 + ZeRO Stage 1</li>
+            <li><strong>EP=64 (覆盖 DP*PP 维度中的部分):</strong> 64 个 expert 分布在 EP=64 个 GPU 上（跨 DP 和同 PP stage 内的 GPU）</li>
+          </ul>
+          <p>实际分组: 2048 = TP(8) * PP(4) * DP(64) = 2048，EP(64) 在每个 PP stage 的 512 GPU 中从 DP 维度选 64。</p>
+          <p><strong>简化方案 (参考 DeepSeek-V3 风格): TP=8, PP=16, DP=16, EP=16</strong></p>
+          <pre>总 GPU = 2048
+TP = 8  (节点内 NVLink, dense attention)
+PP = 16 (128 layers / 16 = 8 layers per stage)
+DP = 16 (2048 / 8 / 16 = 16)
+EP = 16 (expert parallel, 与 DP 同维度, 64 experts / 16 = 4 experts per GPU)
+
+通信分析:
+- TP: AllReduce 2x per layer, 节点内 NVLink (~900GB/s)
+- PP: 点对点 activation, 跨节点 IB (~50 GB/s), 量小
+- DP: AllReduce gradients (dense params only ~50B/TP8/PP16 = 0.4B per GPU)
+- EP: All-to-All per MoE layer, 跨节点, 主要开销
+
+内存 per GPU:
+- Dense params: 50B / 8(TP) / 16(PP) * 2 bytes = 0.78 GB
+- Expert params: (1000B-50B) / 8(TP) / 16(EP) * 2 bytes = 14.8 GB (每 GPU 4 experts)
+- Optimizer: ~3x params in FP32 / ZeRO-1(DP16) ≈ 3 GB
+- Activation: gradient checkpointing, ~10-20 GB
+- Total: ~35-45 GB ✓</pre>
+          <p><strong>关键优化：</strong>Expert Parallelism 的 All-to-All 是瓶颈，需要（1）节点内 EP 优先、（2）通信计算 overlap、（3）auxiliary loss 保证负载均衡。</p>
+        </div>
+      </div>
+    </div>
+
+  <!-- Questions 31-60 inserted below -->
+<!-- Questions 31-60: LLM 推理系统 / RLHF 系统设计 / 系统设计 / Debugging -->
+
+<!-- ===== LLM 推理系统 (31-40) ===== -->
+
+<div class="q-card" data-cat="inference" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">什么是 Continuous Batching？相比 Static Batching 的优势？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>考虑不同请求生成长度不同时，Static Batching 中 GPU 的利用率问题。Continuous Batching 也叫 iteration-level scheduling。</div>
+    <div class="q-solution"><strong>解答：</strong>Static Batching 要求一个 batch 内所有请求同时开始、同时结束，短请求必须等最长请求完成才能释放资源，导致严重的 GPU 空泡 (bubble)。Continuous Batching（又称 iteration-level scheduling）在每个 decode iteration 结束时检查是否有请求完成，完成的立刻退出，空出的 slot 可以立刻插入新请求。优势：(1) GPU utilization 显著提高，因为不存在 padding 浪费；(2) 请求的 queuing delay 降低，新请求无需等整个 batch 结束；(3) throughput 提升通常 2-5x。Orca 论文首次提出该方法，后续被 vLLM、SGLang、TensorRT-LLM 等框架广泛采用。关键实现要点是需要维护一个 request pool 和 per-iteration 的 scheduler。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">PagedAttention 解决了什么问题？核心思想类比什么 OS 概念？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>KV Cache 的内存碎片问题，以及 OS 中虚拟内存与物理内存的映射关系。</div>
+    <div class="q-solution"><strong>解答：</strong>PagedAttention 解决了 LLM 推理中 KV Cache 内存管理的碎片化问题。传统方式为每个请求预分配最大可能长度的连续内存，导致大量内部碎片（平均浪费 60-80%）。PagedAttention 类比 OS 的虚拟内存分页机制：将 KV Cache 切分为固定大小的 block（如 16 tokens），通过 block table（类似 page table）维护逻辑位置到物理 block 的映射。优势：(1) 内存利用率接近 100%，无内部碎片；(2) 支持 copy-on-write，同一 prompt 的多个 beam 可共享 KV Cache block；(3) 支持动态增长，按需分配新 block。缺点是引入了间接寻址开销，attention kernel 需要 gather 操作，但通常可以通过高效的 CUDA kernel 实现将开销控制在 5% 以内。该方法由 vLLM 首次提出。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">Radix Cache 如何实现 prefix sharing？画出数据结构并解释查找/插入过程。</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>Radix Tree（基数树/压缩前缀树）的结构特点，以及 LRU eviction 策略。</div>
+    <div class="q-solution"><strong>解答：</strong>Radix Cache 使用 Radix Tree（压缩前缀树）存储 token 序列到 KV Cache block 的映射。每个节点存储一段 token 序列及其对应的 KV Cache 物理块指针。结构示例：root → ["system prompt tokens", blocks 0-3] → ["user: hello", blocks 4-5] / ["user: bye", blocks 4-6]。查找过程：将新请求的 token 序列从 root 开始逐节点匹配，找到最长前缀匹配（LPM），命中的部分直接复用已有 KV Cache，未命中部分才需要 prefill 计算。插入过程：prefill 完成后，将新的 token 序列和对应 KV block 插入树中，如果与现有节点共享前缀则分裂节点。Eviction 采用 LRU 策略，基于叶子节点的最后访问时间回收。SGLang 的 RadixAttention 实现了该方案，相比 vLLM 的 prefix caching（基于 hash table），Radix Cache 天然支持任意前缀共享，不需要预先知道 prefix boundary，对 multi-turn 对话和 few-shot learning 场景尤为有效。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">Speculative Decoding 的加速比公式是什么？acceptance rate 0.7, draft length 5 时加速多少？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>考虑期望接受的 token 数量，以及 verify 阶段总是至少产生 1 个 token。公式涉及等比级数求和。</div>
+    <div class="q-solution"><strong>解答：</strong>Speculative Decoding 的核心思想：用小模型 (draft model) 快速生成 γ 个候选 token，再用大模型 (target model) 一次 forward pass 并行验证。加速比公式为：Speedup = E[accepted tokens + 1] / cost_ratio，其中期望接受的 token 数为 E[n] = (1 - α^(γ+1)) / (1 - α)，α 为单 token acceptance rate。当 α=0.7, γ=5 时：E[n] = (1 - 0.7^6) / (1 - 0.7) = (1 - 0.118) / 0.3 = 0.882 / 0.3 ≈ 2.94 tokens per step。如果忽略 draft model 开销（或假设 draft 足够小），相比原来每步 1 token，加速约 2.94x。实际加速还需考虑：(1) draft model 的推理成本 c，实际加速 ≈ 2.94 / (1 + γ·c)；(2) batch 场景下 verify 阶段的 compute 增加；(3) acceptance rate 随生成长度递减。典型实际加速在 1.5-2.5x 范围。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">FP8 E4M3 vs E5M2 格式各自适合什么场景？为什么权重用 E4M3 激活用 E5M2？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>E 代表 exponent bits（动态范围），M 代表 mantissa bits（精度）。权重分布窄但需要精度，激活有 outlier 需要大动态范围。</div>
+    <div class="q-solution"><strong>解答：</strong>FP8 E4M3：4 bit exponent + 3 bit mantissa，动态范围 ±448，精度更高（相邻可表示数的间距更小）。FP8 E5M2：5 bit exponent + 2 bit mantissa，动态范围 ±57344，精度较低但范围大得多。权重适合 E4M3 因为：经过训练的模型权重分布通常集中在较窄的范围内（近似正态分布，大部分值在 [-1, 1]），不需要大动态范围，但需要更高精度来区分相近的权重值。激活适合 E5M2 因为：激活值经常出现 outlier（如 LayerNorm 之前），动态范围可能很大（某些 channel 的值可达数百），需要更大的 exponent 范围来避免溢出。实践中也有全用 E4M3 配合 per-tensor/per-channel scaling 的方案（如 FP8 with fine-grained quantization），通过 scale factor 补偿动态范围不足。H100/H200 原生支持 FP8 tensor core，吞吐量是 FP16 的 2 倍。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">设计一个支持 10K QPS 的 LLM serving 系统，要求 P99 latency < 2s，模型 70B。</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>先估算单机吞吐，再算需要多少副本。考虑 TP/PP 策略、负载均衡、请求路由、auto-scaling。</div>
+    <div class="q-solution"><strong>解答：</strong>设计方案：(1) 容量估算：70B 模型 FP8 量化约需 70GB 显存，使用 TP=4 on 4×H100（每卡 80GB，留余量给 KV Cache）。单实例 decode throughput 约 2000-3000 tokens/s，假设平均 output 100 tokens，单实例 QPS ≈ 20-30。10K QPS 需要约 350-500 个实例（即 1400-2000 张 H100）。(2) 架构设计：多级负载均衡（L7 Load Balancer → Router Layer → Scheduler → TP Worker Group）。Router 基于 prefix affinity 路由（相同 system prompt 的请求路由到同一实例以利用 KV Cache 复用）。(3) P99 < 2s 保证：Chunked Prefill 防止长 prefill 阻塞 decode；Priority Queue 区分 prefill/decode 请求；Preemption 机制在过载时暂停低优先级请求。(4) Auto-scaling：基于 pending queue length 和 GPU utilization 进行 HPA；预留 20% buffer capacity 应对流量突峰。(5) 优化：开启 FP8 量化、Speculative Decoding（对高 latency 要求的场景）、Radix Cache 提升 prefix hit rate。(6) 容灾：多 AZ 部署，单实例故障自动重路由，graceful degradation 策略。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">Prefill 和 Decode 阶段的 latency 指标分别叫什么 (TTFT vs TPOT)？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>从用户体验角度思考：用户提交请求后多久看到第一个字？之后每个字出现的间隔是多少？</div>
+    <div class="q-solution"><strong>解答：</strong>TTFT (Time To First Token)：从请求到达到第一个生成 token 返回的时间，主要由 Prefill 阶段决定。Prefill 需要处理所有 input tokens 的 attention 计算，是 compute-bound 操作，时间与 input length 近似线性相关。TPOT (Time Per Output Token)：生成每个后续 token 的间隔时间，由 Decode 阶段决定。Decode 每步只处理 1 个新 token，是 memory-bandwidth-bound 操作（需要读取所有 KV Cache）。两者的优化方向不同：降低 TTFT 需要更快的 prefill（如 TP 并行、FlashAttention）；降低 TPOT 需要更高的 memory bandwidth 利用和 batching 效率。另一个重要指标是 E2E latency = TTFT + TPOT × output_length。实际应用中，chatbot 重视 TTFT（用户等待感），batch processing 重视 throughput（tokens/s），coding assistant 两者都重要。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">Chunked Prefill 的动机是什么？它如何保护 Decode 请求的延迟？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>长 prompt 的 prefill 可能占用 GPU 数百毫秒，期间 decode 请求被阻塞。Chunk 化可以交错执行。</div>
+    <div class="q-solution"><strong>解答：</strong>动机：在 Continuous Batching 中，一个长 prompt（如 32K tokens）的 prefill 可能需要 500ms+。如果 prefill 和 decode 共享 GPU，decode 请求在 prefill 期间被阻塞，导致 TPOT 抖动严重（从正常 20ms 飙升到 500ms+），违反 SLO。Chunked Prefill 将长 prefill 拆分为固定大小的 chunk（如 512 或 1024 tokens），每个 chunk 作为一个 iteration 执行，chunk 之间可以插入 decode batch。工作机制：Scheduler 维护 prefill queue 和 decode queue，每个 iteration 先执行所有 pending decode（保证 TPOT 稳定），剩余 compute budget 分配给 prefill chunk。这样 decode 请求的最大阻塞时间 = 1 个 chunk 的 prefill 时间（可控）。Trade-off：chunk 越小 decode 越稳定，但 prefill 的 TTFT 会增加（因为需要更多 iteration 完成）。SGLang 和 Sarathi-Serve 都实现了该技术，通常 chunk size 设为使 prefill 时间不超过一个 decode iteration budget（如 10-20ms）。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">量化校准 (Calibration) 是什么？为什么 INT4 量化需要但 FP8 通常不需要？</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>量化需要确定 scale factor 和 zero point。INT 格式的均匀间距 vs FP 格式的对数间距对异常值的敏感度不同。</div>
+    <div class="q-solution"><strong>解答：</strong>量化校准是通过在代表性数据集上运行模型，统计各层权重和激活的数值分布（min/max/percentile），从而确定最优的 scale factor 和 zero point 的过程。INT4 需要校准的原因：(1) INT4 只有 16 个可表示的值，均匀分布在 [min, max] 之间，对 outlier 极其敏感；一个异常大值会撑大量化范围，使其他正常值的精度严重损失。(2) 需要通过校准找到合适的 clipping range（如取 99.99th percentile 而非 max）来平衡 clipping error 和 quantization error。(3) 高级方法如 GPTQ/AWQ 还需要校准数据来做 weight rounding optimization。FP8 通常不需要校准因为：(1) FP8 有 8 bit 共 256 个可表示值，且分布是对数均匀的（小值密、大值疏），天然适合神经网络中近似正态的分布；(2) 动态范围足够大（E4M3: ±448），大部分激活不会溢出；(3) 可以用简单的 per-tensor dynamic scaling（运行时取 absmax）代替离线校准，精度损失可控（< 0.5% accuracy drop）。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="inference" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">对比 SGLang 和 vLLM 的 Scheduler 设计差异（Radix Cache、Overlap Scheduling、DP Attention）。</span>
+    <span class="q-cat">推理系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>从 cache 策略、scheduling 策略、并行策略三个维度对比。SGLang 强调 compiler-like 优化，vLLM 强调 memory 管理。</div>
+    <div class="q-solution"><strong>解答：</strong>(1) Cache 策略：SGLang 使用 Radix Cache（Radix Tree 结构），支持自动前缀共享，对任意 prefix pattern 都能 O(n) 查找最长匹配，无需预定义 prefix boundary；vLLM 使用 hash-based prefix caching（APC），将 token block hash 为 key 做精确匹配，需要 block boundary 对齐，对不规则 prefix 可能 miss。(2) Overlap Scheduling：SGLang 实现了 CPU-GPU overlap——Scheduler 在 GPU 执行当前 batch 时并行做下一 batch 的调度决策（选请求、分配内存、构建 metadata），减少 scheduling overhead 到几乎为零；vLLM 的 scheduler 和 model execution 是串行的，scheduler 的延迟直接加到每个 iteration。(3) DP Attention：SGLang 支持 Data Parallel Attention，在多卡场景下不同 GPU 处理不同请求的 attention（各自有独立 KV Cache），只在 FFN 层做 TP allreduce；相比纯 TP，DP Attention 减少了 attention 层的通信，提高了 KV Cache 总容量（每卡只存部分请求的 cache），特别适合长上下文场景。vLLM 主要依赖传统 TP/PP 并行。(4) 其他差异：SGLang 有 constrained decoding 的 grammar cache（FSM state 复用），radix cache 的 eviction 基于 tree-based LRU；vLLM 的 block manager 支持 swap-to-CPU 和 preemption-by-recompute。总体 SGLang 在 throughput 和 prefix-heavy workload 上优势明显，vLLM 在 feature 完整度和生态上更成熟。</div>
+  </div>
+</div>
+
+<!-- ===== RLHF 系统设计 (41-50) ===== -->
+
+<div class="q-card" data-cat="rlhf" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">GRPO 和 PPO 的核心区别是什么？GRPO 为什么不需要 Critic？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>PPO 用 Critic (Value Network) 估计 baseline，GRPO 用 group 内的平均 reward 作为 baseline。</div>
+    <div class="q-solution"><strong>解答：</strong>PPO (Proximal Policy Optimization) 需要一个 Critic Network（与 Policy 同等规模的 Value Model）来估计每个 state 的 value V(s)，用于计算 advantage A = R - V(s)。Critic 的训练本身就很困难（需要和 Policy 同步更新），且显存占用巨大（相当于额外一个 LLM）。GRPO (Group Relative Policy Optimization) 的核心创新：对同一个 prompt 采样一组 responses（如 G=8 个），用组内 reward 的均值和标准差做归一化作为 advantage：A_i = (r_i - mean(r)) / std(r)。这样完全消除了 Critic 的需要，因为 baseline 直接从同组样本统计得来。优势：(1) 显存减半（去掉 Critic）；(2) 实现简单，无需 Critic 的训练稳定性调参；(3) DeepSeek-R1 验证了 GRPO 在数学推理任务上效果优异。Trade-off：需要更多 rollout（每个 prompt 多次采样），增加了 inference 成本，但在 reward model 区分度高的场景下非常有效。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">GAE (Generalized Advantage Estimation) 的 λ 参数控制什么 trade-off？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>λ=0 退化为 TD(0)（低方差高偏差），λ=1 退化为 Monte Carlo（高方差低偏差）。</div>
+    <div class="q-solution"><strong>解答：</strong>GAE 公式：A_t^GAE(γ,λ) = Σ_{l=0}^{T-t} (γλ)^l · δ_{t+l}，其中 δ_t = r_t + γV(s_{t+1}) - V(s_t) 是 TD error。λ 控制 bias-variance trade-off：λ=0 时，A_t = δ_t = r_t + γV(s_{t+1}) - V(s_t)，只看一步 TD error，方差低（依赖 value function 估计）但偏差高（如果 V 不准确）。λ=1 时，A_t = Σ γ^l·r_{t+l} - V(s_t)，等价于 Monte Carlo return 减去 baseline，无偏但方差高（受环境随机性影响大）。实践中 λ=0.95 是常用值，在 RLHF 场景中通常只有 episode 结束时有 reward（sparse reward），此时 γ 和 λ 的选择影响 credit assignment 的效率。对 LLM RLHF，通常 γ=1（不折扣，因为整个 response 是一个 episode），λ=0.95-1.0。注意在 GRPO 中由于没有 Critic，不使用 GAE，直接用组内归一化 reward 作为 advantage。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">RLHF 中 Training-Inference Mismatch 是什么？有哪些解决方案？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>训练时 Policy 在更新，但 rollout 用的是旧 Policy 生成的数据。类似 off-policy 问题。</div>
+    <div class="q-solution"><strong>解答：</strong>Training-Inference Mismatch 指 RLHF 训练中 rollout（生成 response）使用的 policy 和当前正在更新的 policy 之间存在版本差异。当训练集群 (Training Worker) 和推理集群 (Inference Worker) 分离时，weight sync 存在延迟，inference 用的是 N steps 前的旧权重生成数据。这相当于 off-policy 训练，可能导致：(1) importance sampling ratio 偏大导致 gradient 不稳定；(2) PPO clip 范围外的样本增多，有效训练数据减少；(3) policy 收敛变慢或震荡。解决方案：(1) 频繁 Weight Sync——每 K steps 同步一次权重到 inference worker（K 越小越好，但通信开销越大）；(2) On-policy 严格模式——生成和训练串行执行，牺牲 throughput 保证新鲜度（veRL 的做法）；(3) Asynchronous PPO with staleness correction——用 importance weight correction 补偿版本差异；(4) 增大 PPO 的 mini-batch 数量或 epoch 数来充分利用每批 rollout；(5) Hybrid Engine（如 veRL）在同一 GPU 上交替执行 training 和 inference，无需网络传输权重。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">设计 Weight Sync 策略：给定 8 GPU training + 8 GPU inference 的拓扑，比较 NCCL broadcast vs Disk-based。</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>考虑模型大小、网络带宽、同步频率、是否阻塞训练。</div>
+    <div class="q-solution"><strong>解答：</strong>NCCL Broadcast 方案：Training GPU 0 作为 root，通过 NCCL broadcast 将参数直接发送到 8 个 inference GPU。假设模型 7B FP16 = 14GB，NVLink 带宽 600GB/s（同节点）或 InfiniBand 400Gbps=50GB/s（跨节点）。同节点延迟 ~0.02s，跨节点延迟 ~0.3s。优点：延迟低、无需额外存储。缺点：需要 training 和 inference GPU 在同一 NCCL group，拓扑耦合严重；broadcast 期间 training 阻塞；跨集群场景不可用。Disk-based 方案：Training 端 save checkpoint 到共享存储（NFS/S3），Inference 端 load。7B 模型写磁盘 ~5-10s（NVMe SSD），读取类似。优点：完全解耦，支持跨集群、不同框架；training 不阻塞（异步写）。缺点：延迟高（10-20s+）、需要高性能共享存储、频繁写入磨损 SSD。实践推荐：同节点用 NCCL（veRL 的 Hybrid Engine）；跨节点用 RDMA-based 直传（如 Ray object store 或 NCCL over IB）；跨集群才考虑 disk-based。OpenRLHF 使用 Ray 的 object store 做权重传递，延迟在 1-3s 级别。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">PPO 的 clip 参数 ε 设太大或太小分别会怎样？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>ε 限制了 policy ratio r(θ) = π_new/π_old 的范围 [1-ε, 1+ε]，目的是防止过大的策略更新。</div>
+    <div class="q-solution"><strong>解答：</strong>PPO 的 clipped objective：L = min(r(θ)·A, clip(r(θ), 1-ε, 1+ε)·A)。ε 太大（如 0.5-1.0）：clip 范围宽，policy 可以在一次更新中发生剧烈变化，等同于没有 clip 的 vanilla policy gradient。后果：(1) 训练不稳定，policy 可能跳到差的区域后无法恢复；(2) reward hacking 更容易发生（policy 快速 exploit reward model 漏洞）；(3) KL divergence 飙升，输出退化为重复或无意义文本。ε 太小（如 0.01-0.05）：clip 范围窄，每次更新幅度极小。后果：(1) 训练极慢，需要更多 steps 才能看到效果；(2) rollout 数据很快变成 off-policy（policy 没怎么变但数据已经是旧 policy 生成的），sample efficiency 低；(3) 可能陷入局部最优无法逃出。实践中 LLM RLHF 常用 ε=0.2（OpenAI 原始设置），某些框架如 TRL 默认 ε=0.2。配合 KL penalty 一起使用时，ε 可以稍大些因为 KL 提供了额外约束。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">设计一个支持 multi-turn tool calling 的 RL 训练系统（考虑 variable-length rollout、async execution、state management）。</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>Agent 场景中一次 rollout 可能包含多轮 LLM 生成 + 工具执行，每轮长度不定，工具执行时间不定。需要 async pipeline。</div>
+    <div class="q-solution"><strong>解答：</strong>核心挑战：(1) Variable-length rollout：Agent 可能需要 1-20 轮交互才完成任务，每轮生成长度和工具执行时间差异巨大（搜索 1s vs 代码执行 30s）。(2) 系统设计：采用 Actor-Environment-Trainer 三层架构。Actor（LLM inference engine）生成 action（tool calls）；Environment Pool（sandbox 集群）异步执行工具并返回 observation；Trainer 收集完整 trajectory 后做 PPO/GRPO 更新。(3) Async Execution Pipeline：每个 rollout 是一个状态机（Generating → WaitingTool → Processing → Generating...→ Done），用 event-driven 调度。当某请求等待工具返回时，GPU 可以处理其他请求的生成，最大化利用率。(4) State Management：每个 rollout 维护完整对话历史 + KV Cache 状态。工具返回后需要 append observation 到 context 并继续 prefill。Radix Cache 在此场景天然支持增量 prefill。(5) Reward Design：可以给 intermediate reward（每步工具调用是否正确）和 final reward（任务是否完成）。用 GAE 做 credit assignment。(6) Batching 策略：由于 rollout 长度差异大，使用 dynamic batching + timeout 机制，超时的 rollout 截断并给负 reward。(7) 实现参考：SLIME 框架支持此类场景，通过将 environment 和 inference 解耦为微服务实现弹性扩缩。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="easy">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-easy">🟢</span>
+    <span class="q-text">Reward Model 的训练数据格式是什么？Bradley-Terry 模型的 loss 公式？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>数据是 preference pair (chosen, rejected)，模型输出 scalar reward，loss 基于概率排序。</div>
+    <div class="q-solution"><strong>解答：</strong>训练数据格式：每条样本包含 (prompt, chosen_response, rejected_response)，其中 chosen 是人类标注者偏好的回答。可扩展为 K-wise ranking：对同一 prompt 的 K 个回答做全序或偏序排列。Bradley-Terry 模型假设偏好概率为：P(y_w ≻ y_l | x) = σ(r(x, y_w) - r(x, y_l))，其中 σ 是 sigmoid 函数，r 是 reward model 的输出标量。Loss 函数：L = -E[log σ(r(x, y_w) - r(x, y_l))]，即最大化 chosen 和 rejected 的 reward 差值通过 sigmoid 的 log likelihood。实现上，Reward Model 通常是在 SFT 模型基础上去掉 LM head，加一个 linear projection 到 scalar 的结构，取最后一个 token 的 hidden state 做 pooling。训练技巧：(1) 加 margin term：L = -log σ(r_w - r_l - m)，m 根据标注置信度设定；(2) 加 regularization 防止 reward scale 过大；(3) 数据去重和质量过滤很关键。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">veRL 的 Hybrid Engine 模式如何在同一组 GPU 上切换 training 和 inference？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>考虑 training 和 inference 对 GPU 内存的不同需求（optimizer states vs KV Cache），以及权重同步的零开销。</div>
+    <div class="q-solution"><strong>解答：</strong>veRL (Volcano Engine RL) 的 Hybrid Engine 核心思想：在同一组 GPU 上交替执行 training phase 和 inference phase，避免跨节点 weight sync。工作流程：(1) Inference Phase：卸载 optimizer states 和 gradients（节省约 12x model size 的内存），腾出空间给 KV Cache；加载 inference-optimized kernel（如 FlashInfer）；以 TP/DP 模式执行 rollout 生成。(2) Training Phase：释放 KV Cache；重新加载 optimizer states（Adam 需要 m, v 各 fp32）；切换为 FSDP/TP 训练模式执行 PPO update。(3) 切换机制：通过 memory pool 预分配和 lazy allocation 实现快速切换，状态管理由 Resource Manager 控制。切换延迟主要来自 optimizer state 的 offload/reload（可用 CPU memory 或 NVMe 作为 staging area），典型延迟 2-5s。优势：(1) 零网络传输的 weight sync（weights 本就在 GPU 上）；(2) GPU 利用率高（不需要单独的 inference 集群）；(3) 严格 on-policy（inference 用的永远是最新权重）。局限：training 和 inference 无法并行，吞吐上限受限；对超大模型（需要很多 GPU 的 PP/TP）可能不如分离式灵活。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">Partial Rollout 策略解决什么问题？如何处理 long-context RL 的 decode 瓶颈？</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>当 response 很长时（如代码生成 8K tokens），完整 rollout 耗时太长，导致 training GPU 空等。Partial rollout 可以提前截断并给 intermediate reward。</div>
+    <div class="q-solution"><strong>解答：</strong>问题：在 long-context RL 场景（如代码生成、长推理链），单个 rollout 可能生成数千 tokens，耗时数十秒。Training GPU 必须等所有 rollout 完成才能开始训练，导致严重的 pipeline bubble（GPU idle time 占比可达 60-80%）。Partial Rollout 策略：(1) 截断方式——设置 max_new_tokens 上限，超过长度强制截断。对截断的 response 用部分 reward（如 reward model 对不完整 response 打分，或给固定 penalty）。(2) 分段处理——将长 rollout 分成多个 segment，每个 segment 独立计算 advantage 并可提前开始训练。类似 pipeline parallelism 的思想用在 RL training 中。(3) Streaming Rollout——生成的 tokens 以 streaming 方式发送给 trainer，trainer 在收到足够数据后开始计算 prefix 部分的 loss。(4) Prioritized Generation——优先完成短 rollout 的训练，长 rollout 异步完成后加入下一个 training batch。(5) Speculative Decoding for RL——用 draft model 快速生成 rollout，减少 decode 时间。实践中 SLIME 框架提出了 micro-rollout 概念，将长 trajectory 拆分处理，显著提高 GPU 利用率。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="rlhf" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">对比 veRL, SLIME, OpenRLHF 三个框架的架构设计 trade-offs。</span>
+    <span class="q-cat">RLHF 系统</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>从资源分配模式（colocated vs separated）、通信机制、扩展性、适用场景四个维度对比。</div>
+    <div class="q-solution"><strong>解答：</strong>(1) veRL（字节跳动）：Colocated 架构，Training 和 Inference 在同一组 GPU 上交替执行（Hybrid Engine）。优势：零 weight sync 开销，严格 on-policy，资源利用灵活。劣势：Training 和 Inference 互斥无法重叠，throughput 上限受限；超大模型需要 PP 时切换复杂。适用：中等规模模型（7B-70B），追求训练质量的场景。(2) SLIME（上海AI Lab）：微服务 (Microservice) 架构，将 Rollout、Training、Reward 等模块拆分为独立服务，通过消息队列通信。优势：极致弹性（各模块独立扩缩容）、支持复杂 workflow（multi-turn、tool use）、异步执行最大化 GPU 利用。劣势：系统复杂度高、通信延迟、需要处理 staleness。适用：Agent RL、复杂 multi-step 任务、大规模集群。(3) OpenRLHF（社区开源）：Ray-based 分离式架构，Training 和 Inference 在不同 GPU 上通过 Ray object store 传递数据和权重。优势：简单清晰、易于扩展到多节点、支持异构硬件。劣势：weight sync 通过 Ray 传输有延迟（几秒）、mild off-policy；内存拷贝开销。适用：通用 RLHF 训练，快速原型验证，社区研究。总结：veRL 追求质量（on-policy），SLIME 追求灵活性（agent 场景），OpenRLHF 追求易用性（快速上手）。</div>
+  </div>
+</div>
+
+<!-- ===== 系统设计 (51-55) ===== -->
+
+<div class="q-card" data-cat="sysdesign" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">从零设计一个 LLM Serving System：画出完整架构 (Router → Scheduler → Worker → Detokenizer)，解释每层的设计决策。</span>
+    <span class="q-cat">系统设计</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>每一层都有关键设计选择：Router（prefix-aware routing vs round-robin）、Scheduler（FCFS vs priority）、Worker（TP/PP 策略）、Detokenizer（incremental vs batch）。</div>
+    <div class="q-solution"><strong>解答：</strong>四层架构设计：(1) Router Layer：接收 HTTP 请求，决定分发到哪个 Worker Group。设计选择：prefix-aware routing（基于 prompt hash/prefix 做 consistent hashing，最大化 cache 命中率）vs load-based routing（发给最空闲的 worker）。需要维护每个 worker 的 queue length 和 cache state 做决策。实现可用 Nginx/Envoy + 自定义 routing plugin。(2) Scheduler Layer（每个 Worker Group 一个）：管理 waiting queue，决定每个 iteration 执行哪些请求。关键决策：admission control（何时接受新 prefill vs 继续 decode）、preemption policy（内存不足时 swap/recompute/drop 哪个请求）、priority scheduling（VIP 请求优先）、chunked prefill 的 chunk budget 分配。数据结构：priority queue + token budget constraint。(3) Worker Layer：实际执行 model forward 的 GPU 集群。设计选择：TP degree（平衡 latency 和 throughput）、FlashAttention/FlashInfer kernel 选择、CUDA Graph 优化（固定 batch size 的 decode 用 graph 减少 launch overhead）、memory pool 管理（KV Cache block pool 的 pre-allocation）。(4) Detokenizer Layer：将 token IDs 转回文本，处理 streaming 输出。关键：incremental detokenization（处理 multi-byte UTF-8 字符的边界问题，如一个汉字可能跨多个 token），SSE/WebSocket streaming 连接管理。(5) 横切关注点：observability（per-request tracing、GPU utilization metrics）、graceful degradation（过载时 reject 或降级）、model hot-swap（不停服更新模型版本）。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="sysdesign" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">设计 RLHF Training Pipeline for 100B model on 256 GPUs：选择框架、并行策略、weight sync 方案。</span>
+    <span class="q-cat">系统设计</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>100B 模型单卡放不下，需要 model parallelism。考虑 Training (Policy + Critic) 和 Inference (Rollout + Reward) 的 GPU 分配。</div>
+    <div class="q-solution"><strong>解答：</strong>设计方案：(1) GPU 分配（256 = 128 Training + 64 Rollout + 64 Reward/Reference）。Training 集群：Policy 100B 用 TP8×PP4×DP4 = 128 GPU（每卡约 25GB model state）。Rollout 集群：Policy inference 用 TP8×DP8 = 64 GPU（FP8 量化后每卡约 12GB）。Reward 集群：Reward Model + Reference Policy 各用 TP4×DP8 = 64 GPU。(2) 框架选择：Training 用 Megatron-LM（成熟的 3D parallelism 支持）；Rollout inference 用 SGLang/vLLM（高效推理引擎）；整体编排用 Ray 做跨集群调度。(3) 并行策略详解：Training 用 ZeRO-1 + TP8（节点内 NVLink）+ PP4（跨节点 IB），micro-batch=4, gradient accumulation=8。Rollout 用 TP8 保证单请求 latency，DP8 提高 throughput。(4) Weight Sync 方案：采用分层同步——Training DP rank 0 的每个 PP stage 通过 NCCL send/recv 将参数发送到对应的 Rollout TP group。100B FP16=200GB，IB 400Gbps 下 sync 约 4s。优化：overlap sync with next training step，使用 double buffering（一份在传输，一份在使用）。(5) Pipeline Schedule：Rollout → Reward Scoring → Advantage Compute → PPO Training → Weight Sync → Repeat。通过 async rollout（开始训练时同时做下一批 rollout）隐藏 inference 延迟。(6) 容错：每 N steps checkpoint，Ray 自动重启失败节点，ECC error 处理。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="sysdesign" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">设计支持 online learning 的推理系统：模型持续从用户反馈中学习，实时更新权重。</span>
+    <span class="q-cat">系统设计</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>核心挑战：serving 不能中断 + 权重要热更新 + 避免 catastrophic forgetting + 数据质量控制。</div>
+    <div class="q-solution"><strong>解答：</strong>架构设计：(1) 数据收集层：收集用户隐式反馈（click、regenerate、edit）和显式反馈（thumbs up/down），写入 streaming buffer（Kafka）。需要过滤噪声和有害数据（quality gate：去重、toxicity filter、confidence threshold）。(2) 持续训练层：Micro-trainer 从 buffer 消费数据，执行小 batch 的 LoRA fine-tuning（全参数更新太慢且风险高）。训练策略：replay buffer 混合历史数据防止 catastrophic forgetting（20% 新数据 + 80% replay）；learning rate 极小（1e-6）避免剧烈变化；每 K 步做 validation 检查质量未退化。(3) 权重热更新：使用 LoRA adapter hot-swap——base model 不变，只更新 LoRA weights（几十MB）。Serving Worker 定期（如每 5 分钟）原子性加载新 adapter：load new adapter → swap pointer → free old adapter，zero downtime。(4) 安全护栏：A/B test gate——新 adapter 先在 5% 流量上验证，核心指标（helpfulness、safety score）不退化才全量推送。Rollback 机制：如果线上指标下降，自动回退到上一版本 adapter。(5) 一致性：确保同一 session 内用户看到的是同一版本模型（session affinity）。(6) 监控：跟踪 adapter version、online metrics、drift detection（分布漂移检测）。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="sysdesign" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">如何给 LLM serving 系统做 capacity planning？考虑 throughput、latency、cost。</span>
+    <span class="q-cat">系统设计</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>需要建模：每个请求消耗多少 GPU-seconds？峰值流量是多少？SLO 约束如何转化为资源需求？</div>
+    <div class="q-solution"><strong>解答：</strong>Capacity Planning 框架：(1) 需求建模：收集 workload 特征——input length 分布 (P50/P95/P99)、output length 分布、QPS pattern（日均/峰值/突发比率，通常 peak/avg = 2-3x）。(2) 单实例性能 profiling：在目标硬件上 benchmark，建立 throughput-latency 曲线。关键指标：单实例 max throughput @ SLO (如 P99 TTFT < 1s, TPOT < 50ms)；注意 throughput 和 latency 是 trade-off（batch size 越大 throughput 越高但 latency 越差）。(3) 容量公式：N_instances = (Peak_QPS × avg_processing_time) / (max_concurrent_per_instance × utilization_target)。utilization_target 通常 60-70%（留余量给突发）。(4) Memory 约束：每实例最大并发 = KV_Cache_Memory / (per_request_KV_size × avg_sequence_length)。例如 70B model TP4，每卡 80GB 中模型占 17.5GB，剩余 62.5GB 给 KV Cache，每 request 1K context ≈ 0.5GB，最大并发 ~125。(5) Cost 优化：比较 on-demand vs reserved vs spot instance 的 TCO；考虑 FP8 量化（2x throughput, 少一半 GPU）；评估 smaller model + 更多 GPU vs larger model + 少 GPU 的 quality-cost trade-off。(6) Auto-scaling 策略：基于 queue depth 做 reactive scaling + 基于历史流量模式做 predictive scaling。(7) 定期 review：每月重评估，根据流量增长和模型更新调整。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="sysdesign" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">设计 A/B test framework for LLM：如何在推理系统中同时服务多个模型版本？</span>
+    <span class="q-cat">系统设计</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>挑战：LLM 占用大量 GPU 内存，不能简单地每个版本都部署完整实例。考虑 LoRA multiplexing、traffic splitting、统计显著性。</div>
+    <div class="q-solution"><strong>解答：</strong>A/B Test Framework 设计：(1) 流量分配层：Experiment Router 基于 user_id hash 做确定性分流（同一用户始终看到同一版本），支持灵活配置（如 control:50%, variant_A:25%, variant_B:25%）。灰度发布支持逐步提升 traffic percentage。(2) 模型部署策略（成本优化）：方案 A——LoRA Multiplexing：base model 共享，不同实验组加载不同 LoRA adapter，通过 S-LoRA/Punica 技术在同一 batch 内混合不同 adapter 的请求，GPU 利用率最高。方案 B——Model Pool with Autoscaling：每个版本独立部署，但按流量比例分配 GPU（如 control 8卡, variant 4卡），用 Knative/K8s HPA 管理。方案 C——混合：major version 差异用独立部署，minor tuning 用 LoRA multiplex。(3) 数据收集层：每个请求记录 experiment_id、model_version、latency、user_feedback（implicit: 重新生成率、编辑率; explicit: rating）。(4) 统计分析：LLM 评估需要考虑 high variance（同一 model 对同一 query 输出不同），需要更大样本量。使用 bootstrap confidence interval 或 interleaving（同一 query 同时生成两个版本让用户盲评）。关键指标：win rate、Elo rating、task-specific metrics。(5) 安全机制：safety classifier 检查所有版本输出；anomaly detection 发现质量骤降自动停止实验。(6) 实现：experiment config 存 etcd/ZooKeeper，支持热更新不重启服务。</div>
+  </div>
+</div>
+
+<!-- ===== Debugging 场景题 (56-60) ===== -->
+
+<div class="q-card" data-cat="debugging" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">GPU OOM 排查流程：给出 3 种常见原因和对应解决方案。</span>
+    <span class="q-cat">Debugging</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>区分 training OOM 和 inference OOM，考虑内存的不同组成部分（model weights、optimizer states、activations、KV Cache）。</div>
+    <div class="q-solution"><strong>解答：</strong>排查流程：先用 <code>nvidia-smi</code> 和 <code>torch.cuda.memory_summary()</code> 定位内存占用分布。常见原因及解决方案：(1) KV Cache 增长超限（Inference）：长 prompt + 大 batch 导致 KV Cache 超出预分配空间。解决：设置 max_num_seqs 限制最大并发；启用 PagedAttention 避免预分配浪费；配置 mem_fraction_static（如 SGLang 的 --mem-fraction-static 0.85）预留安全余量。(2) Activation Memory 爆炸（Training）：batch size 过大或 sequence length 过长时中间激活占用巨大（正比于 batch×seq_len×hidden×layers）。解决：启用 gradient checkpointing（用计算换内存，减少约 60% 激活内存）；减小 micro-batch size 并增大 gradient accumulation steps；使用 mixed precision training 减半激活内存。(3) Memory Fragmentation：频繁分配释放不同大小的 tensor 导致碎片，虽然总 free memory 够但没有足够大的连续块。解决：<code>torch.cuda.empty_cache()</code> 释放缓存；使用 memory pool（如 CUDA Memory Pool）；设置 <code>PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</code> 允许非连续分配。额外工具：<code>torch.cuda.memory_snapshot()</code> 生成内存时间线，可视化分析碎片。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="debugging" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">训练 throughput 突然下降 50%，如何排查？列出排查步骤。</span>
+    <span class="q-cat">Debugging</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>从硬件层、通信层、数据层、框架层逐层排查。重点关注 GPU utilization、interconnect bandwidth、data loading。</div>
+    <div class="q-solution"><strong>解答：</strong>系统化排查步骤：(1) 硬件层检查：<code>nvidia-smi -q</code> 检查 GPU clock frequency（是否降频，thermal throttling）、ECC error count（单 bit 错误会触发重试降速）、PCIe bandwidth（是否降级到 x8/Gen3）。检查 <code>dmesg</code> 是否有 Xid error。如果某卡 SM clock 从 1980MHz 降到 1500MHz，说明 thermal throttle。(2) 通信层检查：<code>nccl-tests</code> 跑 all_reduce 带宽测试，确认 NVLink/IB 是否正常。如果某条 NVLink 故障，NCCL 会 fallback 到 PCIe，带宽从 600GB/s 降到 64GB/s。检查 IB port 状态 <code>ibstat</code>。(3) 数据层检查：data loading 是否成为瓶颈——检查 DataLoader worker 的 CPU/IO utilization。如果共享存储（NFS/Lustre）性能下降或某个 epoch 数据变大（如 curriculum learning 切换到长序列），会拖慢整体。Profiler 看 GPU 是否有 idle gap 在等数据。(4) 框架层检查：是否 dynamic shape 导致 CUDA Graph 失效，每个 iteration 重新 compile kernel？某些 batch 的 sequence length 特别长触发更多计算？gradient accumulation 配置是否被意外修改？(5) 系统层：检查是否有其他进程抢占 GPU（<code>nvidia-smi pmon</code>），或 CPU 资源被其他 job 占用（cgroup 限制）。用 Nsight Systems/PyTorch Profiler 做 trace 对比正常时和异常时的 kernel timeline 差异。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="debugging" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">分布式训练 loss 不收敛 + 某些 rank 的 gradient norm 异常：定位问题。</span>
+    <span class="q-cat">Debugging</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>考虑：数据问题（某些 rank 收到 corrupted data）、通信问题（allreduce 不一致）、数值问题（某些 rank 的 loss scale 不同步）。</div>
+    <div class="q-solution"><strong>解答：</strong>定位思路：(1) 确认 gradient 异常的 pattern：是固定某几个 rank 异常（硬件/数据问题），还是随机交替异常（数值不稳定）？用 <code>torch.distributed.all_gather</code> 收集各 rank 的 grad norm 做对比。(2) 数据问题排查：检查异常 rank 的 data loader 是否读到 corrupted 数据（如 NaN in input、truncated tokenization）。验证方法：在异常 rank 上打印几个 batch 的 input 和 label，确认合理性。特别注意 padding/masking 的实现在不同 rank 是否一致。(3) 通信正确性：NCCL allreduce 后各 rank 的参数应完全一致。检查：训练 N 步后比较各 rank 的 model checksum（<code>sum(p.data.sum() for p in model.parameters())</code>）。如果不一致，说明某次 allreduce 出错或有 rank 跳过了同步步骤。设置 <code>NCCL_DEBUG=WARN</code> 检查通信错误。(4) 数值稳定性：Mixed precision training 中 loss scale 是否在某些 rank 上频繁 overflow 导致 gradient 被跳过？检查 <code>grad_scaler._scale</code> 和 skip 次数。如果某些 rank 的数据分布极端，可能反复触发 overflow。(5) 硬件 ECC 错误：GPU 的 memory bit flip 可能导致计算结果随机错误。检查 <code>nvidia-smi --query-gpu=ecc.errors.uncorrected.aggregate.total -i GPU_ID</code>。(6) 修复策略：确认问题后——数据问题则修复数据 pipeline；通信问题则更换硬件或强制 NCCL barrier + checksum 验证；数值问题则调整 loss scale 策略或对异常 gradient 做 clipping。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="debugging" data-diff="medium">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-medium">🟡</span>
+    <span class="q-text">推理服务的 P99 latency 突然飙升，但 P50 正常：可能原因和排查方法。</span>
+    <span class="q-cat">Debugging</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>P99 飙升说明少数请求异常慢。思考什么因素导致某些请求特别慢而大部分请求正常。</div>
+    <div class="q-solution"><strong>解答：</strong>P99 飙升而 P50 正常说明存在 long-tail latency，只有约 1% 的请求异常慢。可能原因和排查：(1) 长 Prompt/长 Output：少数请求的 input/output 特别长，prefill 时间或 decode 步数远超平均。排查：按 sequence length 分桶统计 latency，检查是否有异常长请求。解决：设置 max_tokens 限制；长请求路由到独立队列。(2) Queue Waiting（排队延迟）：高峰时某些请求恰好在 batch 已满时到达，等待时间长。排查：监控 time_in_queue 指标（从请求到达到开始处理的时间）。解决：增加实例数或 max_batch_size；优化 scheduler 的 admission control。(3) Prefill 抢占 Decode：长 prefill 请求阻塞了同 batch 中正在 decode 的请求（如果没有 Chunked Prefill）。排查：对比启用/禁用 chunked prefill 的 P99。(4) KV Cache Eviction + Recompute：某些请求的 KV Cache 被 evict 后需要 recompute，增加延迟。排查：监控 cache hit rate 和 recompute 次数。(5) GC / Memory Allocation：Python GC 或 CUDA memory allocation stall 偶尔阻塞某个 iteration。排查：profiler trace 看是否有不规律的长 gap。解决：设置 <code>gc.disable()</code> 在 critical path，预分配 memory pool。(6) 网络抖动：多节点 TP 时某次 allreduce 被网络延迟拖慢。排查：监控 NCCL op 的 per-call latency。</div>
+  </div>
+</div>
+
+<div class="q-card" data-cat="debugging" data-diff="hard">
+  <div class="q-header" onclick="toggleQuestion(this)">
+    <span class="q-diff diff-hard">🔴</span>
+    <span class="q-text">RLHF 训练中 reward hacking 现象（reward 上升但实际质量下降）：如何检测和缓解？</span>
+    <span class="q-cat">Debugging</span>
+  </div>
+  <div class="q-body">
+    <div class="q-hint"><strong>提示：</strong>Reward Model 是不完美的 proxy，Policy 会找到 exploit RM 的 shortcut 而非真正提升质量。需要多维度监控和约束。</div>
+    <div class="q-solution"><strong>解答：</strong>检测方法：(1) 多维度评估 Dashboard：训练过程中持续跑 human eval（或 LLM-as-judge）对比 RM score 走势。如果 RM reward 持续上升但 human preference / GPT-4 judge score 停滞或下降，说明 reward hacking。(2) 分布监控：检查生成文本的统计特征——句子长度是否异常增长（length hacking：RM 可能偏好长回答）、重复率是否上升、vocabulary diversity 是否下降。(3) OOD detection：计算 policy 输出在 RM training data 分布上的 likelihood，如果明显偏离说明 policy 进入了 RM 未见过的区域（RM 给出不可靠的高分）。缓解策略：(1) KL Penalty：在 objective 中加 KL(π_θ || π_ref) 约束，防止 policy 偏离太远。动态调节 KL coefficient（如果 KL 增长过快则加大 penalty）。(2) Reward Ensemble：训练多个 RM（不同 seed/数据子集），取最小值或均值作为 final reward，减少单个 RM 的 overconfidence。(3) Reward Clipping/Regularization：将 reward 裁剪在合理范围 [-R_max, R_max]，避免极端高 reward 主导 gradient。(4) Iterative RM Update：定期用新 policy 的输出重新收集 preference 数据更新 RM（RLHF-V2 loop），修补 RM 的盲区。(5) Constitutional AI / Rule-based Reward：加入基于规则的 reward component（如禁止重复、检查格式）作为 hard constraint，不受 RM 漏洞影响。(6) Early Stopping：监控到 reward-quality divergence 后立即停止训练并回退到质量最优的 checkpoint。</div>
+  </div>
+</div>
+
+  </div>
+</div>
+
+<script>
+// State
+let activeCategory = 'all';
+let activeDifficulty = 'all';
+let searchText = '';
+
+function toggleQuestion(headerEl) {
+  const card = headerEl.parentElement;
+  card.classList.toggle('expanded');
+}
+
+function filterByCategory(cat) {
+  activeCategory = cat;
+  updateCategoryButtons(cat);
+  applyFilters();
+}
+
+function filterByDifficulty(diff) {
+  activeDifficulty = diff;
+  updateDifficultyButtons(diff);
+  applyFilters();
+}
+
+function searchQuestions(text) {
+  searchText = text.toLowerCase();
+  applyFilters();
+}
+
+function updateCategoryButtons(activeCat) {
+  const groups = document.querySelectorAll('.filter-group');
+  const catBtns = groups[0].querySelectorAll('.filter-btn');
+  catBtns.forEach(btn => {
+    const btnCat = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+    btn.classList.toggle('active', btnCat === activeCat);
+  });
+}
+
+function updateDifficultyButtons(activeDiff) {
+  const groups = document.querySelectorAll('.filter-group');
+  const diffBtns = groups[1].querySelectorAll('.filter-btn');
+  diffBtns.forEach(btn => {
+    const btnDiff = btn.getAttribute('onclick').match(/'([^']+)'/)[1];
+    btn.classList.toggle('active', btnDiff === activeDiff);
+  });
+}
+
+function applyFilters() {
+  const cards = document.querySelectorAll('.q-card');
+  let visibleCount = 0;
+
+  cards.forEach(card => {
+    const cat = card.getAttribute('data-cat');
+    const diff = card.getAttribute('data-diff');
+    const text = card.querySelector('.q-text').textContent.toLowerCase();
+
+    const catMatch = activeCategory === 'all' || cat === activeCategory;
+    const diffMatch = activeDifficulty === 'all' || diff === activeDifficulty;
+    const searchMatch = searchText === '' || text.includes(searchText);
+
+    if (catMatch && diffMatch && searchMatch) {
+      card.classList.remove('hidden');
+      visibleCount++;
+    } else {
+      card.classList.add('hidden');
+    }
+  });
+
+  document.getElementById('visible-count').textContent = visibleCount;
+}
+
+// Scroll-triggered fade-in
+function handleScrollAnimation() {
+  const cards = document.querySelectorAll('.q-card:not(.hidden)');
+  const triggerBottom = window.innerHeight * 0.92;
+
+  cards.forEach(card => {
+    const cardTop = card.getBoundingClientRect().top;
+    if (cardTop < triggerBottom) {
+      card.classList.add('visible');
+    }
+  });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  const totalCards = document.querySelectorAll('.q-card').length;
+  document.getElementById('total-count').textContent = totalCards;
+  document.getElementById('visible-count').textContent = totalCards;
+  handleScrollAnimation();
+});
+
+window.addEventListener('scroll', handleScrollAnimation);
+window.addEventListener('resize', handleScrollAnimation);
+</script>
+</body>
+</html>

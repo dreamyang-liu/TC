@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parallelism Strategies Explained</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0f0f1a;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .section {
+            margin-bottom: 80px;
+            background: #1a1a2e;
+            border-radius: 16px;
+            padding: 40px;
+            border: 1px solid #2a2a4a;
+        }
+        .section h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        .section .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        .diagram {
+            background: #12121f;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+        .key-point {
+            background: #1e1e3a;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* TP Diagram */
+        .tp-grid {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .tp-matrix {
+            display: grid;
+            gap: 2px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .tp-matrix.full { grid-template-columns: repeat(8, 40px); }
+        .tp-matrix.split { grid-template-columns: repeat(4, 40px); }
+        .tp-cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        .tp-color-0 { background: #4a90d9; }
+        .tp-color-1 { background: #e85d75; }
+        .tp-arrow {
+            font-size: 2em;
+            color: #667eea;
+        }
+        .tp-gpu-label {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #aaa;
+        }
+        .tp-wrapper {
+            text-align: center;
+        }
+
+        /* PP Diagram */
+        .pp-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .pp-pipeline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .pp-stage {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid;
+            min-width: 100px;
+        }
+        .pp-stage-0 { border-color: #4a90d9; background: rgba(74,144,217,0.1); }
+        .pp-stage-1 { border-color: #50c878; background: rgba(80,200,120,0.1); }
+        .pp-stage-2 { border-color: #f4a460; background: rgba(244,164,96,0.1); }
+        .pp-stage-3 { border-color: #e85d75; background: rgba(232,93,117,0.1); }
+        .pp-layer {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            background: rgba(255,255,255,0.1);
+        }
+        .pp-arrow-right { color: #667eea; font-size: 1.5em; }
+
+        /* EP Diagram */
+        .ep-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .ep-router {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .ep-arrows-down {
+            display: flex;
+            gap: 60px;
+            color: #667eea;
+            font-size: 1.5em;
+        }
+        .ep-experts {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .ep-expert {
+            width: 120px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid;
+        }
+        .ep-expert-name {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .ep-expert-size {
+            font-size: 0.75em;
+            color: #888;
+        }
+        .ep-gpu-tag {
+            margin-top: 8px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            background: rgba(255,255,255,0.1);
+        }
+        .ep-e0 { border-color: #4a90d9; background: rgba(74,144,217,0.1); }
+        .ep-e1 { border-color: #50c878; background: rgba(80,200,120,0.1); }
+        .ep-e2 { border-color: #f4a460; background: rgba(244,164,96,0.1); }
+        .ep-e3 { border-color: #e85d75; background: rgba(232,93,117,0.1); }
+        .ep-e4 { border-color: #9b59b6; background: rgba(155,89,182,0.1); }
+        .ep-e5 { border-color: #1abc9c; background: rgba(26,188,156,0.1); }
+        .ep-e6 { border-color: #f39c12; background: rgba(243,156,18,0.1); }
+        .ep-e7 { border-color: #e74c3c; background: rgba(231,76,60,0.1); }
+
+        .ep-tokens {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 10px 0;
+        }
+        .ep-token {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .ep-token-0 { background: #4a90d9; }
+        .ep-token-1 { background: #50c878; }
+        .ep-token-2 { background: #f4a460; }
+        .ep-token-3 { background: #e85d75; }
+
+        /* SP Diagram */
+        .sp-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .sp-sequence {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .sp-token-block {
+            padding: 8px 6px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            min-width: 35px;
+            text-align: center;
+        }
+        .sp-full-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            justify-content: center;
+        }
+        .sp-op-box {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-align: center;
+            min-width: 150px;
+        }
+        .sp-split-row {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .sp-gpu-block {
+            border: 2px solid;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            min-width: 200px;
+        }
+        .sp-gpu-0 { border-color: #4a90d9; }
+        .sp-gpu-1 { border-color: #e85d75; }
+        .sp-label {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .sp-layer-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+        }
+        .sp-layer-box {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .sp-layer-item {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: bold;
+            min-width: 140px;
+            text-align: center;
+        }
+        .sp-tp { background: rgba(102,126,234,0.3); border: 1px solid #667eea; }
+        .sp-sp { background: rgba(232,93,117,0.3); border: 1px solid #e85d75; }
+        .sp-flow-arrow {
+            color: #667eea;
+            font-size: 1.3em;
+        }
+
+        /* Comparison table */
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .comparison-table th, .comparison-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #2a2a4a;
+        }
+        .comparison-table th {
+            background: #1e1e3a;
+            color: #667eea;
+            font-size: 0.9em;
+        }
+        .comparison-table td { font-size: 0.9em; }
+
+        /* === INTERACTIVE ANIMATION STYLES === */
+        .anim-controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        .anim-btn {
+            background: #667eea;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .anim-btn:hover { background: #764ba2; }
+        .anim-btn:disabled { background: #444; cursor: not-allowed; }
+        .anim-btn.danger { background: #e85d75; }
+        .anim-btn.danger:hover { background: #c94060; }
+        .anim-status {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 0.9em;
+            color: #f4a460;
+            min-height: 1.5em;
+        }
+
+        /* TP MLP Flow animation */
+        .tp-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            align-items: center;
+            padding: 10px 0;
+        }
+        .tp-flow-row {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 0;
+        }
+        .tp-flow-block {
+            padding: 14px 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.85em;
+            font-weight: bold;
+            min-width: 160px;
+            transition: all 0.6s ease;
+            opacity: 0.3;
+            border: 2px solid transparent;
+        }
+        .tp-flow-block.active {
+            opacity: 1;
+            transform: scale(1.05);
+        }
+        .tp-flow-block.gpu0 {
+            background: rgba(74,144,217,0.15);
+            border-color: #4a90d9;
+            color: #7bb8eb;
+        }
+        .tp-flow-block.gpu0.active {
+            background: rgba(74,144,217,0.35);
+            box-shadow: 0 0 15px rgba(74,144,217,0.4);
+        }
+        .tp-flow-block.gpu1 {
+            background: rgba(232,93,117,0.15);
+            border-color: #e85d75;
+            color: #f0a0b0;
+        }
+        .tp-flow-block.gpu1.active {
+            background: rgba(232,93,117,0.35);
+            box-shadow: 0 0 15px rgba(232,93,117,0.4);
+        }
+        .tp-flow-block.shared {
+            background: rgba(102,126,234,0.15);
+            border-color: #667eea;
+            color: #a0b0f0;
+        }
+        .tp-flow-block.shared.active {
+            background: rgba(102,126,234,0.35);
+            box-shadow: 0 0 15px rgba(102,126,234,0.4);
+        }
+        .tp-flow-block.comm {
+            background: rgba(80,200,120,0.15);
+            border-color: #50c878;
+            color: #7ddf9b;
+        }
+        .tp-flow-block.comm.active {
+            background: rgba(80,200,120,0.35);
+            box-shadow: 0 0 15px rgba(80,200,120,0.4);
+        }
+        .tp-flow-block.nocomm {
+            background: rgba(244,164,96,0.15);
+            border-color: #f4a460;
+            color: #f4c89a;
+        }
+        .tp-flow-block.nocomm.active {
+            background: rgba(244,164,96,0.35);
+            box-shadow: 0 0 15px rgba(244,164,96,0.4);
+        }
+        .tp-flow-arrow {
+            color: #667eea;
+            font-size: 1.2em;
+            padding: 4px 0;
+            opacity: 0.4;
+            transition: opacity 0.4s;
+        }
+        .tp-flow-arrow.active { opacity: 1; }
+        .tp-flow-explain {
+            text-align: center;
+            margin-top: 14px;
+            padding: 14px;
+            background: #1e1e3a;
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: #e0e0e0;
+            min-height: 52px;
+            line-height: 1.5;
+        }
+        .tp-flow-data {
+            font-size: 0.75em;
+            color: #888;
+            margin-top: 4px;
+        }
+        .tp-flow-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7em;
+            margin-top: 4px;
+        }
+        .tp-flow-badge.no-comm { background: rgba(80,200,120,0.3); color: #50c878; }
+        .tp-flow-badge.has-comm { background: rgba(244,164,96,0.3); color: #f4a460; }
+
+        /* PP Timeline animation */
+        .pp-anim-grid {
+            display: grid;
+            grid-template-columns: 70px repeat(12, 1fr);
+            gap: 3px;
+        }
+        .pp-anim-cell {
+            height: 40px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72em;
+            font-weight: bold;
+            background: #1e1e2e;
+            color: #555;
+            transition: all 0.4s ease;
+        }
+        .pp-anim-cell.active { color: #fff; }
+        .pp-anim-cell.fwd-0 { background: #4a90d9; }
+        .pp-anim-cell.fwd-1 { background: #50c878; }
+        .pp-anim-cell.fwd-2 { background: #f4a460; }
+        .pp-anim-cell.fwd-3 { background: #e85d75; }
+        .pp-anim-cell.bwd-0 { background: rgba(74,144,217,0.55); }
+        .pp-anim-cell.bwd-1 { background: rgba(80,200,120,0.55); }
+        .pp-anim-cell.bwd-2 { background: rgba(244,164,96,0.55); }
+        .pp-anim-cell.bwd-3 { background: rgba(232,93,117,0.55); }
+        .pp-anim-cell.current {
+            box-shadow: 0 0 12px rgba(255,255,255,0.6);
+            transform: scale(1.1);
+            z-index: 2;
+        }
+        .pp-anim-header {
+            font-size: 0.7em;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pp-anim-label {
+            font-size: 0.8em;
+            color: #aaa;
+            display: flex;
+            align-items: center;
+        }
+
+        /* EP token dispatch animation */
+        .ep-anim-area {
+            position: relative;
+            height: 340px;
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #12121f;
+        }
+        .ep-anim-token {
+            position: absolute;
+            padding: 5px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #fff;
+            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 3;
+        }
+        .ep-anim-router-box {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.85em;
+            z-index: 1;
+        }
+        .ep-anim-expert-slot {
+            position: absolute;
+            bottom: 20px;
+            width: 90px;
+            padding: 10px 6px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.75em;
+            font-weight: bold;
+            border: 2px solid;
+            transition: box-shadow 0.4s;
+        }
+        .ep-anim-expert-slot.glow {
+            box-shadow: 0 0 16px currentColor;
+        }
+
+        @media (max-width: 768px) {
+            .section { padding: 20px; }
+            .tp-matrix.full { grid-template-columns: repeat(8, 30px); }
+            .tp-matrix.split { grid-template-columns: repeat(4, 30px); }
+            .tp-cell { width: 30px; height: 30px; font-size: 8px; }
+            .matmul-cell { width: 36px; height: 36px; font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GPU Parallelism Strategies</h1>
+
+        <!-- ========== TENSOR PARALLELISM ========== -->
+        <div class="section">
+            <h2>Tensor Parallelism (TP)</h2>
+            <p class="subtitle">在单层内部切分权重矩阵，每张卡算一部分，再 AllReduce 合并结果</p>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#4a90d9;">Column Parallel: 按列切分权重矩阵</h3>
+                <div class="tp-grid">
+                    <div class="tp-wrapper">
+                        <div class="tp-matrix full">
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                        </div>
+                        <div class="tp-gpu-label">原始权重矩阵 W [d × d]</div>
+                    </div>
+
+                    <div class="tp-arrow">→</div>
+
+                    <div class="tp-wrapper">
+                        <div class="tp-matrix split">
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                            <div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div><div class="tp-cell tp-color-0"></div>
+                        </div>
+                        <div class="tp-gpu-label">GPU 0: W₁ [d × d/2]</div>
+                    </div>
+
+                    <div class="tp-wrapper">
+                        <div class="tp-matrix split">
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                            <div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div><div class="tp-cell tp-color-1"></div>
+                        </div>
+                        <div class="tp-gpu-label">GPU 1: W₂ [d × d/2]</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TP Interactive MLP Flow Animation -->
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:10px; color:#4a90d9;">交互动画：完整 MLP 层的 TP 计算流程（Megatron-LM 风格）</h3>
+                <p style="text-align:center; color:#888; font-size:0.85em; margin-bottom:20px;">
+                    Column Parallel → GeLU（无通信）→ Row Parallel → AllReduce（唯一通信点）
+                </p>
+                <div class="tp-flow" id="tp-flow-diagram">
+                    <!-- Row 0: Input -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block shared" id="tpf-input">
+                            X (输入)<br>
+                            <span class="tp-flow-data">[batch, seq, d]</span>
+                        </div>
+                    </div>
+                    <div class="tp-flow-arrow" id="tpf-arr0">↓ 广播到每张卡（f 算子: identity forward, AllReduce backward）</div>
+
+                    <!-- Row 1: Column Parallel Linear -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block gpu0" id="tpf-col0">
+                            X × W₁<sup>col</sup><br>
+                            <span class="tp-flow-data">[d, d/2] → Y₁ [batch, seq, d/2]</span><br>
+                            <span class="tp-flow-badge no-comm">GPU 0 独立计算</span>
+                        </div>
+                        <div class="tp-flow-block gpu1" id="tpf-col1">
+                            X × W₂<sup>col</sup><br>
+                            <span class="tp-flow-data">[d, d/2] → Y₂ [batch, seq, d/2]</span><br>
+                            <span class="tp-flow-badge no-comm">GPU 1 独立计算</span>
+                        </div>
+                    </div>
+                    <div class="tp-flow-arrow" id="tpf-arr1">↓ 无需通信！GeLU 是逐元素操作</div>
+
+                    <!-- Row 2: GeLU -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block gpu0 nocomm" id="tpf-gelu0">
+                            GeLU(Y₁)<br>
+                            <span class="tp-flow-data">shape 不变 [batch, seq, d/2]</span><br>
+                            <span class="tp-flow-badge no-comm">无通信！</span>
+                        </div>
+                        <div class="tp-flow-block gpu1 nocomm" id="tpf-gelu1">
+                            GeLU(Y₂)<br>
+                            <span class="tp-flow-data">shape 不变 [batch, seq, d/2]</span><br>
+                            <span class="tp-flow-badge no-comm">无通信！</span>
+                        </div>
+                    </div>
+                    <div class="tp-flow-arrow" id="tpf-arr2">↓ 关键：Row Parallel 按行切分第二个权重矩阵</div>
+
+                    <!-- Row 3: Row Parallel Linear -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block gpu0" id="tpf-row0">
+                            GeLU(Y₁) × W₁<sup>row</sup><br>
+                            <span class="tp-flow-data">[d/2, d] → Z₁ [batch, seq, d]</span><br>
+                            <span class="tp-flow-badge no-comm">GPU 0 部分结果</span>
+                        </div>
+                        <div class="tp-flow-block gpu1" id="tpf-row1">
+                            GeLU(Y₂) × W₂<sup>row</sup><br>
+                            <span class="tp-flow-data">[d/2, d] → Z₂ [batch, seq, d]</span><br>
+                            <span class="tp-flow-badge no-comm">GPU 1 部分结果</span>
+                        </div>
+                    </div>
+                    <div class="tp-flow-arrow" id="tpf-arr3">↓ AllReduce（g 算子: AllReduce forward, identity backward）</div>
+
+                    <!-- Row 4: AllReduce -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block comm" id="tpf-allreduce">
+                            Z = Z₁ + Z₂ (AllReduce)<br>
+                            <span class="tp-flow-data">[batch, seq, d] — 完整输出</span><br>
+                            <span class="tp-flow-badge has-comm">唯一通信点！</span>
+                        </div>
+                    </div>
+                    <div class="tp-flow-arrow" id="tpf-arr4">↓</div>
+
+                    <!-- Row 5: Output -->
+                    <div class="tp-flow-row">
+                        <div class="tp-flow-block shared" id="tpf-output">
+                            输出 → 下一层<br>
+                            <span class="tp-flow-data">[batch, seq, d]</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tp-flow-explain" id="tp-flow-explain">
+                    点击「播放」逐步展示 MLP 在两张 GPU 上的完整计算流程
+                </div>
+                <div class="anim-controls">
+                    <button class="anim-btn" onclick="tpFlowPlay()">▶ 播放</button>
+                    <button class="anim-btn" onclick="tpFlowStep()">⏭ 单步</button>
+                    <button class="anim-btn danger" onclick="tpFlowReset()">↺ 重置</button>
+                </div>
+                <div class="anim-status" id="tp-flow-status"></div>
+            </div>
+
+            <div class="key-point">
+                <strong>核心要点：</strong>整个 MLP 前向只需 1 次 AllReduce！<br>
+                <strong>为什么：</strong>Column Parallel 输出的 Y₁, Y₂ 分别是完整结果的不同列。GeLU 是逐元素操作，不需要完整向量。Row Parallel 的输出 Z₁, Z₂ 形状相同但值不同，加起来才是完整结果 → AllReduce 求和。<br>
+                <strong>对比朴素方案：</strong>如果两个 Linear 都用 Column Parallel，中间需要 AllGather 拼接完整结果才能做第二次乘法。Megatron 的 Column→Row 组合巧妙地跳过了中间通信。<br>
+                <strong>典型配置：</strong>TP = 8（单节点 8 卡 NVLink 900GB/s），每层 forward 1 次 AllReduce，backward 1 次 AllReduce。
+            </div>
+        </div>
+
+        <!-- ========== PIPELINE PARALLELISM ========== -->
+        <div class="section">
+            <h2>Pipeline Parallelism (PP)</h2>
+            <p class="subtitle">按层切分模型，每张卡（或一组卡）负责连续的几层，数据像流水线一样流过</p>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#50c878;">模型按层切分到 4 个 Stage</h3>
+                <div class="pp-pipeline">
+                    <div class="pp-stage pp-stage-0">
+                        <div style="color:#4a90d9; font-weight:bold;">Stage 0</div>
+                        <div style="font-size:0.75em; color:#888;">GPU 0</div>
+                        <div class="pp-layer">Layer 0-7</div>
+                        <div class="pp-layer">Embedding</div>
+                    </div>
+                    <div class="pp-arrow-right">→</div>
+                    <div class="pp-stage pp-stage-1">
+                        <div style="color:#50c878; font-weight:bold;">Stage 1</div>
+                        <div style="font-size:0.75em; color:#888;">GPU 1</div>
+                        <div class="pp-layer">Layer 8-15</div>
+                    </div>
+                    <div class="pp-arrow-right">→</div>
+                    <div class="pp-stage pp-stage-2">
+                        <div style="color:#f4a460; font-weight:bold;">Stage 2</div>
+                        <div style="font-size:0.75em; color:#888;">GPU 2</div>
+                        <div class="pp-layer">Layer 16-23</div>
+                    </div>
+                    <div class="pp-arrow-right">→</div>
+                    <div class="pp-stage pp-stage-3">
+                        <div style="color:#e85d75; font-weight:bold;">Stage 3</div>
+                        <div style="font-size:0.75em; color:#888;">GPU 3</div>
+                        <div class="pp-layer">Layer 24-31</div>
+                        <div class="pp-layer">LM Head</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PP Interactive 1F1B Animation -->
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#50c878;">交互动画：1F1B Pipeline Schedule（Forward/Backward 流转）</h3>
+                <div class="pp-anim-grid" id="pp-anim-grid"></div>
+                <div class="anim-controls">
+                    <button class="anim-btn" onclick="ppPlay()">▶ 播放</button>
+                    <button class="anim-btn" onclick="ppStepFn()">⏭ 单步</button>
+                    <button class="anim-btn danger" onclick="ppReset()">↺ 重置</button>
+                </div>
+                <div class="anim-status" id="pp-status"></div>
+                <div style="margin-top:10px; text-align:center; font-size:0.8em; color:#888;">
+                    深色 = Forward, 浅色 = Backward | 注意空格 = Pipeline Bubble
+                </div>
+            </div>
+
+            <div class="key-point">
+                <strong>核心要点：</strong>PP 按层切，每个 stage 只存自己那几层的权重和激活，stage 间通过网络传激活值。<br>
+                <strong>通信量：</strong>只传激活张量（比 AllReduce 小很多），可跨节点。<br>
+                <strong>缺点：</strong>Pipeline bubble（GPU 空等），需要足够多 micro-batch 来填满流水线。<br>
+                <strong>典型配置：</strong>PP = 4-16，跨节点通过 InfiniBand / RoCE 连接。
+            </div>
+        </div>
+
+        <!-- ========== EXPERT PARALLELISM ========== -->
+        <div class="section">
+            <h2>Expert Parallelism (EP)</h2>
+            <p class="subtitle">MoE 模型专属：每个 Expert 放在不同 GPU 上，Router 决定 token 发给哪个 Expert</p>
+
+            <!-- EP Interactive Token Dispatch Animation -->
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#9b59b6;">交互动画：Token Dispatch（Router → Expert 路由过程）</h3>
+                <div class="ep-anim-area" id="ep-anim-area"></div>
+                <div class="anim-controls">
+                    <button class="anim-btn" onclick="epNext()">⏭ 下一步</button>
+                    <button class="anim-btn danger" onclick="epReset()">↺ 重置</button>
+                </div>
+                <div class="anim-status" id="ep-status">点击「下一步」观看 Token → Router → Expert 的 dispatch 过程</div>
+            </div>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#9b59b6;">EP vs TP 在 MoE 层的对比</h3>
+                <div style="display:flex; gap:30px; flex-wrap:wrap; justify-content:center;">
+                    <div style="flex:1; min-width:280px; border:2px solid #4a90d9; border-radius:10px; padding:20px;">
+                        <div style="color:#4a90d9; font-weight:bold; text-align:center; margin-bottom:15px;">TP=8（切每个 Expert 内部）</div>
+                        <div style="background:#1e1e3a; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.85em;">
+                            GPU 0: Expert0的1/8 + Expert1的1/8 + ... + Expert7的1/8
+                        </div>
+                        <div style="background:#1e1e3a; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.85em;">
+                            GPU 1: Expert0的1/8 + Expert1的1/8 + ... + Expert7的1/8
+                        </div>
+                        <div style="text-align:center; color:#888; font-size:0.8em;">...</div>
+                        <div style="margin-top:10px; font-size:0.8em; color:#f4a460;">
+                            通信：每层 AllReduce（大）<br>
+                            负载：均衡（每卡算一样的量）
+                        </div>
+                    </div>
+                    <div style="flex:1; min-width:280px; border:2px solid #9b59b6; border-radius:10px; padding:20px;">
+                        <div style="color:#9b59b6; font-weight:bold; text-align:center; margin-bottom:15px;">EP=8（每个 Expert 独占一卡）</div>
+                        <div style="background:#1e1e3a; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.85em;">
+                            GPU 0: Expert 0（完整）
+                        </div>
+                        <div style="background:#1e1e3a; padding:10px; border-radius:6px; margin-bottom:8px; font-size:0.85em;">
+                            GPU 1: Expert 1（完整）
+                        </div>
+                        <div style="text-align:center; color:#888; font-size:0.8em;">...</div>
+                        <div style="margin-top:10px; font-size:0.8em; color:#f4a460;">
+                            通信：All-to-All（token dispatch）<br>
+                            负载：可能不均（热门 Expert 更忙）
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="key-point">
+                <strong>核心要点：</strong>EP 把不同 Expert 放在不同卡上，通过 All-to-All 通信交换 token。<br>
+                <strong>优势：</strong>天然匹配 MoE 结构，每卡只需存一个 Expert 的权重和优化器状态。<br>
+                <strong>挑战：</strong>All-to-All 通信量取决于 batch size 和 expert 数量；负载不均衡时部分卡空闲。<br>
+                <strong>典型配置：</strong>EP = Expert 数量 或其因子（EP=8 for 8 experts）。
+            </div>
+        </div>
+
+        <!-- ========== SEQUENCE PARALLELISM ========== -->
+        <div class="section">
+            <h2>Sequence Parallelism (SP)</h2>
+            <p class="subtitle">沿序列维度切分，TP 不能切的操作（LayerNorm, Dropout）由 SP 来分摊</p>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#e85d75;">问题：TP 切不了 LayerNorm 和 Dropout</h3>
+                <div class="sp-layer-flow">
+                    <div style="text-align:center; color:#888; font-size:0.9em;">一个 Transformer Layer 内部：</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-sp">LayerNorm<br><span style="font-size:0.7em; color:#e85d75;">需要完整隐藏维度</span></div>
+                    </div>
+                    <div class="sp-flow-arrow">↓</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-tp">Self-Attention<br><span style="font-size:0.7em; color:#667eea;">可以 TP 切</span></div>
+                    </div>
+                    <div class="sp-flow-arrow">↓</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-sp">Dropout + Residual<br><span style="font-size:0.7em; color:#e85d75;">需要完整隐藏维度</span></div>
+                    </div>
+                    <div class="sp-flow-arrow">↓</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-sp">LayerNorm<br><span style="font-size:0.7em; color:#e85d75;">需要完整隐藏维度</span></div>
+                    </div>
+                    <div class="sp-flow-arrow">↓</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-tp">FFN / MLP<br><span style="font-size:0.7em; color:#667eea;">可以 TP 切</span></div>
+                    </div>
+                    <div class="sp-flow-arrow">↓</div>
+                    <div class="sp-layer-box">
+                        <div class="sp-layer-item sp-sp">Dropout + Residual<br><span style="font-size:0.7em; color:#e85d75;">需要完整隐藏维度</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#e85d75;">SP 的解法：在序列维度上切分这些操作</h3>
+                <div style="display:flex; flex-direction:column; gap:20px; align-items:center;">
+                    <div style="text-align:center; color:#888; font-size:0.9em;">
+                        输入序列 [batch, <strong>seq_len</strong>, hidden_dim]
+                    </div>
+                    <div class="sp-sequence">
+                        <div class="sp-token-block" style="background:#4a90d9;">The</div>
+                        <div class="sp-token-block" style="background:#4a90d9;">cat</div>
+                        <div class="sp-token-block" style="background:#4a90d9;">sat</div>
+                        <div class="sp-token-block" style="background:#4a90d9;">on</div>
+                        <div class="sp-token-block" style="background:#e85d75;">the</div>
+                        <div class="sp-token-block" style="background:#e85d75;">mat</div>
+                        <div class="sp-token-block" style="background:#e85d75;">today</div>
+                        <div class="sp-token-block" style="background:#e85d75;">.</div>
+                    </div>
+
+                    <div style="font-size:1.3em; color:#667eea;">↓ 按序列维度分给两张卡</div>
+
+                    <div class="sp-split-row">
+                        <div class="sp-gpu-block sp-gpu-0">
+                            <div class="sp-label">GPU 0: 前半序列</div>
+                            <div class="sp-sequence">
+                                <div class="sp-token-block" style="background:#4a90d9;">The</div>
+                                <div class="sp-token-block" style="background:#4a90d9;">cat</div>
+                                <div class="sp-token-block" style="background:#4a90d9;">sat</div>
+                                <div class="sp-token-block" style="background:#4a90d9;">on</div>
+                            </div>
+                            <div style="margin-top:10px; font-size:0.85em;">
+                                <div style="background:rgba(232,93,117,0.2); padding:6px; border-radius:4px; margin:4px 0;">LayerNorm(前4个token)</div>
+                                <div style="background:rgba(232,93,117,0.2); padding:6px; border-radius:4px; margin:4px 0;">Dropout(前4个token)</div>
+                            </div>
+                        </div>
+                        <div class="sp-gpu-block sp-gpu-1">
+                            <div class="sp-label">GPU 1: 后半序列</div>
+                            <div class="sp-sequence">
+                                <div class="sp-token-block" style="background:#e85d75;">the</div>
+                                <div class="sp-token-block" style="background:#e85d75;">mat</div>
+                                <div class="sp-token-block" style="background:#e85d75;">today</div>
+                                <div class="sp-token-block" style="background:#e85d75;">.</div>
+                            </div>
+                            <div style="margin-top:10px; font-size:0.85em;">
+                                <div style="background:rgba(232,93,117,0.2); padding:6px; border-radius:4px; margin:4px 0;">LayerNorm(后4个token)</div>
+                                <div style="background:rgba(232,93,117,0.2); padding:6px; border-radius:4px; margin:4px 0;">Dropout(后4个token)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="diagram">
+                <h3 style="text-align:center; margin-bottom:20px; color:#e85d75;">TP + SP 配合：完整的一层流程</h3>
+                <div style="display:flex; flex-direction:column; gap:12px; align-items:center; font-size:0.9em;">
+                    <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center;">
+                        <div style="background:rgba(232,93,117,0.3); border:1px solid #e85d75; padding:10px 20px; border-radius:8px; min-width:180px; text-align:center;">
+                            <div style="font-weight:bold;">SP 区域</div>
+                            <div style="font-size:0.8em;">LayerNorm</div>
+                            <div style="font-size:0.7em; color:#888;">每卡只算自己那段序列</div>
+                        </div>
+                    </div>
+                    <div style="color:#f4a460; font-size:0.8em;">↓ AllGather（拼完整序列给 TP）</div>
+                    <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center;">
+                        <div style="background:rgba(102,126,234,0.3); border:1px solid #667eea; padding:10px 20px; border-radius:8px; min-width:180px; text-align:center;">
+                            <div style="font-weight:bold;">TP 区域</div>
+                            <div style="font-size:0.8em;">Attention / FFN</div>
+                            <div style="font-size:0.7em; color:#888;">按隐藏维度切分计算</div>
+                        </div>
+                    </div>
+                    <div style="color:#f4a460; font-size:0.8em;">↓ ReduceScatter（AllReduce 拆成两步，同时切回序列维度）</div>
+                    <div style="display:flex; gap:20px; align-items:center; flex-wrap:wrap; justify-content:center;">
+                        <div style="background:rgba(232,93,117,0.3); border:1px solid #e85d75; padding:10px 20px; border-radius:8px; min-width:180px; text-align:center;">
+                            <div style="font-weight:bold;">SP 区域</div>
+                            <div style="font-size:0.8em;">Dropout + Residual</div>
+                            <div style="font-size:0.7em; color:#888;">每卡只算自己那段序列</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:20px; text-align:center; font-size:0.85em; color:#50c878;">
+                    关键洞察：AllReduce = ReduceScatter + AllGather<br>
+                    SP 把这两步拆开，刚好在 TP↔SP 切换时自然完成通信，<strong>总通信量不变</strong>！
+                </div>
+            </div>
+
+            <div class="key-point">
+                <strong>核心要点：</strong>SP 不是独立的并行策略，是 TP 的配套补充。TP 切 Attention/FFN，SP 切 LayerNorm/Dropout。<br>
+                <strong>省了什么：</strong>激活值显存。没有 SP 时，每张卡都要存完整序列的 LayerNorm 激活；有了 SP，每卡只存 seq_len/TP 的激活。<br>
+                <strong>通信开销：</strong>用 AllGather + ReduceScatter 替代原来的 AllReduce，总量相同，但激活显存减少到 1/TP。<br>
+                <strong>典型配置：</strong>SP = TP（永远跟 TP 一起开，Megatron-LM 默认行为）。
+            </div>
+        </div>
+
+        <!-- ========== COMPARISON ========== -->
+        <div class="section">
+            <h2>总结对比</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>策略</th>
+                        <th>切分维度</th>
+                        <th>通信类型</th>
+                        <th>通信量</th>
+                        <th>适用范围</th>
+                        <th>典型值</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong style="color:#4a90d9;">TP</strong></td>
+                        <td>Hidden dimension</td>
+                        <td>AllReduce</td>
+                        <td>大（每层 2 次）</td>
+                        <td>节点内 NVLink</td>
+                        <td>2-8</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color:#50c878;">PP</strong></td>
+                        <td>Layer (depth)</td>
+                        <td>P2P (激活)</td>
+                        <td>小（只传激活）</td>
+                        <td>跨节点</td>
+                        <td>4-16</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color:#9b59b6;">EP</strong></td>
+                        <td>Expert index</td>
+                        <td>All-to-All</td>
+                        <td>中（token dispatch）</td>
+                        <td>MoE 层，跨节点</td>
+                        <td>8-64</td>
+                    </tr>
+                    <tr>
+                        <td><strong style="color:#e85d75;">SP</strong></td>
+                        <td>Sequence length</td>
+                        <td>AllGather + ReduceScatter</td>
+                        <td>= TP 通信量</td>
+                        <td>配合 TP，节点内</td>
+                        <td>= TP</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="diagram" style="margin-top:30px;">
+                <h3 style="text-align:center; margin-bottom:20px;">1T MoE 模型：四种并行如何组合</h3>
+                <div style="text-align:center; font-family:monospace; font-size:0.85em; line-height:2;">
+                    <div style="background:#1e1e3a; padding:20px; border-radius:8px; display:inline-block; text-align:left;">
+<pre style="color:#e0e0e0; margin:0;">
+┌─────────────────── Node 0 ──────────────────────┐
+│                                                  │
+│  ┌─── TP=8 + SP=8 (NVLink) ──────────────────┐  │
+│  │  GPU0   GPU1   GPU2   GPU3                 │  │
+│  │  [Exp0] [Exp1] [Exp2] [Exp3]   ← EP=8     │  │
+│  │  GPU4   GPU5   GPU6   GPU7                 │  │
+│  │  [Exp4] [Exp5] [Exp6] [Exp7]              │  │
+│  │                                            │  │
+│  │  Layer 0-9 (PP Stage 0)                    │  │
+│  └────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────┘
+          │ PP: 传激活 (InfiniBand)
+          ▼
+┌─────────────────── Node 1 ──────────────────────┐
+│  ┌─── TP=8 + SP=8 ───────────────────────────┐  │
+│  │  Layer 10-19 (PP Stage 1)                  │  │
+│  └────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────┘
+          │
+          ▼
+        ... (PP Stage 2, 3, ...)
+
+× DP copies (数据并行副本)
+</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================================
+    // TP: Complete MLP Flow Animation (Megatron-LM style)
+    // Column Parallel → GeLU (no comm) → Row Parallel → AllReduce
+    // ============================================================
+    (function() {
+        const steps = [
+            {
+                activate: ['tpf-input'],
+                arrows: [],
+                explain: '<strong>输入 X [batch, seq, d]</strong> — 完整输入，每张卡都持有同一份副本<br><span style="color:#888">这就是 f 算子的 forward（identity），backward 时才做 AllReduce</span>'
+            },
+            {
+                activate: ['tpf-input','tpf-col0','tpf-col1'],
+                arrows: ['tpf-arr0'],
+                explain: '<strong>第一个 Linear: Column Parallel</strong><br>W<sup>col</sup> 按列切成两半: GPU0 拿左半 W₁[d, d/2]，GPU1 拿右半 W₂[d, d/2]<br>各自独立做矩阵乘法: Y₁ = X × W₁, Y₂ = X × W₂<br><span style="color:#50c878">两张卡并行计算，无需通信！</span>'
+            },
+            {
+                activate: ['tpf-col0','tpf-col1','tpf-gelu0','tpf-gelu1'],
+                arrows: ['tpf-arr0','tpf-arr1'],
+                explain: '<strong>GeLU 激活函数（逐元素操作）</strong><br>GeLU(Y₁) 只需要 Y₁ 本身，GeLU(Y₂) 只需要 Y₂ 本身<br><span style="color:#50c878">关键洞察：因为 Column Parallel 的输出是完整结果的不同列，GeLU 可以直接在局部结果上操作！</span><br><span style="color:#f4a460">如果用 Row Parallel 做第一层，输出是部分和，就必须先 AllReduce 再过 GeLU — 多一次通信</span>'
+            },
+            {
+                activate: ['tpf-gelu0','tpf-gelu1','tpf-row0','tpf-row1'],
+                arrows: ['tpf-arr0','tpf-arr1','tpf-arr2'],
+                explain: '<strong>第二个 Linear: Row Parallel</strong><br>W<sup>row</sup> 按行切: GPU0 拿上半 W₁[d/2, d]，GPU1 拿下半 W₂[d/2, d]<br>Z₁ = GeLU(Y₁) × W₁<sup>row</sup> → shape [batch, seq, d]<br>Z₂ = GeLU(Y₂) × W₂<sup>row</sup> → shape [batch, seq, d]<br><span style="color:#888">两个部分结果 shape 相同但值不同，需要求和</span>'
+            },
+            {
+                activate: ['tpf-row0','tpf-row1','tpf-allreduce'],
+                arrows: ['tpf-arr0','tpf-arr1','tpf-arr2','tpf-arr3'],
+                explain: '<strong style="color:#50c878">AllReduce — 整个 MLP forward 唯一的通信！</strong><br>Z = Z₁ + Z₂ (跨 GPU 求和)<br><span style="color:#888">这就是 g 算子的 forward（AllReduce），backward 时只做 identity</span><br><br><span style="color:#f4a460">为什么只需 1 次？因为 Column→Row 配对后，中间的 GeLU 天然可以在局部做，不需要额外同步！</span>'
+            },
+            {
+                activate: ['tpf-allreduce','tpf-output'],
+                arrows: ['tpf-arr0','tpf-arr1','tpf-arr2','tpf-arr3','tpf-arr4'],
+                explain: '<strong>输出完整结果 → 送入下一层</strong><br><br>总结通信开销: forward <strong>1 次 AllReduce</strong>，backward <strong>1 次 AllReduce</strong><br><span style="color:#50c878">对比朴素方案（两个 Column Parallel）: 中间需要 AllGather 拼接，多一次通信！</span><br><span style="color:#9b59b6">Megatron 的精髓: 用 Column+Row 配对消除了中间通信</span>'
+            }
+        ];
+
+        let tpStep = -1;
+        let tpRunning = false;
+        let tpTimer = null;
+
+        function clearAll() {
+            document.querySelectorAll('#tp-flow-diagram .tp-flow-block').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('#tp-flow-diagram .tp-flow-arrow').forEach(a => a.classList.remove('active'));
+        }
+
+        function doStep() {
+            tpStep++;
+            if (tpStep >= steps.length) {
+                tpRunning = false;
+                document.getElementById('tp-flow-status').textContent = '完成！点击重置可重新播放';
+                return;
+            }
+
+            clearAll();
+            const s = steps[tpStep];
+            s.activate.forEach(id => document.getElementById(id)?.classList.add('active'));
+            s.arrows.forEach(id => document.getElementById(id)?.classList.add('active'));
+            document.getElementById('tp-flow-explain').innerHTML = s.explain;
+            document.getElementById('tp-flow-status').textContent = `步骤 ${tpStep+1}/${steps.length}`;
+
+            if (tpRunning) tpTimer = setTimeout(doStep, 3000);
+        }
+
+        window.tpFlowPlay = function() {
+            if (tpRunning) return;
+            if (tpStep >= steps.length - 1) tpFlowReset();
+            tpRunning = true;
+            doStep();
+        };
+        window.tpFlowStep = function() {
+            tpRunning = false;
+            clearTimeout(tpTimer);
+            if (tpStep >= steps.length - 1) { tpFlowReset(); return; }
+            doStep();
+        };
+        window.tpFlowReset = function() {
+            tpRunning = false;
+            clearTimeout(tpTimer);
+            tpStep = -1;
+            clearAll();
+            document.getElementById('tp-flow-explain').innerHTML = '点击「播放」逐步展示 MLP 在两张 GPU 上的完整计算流程';
+            document.getElementById('tp-flow-status').textContent = '';
+        };
+    })();
+
+    // ============================================================
+    // PP: Interactive 1F1B Pipeline Schedule Animation
+    // Shows forward/backward micro-batches flowing through 4 GPUs
+    // ============================================================
+    (function() {
+        // 1F1B for 4 GPUs, 4 micro-batches
+        // null = bubble/idle
+        const schedule = [
+            [['F',1],['F',2],['F',3],['F',4],['B',1],['B',2],['B',3],['B',4],null,null,null,null],
+            [null,['F',1],['F',2],['F',3],['F',4],['B',1],['B',2],['B',3],['B',4],null,null,null],
+            [null,null,['F',1],['F',2],['F',3],['F',4],['B',1],['B',2],['B',3],['B',4],null,null],
+            [null,null,null,['F',1],['F',2],['F',3],['F',4],['B',1],['B',2],['B',3],['B',4],null],
+        ];
+        const totalCols = 12;
+        let ppStep = -1;
+        let ppRunning = false;
+        let ppTimer = null;
+
+        function buildGrid() {
+            const el = document.getElementById('pp-anim-grid');
+            if (!el) return;
+            let html = '<div class="pp-anim-header"></div>';
+            for (let t = 0; t < totalCols; t++) html += `<div class="pp-anim-header">t${t}</div>`;
+            for (let g = 0; g < 4; g++) {
+                html += `<div class="pp-anim-label">GPU ${g}</div>`;
+                for (let t = 0; t < totalCols; t++) {
+                    const s = schedule[g][t];
+                    const label = s ? `${s[0]}${s[1]}` : '';
+                    html += `<div class="pp-anim-cell" data-g="${g}" data-t="${t}">${label}</div>`;
+                }
+            }
+            el.innerHTML = html;
+        }
+        buildGrid();
+
+        function ppDoStep() {
+            ppStep++;
+            if (ppStep >= totalCols) {
+                ppRunning = false;
+                document.getElementById('pp-status').textContent = '1F1B 完成！注意：只有首尾有少量 Bubble，中间 GPU 利用率很高';
+                return;
+            }
+
+            // Remove old "current" markers
+            document.querySelectorAll('.pp-anim-cell.current').forEach(c => c.classList.remove('current'));
+
+            // Activate cells up to ppStep
+            let actions = [];
+            for (let g = 0; g < 4; g++) {
+                for (let t = 0; t <= ppStep; t++) {
+                    const cell = document.querySelector(`.pp-anim-cell[data-g="${g}"][data-t="${t}"]`);
+                    const s = schedule[g][t];
+                    if (s) {
+                        const cls = s[0] === 'F' ? `fwd-${g}` : `bwd-${g}`;
+                        cell.classList.add('active', cls);
+                        if (t === ppStep) {
+                            cell.classList.add('current');
+                            actions.push(`GPU${g}: ${s[0]==='F'?'Forward':'Backward'} μ-batch ${s[1]}`);
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('pp-status').textContent =
+                `t=${ppStep}: ${actions.length > 0 ? actions.join(' | ') : '(idle - pipeline bubble)'}`;
+
+            if (ppRunning) ppTimer = setTimeout(ppDoStep, 800);
+        }
+
+        window.ppPlay = function() {
+            if (ppRunning) return;
+            if (ppStep >= totalCols - 1) ppReset();
+            ppRunning = true;
+            ppDoStep();
+        };
+        window.ppStepFn = function() {
+            ppRunning = false;
+            clearTimeout(ppTimer);
+            if (ppStep >= totalCols - 1) { ppReset(); return; }
+            ppDoStep();
+        };
+        window.ppReset = function() {
+            ppRunning = false;
+            clearTimeout(ppTimer);
+            ppStep = -1;
+            buildGrid();
+            document.getElementById('pp-status').textContent = '';
+        };
+    })();
+
+    // ============================================================
+    // EP: Interactive Token Dispatch Animation
+    // Shows tokens flowing through Router to Experts
+    // ============================================================
+    (function() {
+        const tokens = [
+            { id:'T1', expert:0, color:'#4a90d9' },
+            { id:'T2', expert:2, color:'#50c878' },
+            { id:'T3', expert:1, color:'#f4a460' },
+            { id:'T4', expert:3, color:'#e85d75' },
+            { id:'T5', expert:0, color:'#9b59b6' },
+            { id:'T6', expert:2, color:'#1abc9c' },
+        ];
+        const expertColors = ['#4a90d9','#50c878','#f4a460','#e85d75'];
+        const expertNames = ['Expert 0<br>GPU 0','Expert 1<br>GPU 1','Expert 2<br>GPU 2','Expert 3<br>GPU 3'];
+        let phase = 0;
+
+        function build() {
+            const el = document.getElementById('ep-anim-area');
+            if (!el) return;
+            let html = '';
+
+            // Tokens at top
+            tokens.forEach((t, i) => {
+                const left = 80 + i * 90;
+                html += `<div class="ep-anim-token" id="eptk${i}" style="background:${t.color}; top:20px; left:${left}px;">${t.id}</div>`;
+            });
+
+            // Router
+            html += '<div class="ep-anim-router-box" id="ep-router-box">Router (Gating)</div>';
+
+            // Expert slots at bottom
+            const positions = [60, 220, 380, 540];
+            expertNames.forEach((name, i) => {
+                html += `<div class="ep-anim-expert-slot" id="epexp${i}" style="left:${positions[i]}px; border-color:${expertColors[i]}; color:${expertColors[i]};">${name}</div>`;
+            });
+
+            el.innerHTML = html;
+        }
+        build();
+
+        function doPhase() {
+            const area = document.getElementById('ep-anim-area');
+            if (phase === 0) {
+                // Move tokens down to router level
+                tokens.forEach((t, i) => {
+                    const tk = document.getElementById(`eptk${i}`);
+                    tk.style.top = '85px';
+                    tk.style.left = `${200 + i * 50}px`;
+                    tk.style.transform = 'scale(0.9)';
+                });
+                document.getElementById('ep-status').textContent =
+                    '步骤 1/4: Tokens 输入 Router → 计算 gating score（softmax）决定发往哪个 Expert';
+                phase = 1;
+            } else if (phase === 1) {
+                // Show routing decision labels
+                const router = document.getElementById('ep-router-box');
+                router.innerHTML = 'Router: T1→E0, T2→E2, T3→E1, T4→E3, T5→E0, T6→E2';
+                router.style.fontSize = '0.7em';
+                document.getElementById('ep-status').textContent =
+                    '步骤 2/4: Router 输出路由表 → 准备 All-to-All 通信（每个 token 发到目标 Expert 的 GPU）';
+                phase = 2;
+            } else if (phase === 2) {
+                // Dispatch tokens to their experts
+                const areaRect = area.getBoundingClientRect();
+                tokens.forEach((t, i) => {
+                    const tk = document.getElementById(`eptk${i}`);
+                    const expSlot = document.getElementById(`epexp${t.expert}`);
+                    const slotRect = expSlot.getBoundingClientRect();
+                    const targetLeft = slotRect.left - areaRect.left + (slotRect.width/2) - 16;
+                    tk.style.top = '210px';
+                    tk.style.left = `${targetLeft}px`;
+                    tk.style.transform = 'scale(0.85)';
+                    expSlot.classList.add('glow');
+                });
+                document.getElementById('ep-status').textContent =
+                    '步骤 3/4: All-to-All dispatch! Token 跨 GPU 发送到目标 Expert → Expert 独立计算 FFN';
+                phase = 3;
+            } else if (phase === 3) {
+                // Show completion
+                tokens.forEach((t, i) => {
+                    const tk = document.getElementById(`eptk${i}`);
+                    tk.style.top = '15px';
+                    tk.style.left = `${80 + i * 90}px`;
+                    tk.style.transform = 'scale(1)';
+                    tk.style.opacity = '1';
+                    tk.textContent = `${t.id}✓`;
+                });
+                document.querySelectorAll('.ep-anim-expert-slot').forEach(e => e.classList.remove('glow'));
+                const router = document.getElementById('ep-router-box');
+                router.innerHTML = 'All-to-All 收回结果';
+                document.getElementById('ep-status').textContent =
+                    '步骤 4/4: 计算完毕 → All-to-All 把结果发回原 GPU → 继续下一层（注意: Expert 0,2 比较忙 = 负载不均）';
+                phase = 4;
+            } else {
+                phase = 0;
+                build();
+                document.getElementById('ep-status').textContent = '点击「下一步」重新观看';
+            }
+        }
+
+        window.epNext = function() { doPhase(); };
+        window.epReset = function() {
+            phase = 0;
+            build();
+            document.getElementById('ep-status').textContent = '点击「下一步」观看 Token → Router → Expert 的 dispatch 过程';
+        };
+    })();
+    </script>
+</body>
+</html>

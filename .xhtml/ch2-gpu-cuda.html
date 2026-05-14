@@ -1,0 +1,1805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 2: GPU 计算与 CUDA 基础</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 0; }
+.chapter-header { background: linear-gradient(135deg, #00d2ff, #7b2ff7); padding: 60px 40px; text-align: center; position: relative; overflow: hidden; }
+.chapter-header h1 { font-size: 2.8rem; color: #fff; margin-bottom: 10px; text-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+.chapter-header .subtitle { font-size: 1.2rem; color: rgba(255,255,255,0.85); }
+.chapter-header::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%); animation: headerPulse 8s ease-in-out infinite; }
+@keyframes headerPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } }
+.container { max-width: 1100px; margin: 0 auto; padding: 40px 20px; }
+.section { margin-bottom: 60px; opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.section.visible { opacity: 1; transform: translateY(0); }
+.section-title { font-size: 1.8rem; background: linear-gradient(90deg, #00d2ff, #7b2ff7); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #333; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin-bottom: 20px; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(123,47,247,0.15); }
+.card h3 { color: #00d2ff; margin-bottom: 12px; font-size: 1.2rem; }
+.card p, .card li { color: #ccc; margin-bottom: 8px; }
+.card ul { padding-left: 20px; }
+code { background: #2a2a4a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #7df9ff; }
+pre { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 16px 0; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; }
+.comment { color: #6a9955; }
+.keyword { color: #c586c0; }
+.function { color: #dcdcaa; }
+.string { color: #ce9178; }
+.number { color: #b5cea8; }
+
+/* Interactive GPU Architecture */
+.gpu-arch-container { position: relative; width: 100%; min-height: 500px; background: #12122a; border-radius: 12px; border: 1px solid #333; padding: 20px; overflow: hidden; }
+.gpu-chip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 20px; }
+.sm-unit { background: linear-gradient(135deg, #1e3a5f, #2a1a4e); border: 1px solid #444; border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.3s ease; text-align: center; position: relative; }
+.sm-unit:hover { border-color: #00d2ff; box-shadow: 0 0 15px rgba(0,210,255,0.3); transform: scale(1.05); }
+.sm-unit.active { border-color: #7b2ff7; box-shadow: 0 0 20px rgba(123,47,247,0.5); }
+.sm-unit .sm-label { font-size: 0.8rem; color: #00d2ff; font-weight: bold; }
+.sm-detail-panel { position: absolute; top: 0; right: 0; width: 45%; height: 100%; background: #1a1a2e; border-left: 1px solid #444; padding: 20px; transform: translateX(100%); transition: transform 0.4s ease; z-index: 10; overflow-y: auto; }
+.sm-detail-panel.open { transform: translateX(0); }
+.sm-detail-panel h4 { color: #7b2ff7; margin-bottom: 12px; }
+.warp-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; margin: 10px 0; }
+.thread-dot { width: 12px; height: 12px; background: #00d2ff; border-radius: 2px; animation: threadPulse 1.5s ease-in-out infinite; }
+.thread-dot:nth-child(odd) { animation-delay: 0.3s; }
+@keyframes threadPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+.close-panel { position: absolute; top: 10px; right: 10px; background: none; border: 1px solid #666; color: #ccc; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+.close-panel:hover { border-color: #00d2ff; color: #00d2ff; }
+
+/* Memory Hierarchy Pyramid */
+.mem-pyramid { position: relative; width: 100%; max-width: 600px; margin: 20px auto; }
+.mem-level { margin: 0 auto; padding: 14px; text-align: center; cursor: pointer; transition: all 0.3s ease; position: relative; border-radius: 6px; margin-bottom: 6px; }
+.mem-level:hover { transform: scale(1.03); z-index: 5; }
+.mem-level .bandwidth-tooltip { position: absolute; right: -220px; top: 50%; transform: translateY(-50%); background: #2a2a4a; border: 1px solid #555; border-radius: 8px; padding: 10px 14px; font-size: 0.8rem; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; }
+.mem-level:hover .bandwidth-tooltip { opacity: 1; }
+.mem-registers { background: linear-gradient(90deg, #ff6b6b, #ee5a24); width: 30%; color: #fff; font-weight: bold; }
+.mem-shared { background: linear-gradient(90deg, #f9ca24, #f0932b); width: 50%; color: #222; font-weight: bold; }
+.mem-l2 { background: linear-gradient(90deg, #6ab04c, #009432); width: 70%; color: #fff; font-weight: bold; }
+.mem-hbm { background: linear-gradient(90deg, #00d2ff, #7b2ff7); width: 90%; color: #fff; font-weight: bold; }
+.data-flow-line { position: absolute; left: 50%; width: 2px; background: linear-gradient(to bottom, #00d2ff, #7b2ff7); animation: flowDown 2s ease-in-out infinite; }
+@keyframes flowDown { 0% { height: 0; opacity: 0; } 50% { height: 30px; opacity: 1; } 100% { height: 0; opacity: 0; } }
+.mem-arrow { text-align: center; color: #666; font-size: 1.2rem; margin: 2px 0; animation: arrowBounce 1.5s ease-in-out infinite; }
+@keyframes arrowBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+
+/* CUDA Graph Timeline */
+.timeline-container { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
+.timeline-column { flex: 1; min-width: 300px; background: #12122a; border-radius: 8px; padding: 16px; border: 1px solid #333; }
+.timeline-column h4 { text-align: center; margin-bottom: 12px; font-size: 0.95rem; }
+.timeline-bar-group { margin-bottom: 8px; position: relative; }
+.timeline-bar { height: 24px; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.7rem; color: #fff; margin-bottom: 3px; }
+.bar-kernel { background: linear-gradient(90deg, #00d2ff, #0088aa); }
+.bar-launch { background: #ff6b6b; }
+.bar-gap { background: #333; border: 1px dashed #555; color: #888; }
+.bar-graph { background: linear-gradient(90deg, #7b2ff7, #a855f7); }
+.timeline-animate .timeline-bar { width: 0; animation: barGrow 0.8s ease forwards; }
+@keyframes barGrow { to { width: 100%; } }
+.speedup-badge { text-align: center; margin-top: 16px; padding: 10px; background: linear-gradient(135deg, #00d2ff20, #7b2ff720); border-radius: 8px; border: 1px solid #7b2ff7; }
+.speedup-badge span { font-size: 1.4rem; font-weight: bold; color: #7b2ff7; }
+
+/* GEMM Tiling Animation */
+.gemm-container { position: relative; width: 100%; background: #12122a; border-radius: 12px; border: 1px solid #333; padding: 20px; min-height: 400px; }
+.matrix-grid { display: inline-block; vertical-align: top; margin: 10px; }
+.matrix-label { text-align: center; font-size: 0.9rem; color: #00d2ff; margin-bottom: 6px; font-weight: bold; }
+.matrix-cells { display: grid; gap: 1px; }
+.matrix-cell { width: 22px; height: 22px; border-radius: 2px; background: #2a2a4a; border: 1px solid #444; transition: all 0.3s ease; }
+.matrix-cell.highlight-a { background: #ff6b6b; border-color: #ff6b6b; }
+.matrix-cell.highlight-b { background: #00d2ff; border-color: #00d2ff; }
+.matrix-cell.highlight-c { background: #7b2ff7; border-color: #7b2ff7; }
+.gemm-controls { text-align: center; margin-top: 16px; }
+.gemm-controls button { background: linear-gradient(135deg, #00d2ff, #7b2ff7); border: none; color: #fff; padding: 10px 24px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; margin: 0 8px; transition: transform 0.2s; }
+.gemm-controls button:hover { transform: scale(1.05); }
+.gemm-controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+.gemm-info { text-align: center; margin-top: 12px; color: #aaa; font-size: 0.85rem; }
+.tensor-core-visual { display: flex; align-items: center; justify-content: center; gap: 15px; margin: 20px 0; flex-wrap: wrap; }
+.tc-matrix { display: grid; grid-template-columns: repeat(4, 28px); gap: 2px; }
+.tc-cell { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; border-radius: 3px; font-weight: bold; }
+.tc-op { font-size: 1.5rem; color: #7b2ff7; font-weight: bold; }
+
+/* Exercises */
+.exercise { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+.exercise-header { padding: 16px 20px; background: linear-gradient(90deg, #1e3a5f, #2a1a4e); cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+.exercise-header h4 { color: #00d2ff; font-size: 1rem; }
+.exercise-header .badge { background: #7b2ff7; color: #fff; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; }
+.exercise-body { padding: 20px; display: none; }
+.exercise-body.open { display: block; }
+.hint-btn, .solution-btn { background: none; border: 1px solid #555; color: #ccc; padding: 6px 14px; border-radius: 6px; cursor: pointer; margin-right: 8px; margin-top: 10px; font-size: 0.85rem; transition: all 0.3s; }
+.hint-btn:hover { border-color: #f9ca24; color: #f9ca24; }
+.solution-btn:hover { border-color: #00d2ff; color: #00d2ff; }
+.hint-content, .solution-content { margin-top: 12px; padding: 12px; background: #2a2a4a; border-radius: 8px; display: none; border-left: 3px solid #f9ca24; }
+.solution-content { border-left-color: #00d2ff; }
+.hint-content.show, .solution-content.show { display: block; }
+
+/* Nav dots */
+.nav-dots { position: fixed; right: 20px; top: 50%; transform: translateY(-50%); z-index: 100; }
+.nav-dot { width: 10px; height: 10px; border-radius: 50%; background: #444; margin: 8px 0; cursor: pointer; transition: all 0.3s; }
+.nav-dot.active { background: #00d2ff; box-shadow: 0 0 10px #00d2ff; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chapter-header h1 { font-size: 1.8rem; }
+  .gpu-chip { grid-template-columns: repeat(2, 1fr); }
+  .sm-detail-panel { width: 70%; }
+  .timeline-container { flex-direction: column; }
+  .mem-level .bandwidth-tooltip { right: auto; left: 50%; transform: translateX(-50%) translateY(10px); top: 100%; }
+  .tensor-core-visual { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<header class="chapter-header">
+  <h1>Chapter 2: GPU 计算与 CUDA 基础</h1>
+  <p class="subtitle">从硬件架构到编程模型，理解 GPU 并行计算的核心概念</p>
+</header>
+
+<nav class="nav-dots" id="navDots"></nav>
+
+<div class="container">
+
+  <!-- Section 1: GPU Architecture -->
+  <section class="section" id="sec-arch">
+    <h2 class="section-title">2.1 GPU 架构：SM, Warp 与 Thread Hierarchy</h2>
+
+    <div class="card">
+      <h3>GPU 并行计算的核心思想</h3>
+      <p>GPU 与 CPU 的根本区别在于设计哲学：CPU 追求低延迟（少量核心 + 大缓存 + 复杂控制逻辑），而 GPU 追求高吞吐（数千个简单核心 + 大量并发线程来隐藏延迟）。</p>
+      <ul>
+        <li><strong>Streaming Multiprocessor (SM)</strong>：GPU 的基本计算单元，每个 SM 包含多个 CUDA Core、Tensor Core、Load/Store 单元和 Shared Memory</li>
+        <li><strong>Warp</strong>：32 个线程组成一个 Warp，是 GPU 调度的最小单位，Warp 内所有线程执行相同指令 (SIMT)</li>
+        <li><strong>Thread Hierarchy</strong>：Thread → Warp → Thread Block → Grid，形成多层并行结构</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>交互式 GPU 架构图（点击 SM 查看内部结构）</h3>
+      <div class="gpu-arch-container" id="gpuArch">
+        <div class="gpu-chip" id="gpuChip">
+          <!-- SM units generated by JS -->
+        </div>
+        <div class="sm-detail-panel" id="smDetailPanel">
+          <button class="close-panel" onclick="closeSmPanel()">✕</button>
+          <h4 id="smDetailTitle">SM 0 内部结构</h4>
+          <div style="margin-top:12px;">
+            <p style="color:#aaa;font-size:0.85rem;margin-bottom:8px;"><strong style="color:#00d2ff;">CUDA Cores:</strong> 128 个 FP32 单元</p>
+            <p style="color:#aaa;font-size:0.85rem;margin-bottom:8px;"><strong style="color:#7b2ff7;">Tensor Cores:</strong> 4 个（4x4 矩阵运算）</p>
+            <p style="color:#aaa;font-size:0.85rem;margin-bottom:12px;"><strong style="color:#f9ca24;">Shared Memory:</strong> 可配置 48KB/64KB/100KB</p>
+            <p style="color:#ccc;font-size:0.85rem;margin-bottom:8px;">每个 SM 可同时管理多个 Warp：</p>
+            <div id="warpDisplay"></div>
+            <p style="color:#888;font-size:0.75rem;margin-top:12px;">每行 = 1 个 Warp (32 threads)，颜色脉动表示线程正在执行</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Thread Hierarchy 详解</h3>
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+        <thead>
+          <tr style="border-bottom:1px solid #444;">
+            <th style="text-align:left;padding:8px;color:#00d2ff;">层级</th>
+            <th style="text-align:left;padding:8px;color:#00d2ff;">大小</th>
+            <th style="text-align:left;padding:8px;color:#00d2ff;">对应硬件</th>
+            <th style="text-align:left;padding:8px;color:#00d2ff;">可用内存</th>
+            <th style="text-align:left;padding:8px;color:#00d2ff;">通信方式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Thread</td><td>1</td><td>CUDA Core / Tensor Core</td><td>Registers (~255 个/thread)</td><td>—</td></tr>
+          <tr style="border-bottom:1px solid #333;"><td style="padding:8px;"><strong style="color:#7b2ff7;">Warp</strong></td><td>32 threads</td><td>SM 调度单位 + <strong style="color:#7b2ff7;">Tensor Core MMA</strong></td><td>Register File (共享)</td><td>Warp Shuffle, Tensor Core 协作</td></tr>
+          <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Thread Block</td><td>最多 1024 threads</td><td>单个 SM</td><td>Shared Memory (最高 228KB)</td><td>Shared Memory 读写</td></tr>
+          <tr><td style="padding:8px;">Grid</td><td>多个 blocks</td><td>整个 GPU (所有 SM)</td><td>Global Memory (HBM)</td><td>Global Memory / Atomics</td></tr>
+        </tbody>
+      </table>
+
+      <h4 style="color:#7b2ff7; margin-top: 20px;">Tensor Core 在 Thread Hierarchy 中的位置</h4>
+      <p>Tensor Core 是 Warp 级别的计算单元，一次 MMA (Matrix Multiply-Accumulate) 操作由 <strong>整个 Warp (32 threads) 协作完成</strong>：</p>
+
+      <div style="background: #12122a; border-radius: 8px; padding: 20px; margin: 15px 0; border: 1px solid #7b2ff7;">
+        <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center;">
+          <div style="text-align: center;">
+            <div style="font-size: 0.75rem; color: #ff6b6b; margin-bottom: 4px;">A Fragment</div>
+            <div style="display: grid; grid-template-columns: repeat(4,24px); gap: 1px;">
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#ff6b6b33;border:1px solid #ff6b6b;border-radius:2px;"></div>
+            </div>
+            <div style="font-size: 0.65rem; color: #888; margin-top: 4px;">[m=16, k=16] FP16</div>
+          </div>
+          <div style="font-size: 1.5rem; color: #7b2ff7; font-weight: bold;">×</div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.75rem; color: #00d2ff; margin-bottom: 4px;">B Fragment</div>
+            <div style="display: grid; grid-template-columns: repeat(4,24px); gap: 1px;">
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#00d2ff33;border:1px solid #00d2ff;border-radius:2px;"></div>
+            </div>
+            <div style="font-size: 0.65rem; color: #888; margin-top: 4px;">[k=16, n=8] FP16</div>
+          </div>
+          <div style="font-size: 1.5rem; color: #7b2ff7; font-weight: bold;">+</div>
+          <div style="text-align: center;">
+            <div style="font-size: 0.75rem; color: #7b2ff7; margin-bottom: 4px;">C/D Accumulator</div>
+            <div style="display: grid; grid-template-columns: repeat(2,24px); gap: 1px;">
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+              <div style="width:24px;height:24px;background:#7b2ff733;border:1px solid #7b2ff7;border-radius:2px;"></div>
+            </div>
+            <div style="font-size: 0.65rem; color: #888; margin-top: 4px;">[m=16, n=8] FP32</div>
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 15px; font-size: 0.85rem; color: #ccc;">
+          <strong style="color:#7b2ff7;">D</strong>[16×8] = <strong style="color:#ff6b6b;">A</strong>[16×16] × <strong style="color:#00d2ff;">B</strong>[16×8] + <strong style="color:#7b2ff7;">C</strong>[16×8]
+          <span style="color: #888; margin-left: 10px;">(单次 Warp MMA 指令, FP16→FP32)</span>
+        </div>
+      </div>
+
+      <p>Tensor Core 的关键特点：</p>
+      <ul>
+        <li><strong>Warp 协作</strong>：32 个 thread 各自持有 A/B/C 矩阵的不同 fragment (碎片)，一条 <code>mma.sync</code> 指令由整个 Warp 协同执行</li>
+        <li><strong>数据分布</strong>：A/B fragment 分布在 32 个 thread 的 registers 中，不需要经过 Shared Memory</li>
+        <li><strong>混合精度</strong>：输入 FP16/BF16/FP8，累加器 FP32，兼顾速度和精度</li>
+        <li><strong>吞吐量 (H100)</strong>：每 SM 有 4 个 Tensor Core，每 cycle 处理一次 MMA → 单 SM 峰值 ~200 TFLOPS (FP8)</li>
+      </ul>
+
+      <h4 style="margin-top: 20px;">编程模型映射</h4>
+      <pre style="background:#12122a; border:1px solid #333; border-radius:8px; padding:15px; font-size:0.82rem; line-height:1.6;"><code style="color:#e0e0e0;"><span class="comment"># CUDA 编程模型 → GPU 硬件映射</span>
+
+Grid (kernel launch)
+  └── Block 0, Block 1, ..., Block N     <span class="comment"># → 分配到各个 SM</span>
+        └── Warp 0, Warp 1, ..., Warp M  <span class="comment"># → SM 内的 Warp Scheduler 调度</span>
+              └── Thread 0..31           <span class="comment"># → CUDA Cores 执行标量运算</span>
+              └── <span style="color:#7b2ff7;">[Tensor Core MMA]</span>      <span class="comment"># → 整个 Warp 协作执行矩阵运算</span>
+
+<span class="comment"># 关键约束:</span>
+<span class="comment"># - 一个 Block 只能在一个 SM 上运行 (不能跨 SM)</span>
+<span class="comment"># - 一个 SM 可以同时运行多个 Block (取决于资源)</span>
+<span class="comment"># - Warp 内所有 thread 执行相同 PC (SIMT)</span>
+<span class="comment"># - Tensor Core 指令是 Warp 级别的, 不是 Thread 级别的</span>
+
+<span class="comment"># 资源限制 (H100):</span>
+<span class="comment"># - 每 SM: 最多 2048 个 resident threads = 64 个 Warp</span>
+<span class="comment"># - 每 SM: 最多 32 个 resident Blocks</span>
+<span class="comment"># - 每 Block: 最多 1024 个 threads</span>
+<span class="comment"># - 每 SM: 228KB Shared Memory, 65536 个 32-bit Registers</span>
+<span class="comment"># - 全 GPU: 132 个 SM → 最多 132×2048 = 270,336 个并发 threads</span></code></pre>
+    </div>
+  </section>
+
+  <!-- Section 2: Memory Hierarchy -->
+  <section class="section" id="sec-memory">
+    <h2 class="section-title">2.2 内存层次：从 Registers 到 HBM</h2>
+
+    <div class="card">
+      <h3>GPU 内存层次金字塔（悬停查看带宽）</h3>
+      <div class="mem-pyramid" id="memPyramid">
+        <div class="mem-level mem-registers">
+          Registers (~64KB/SM)
+          <div class="bandwidth-tooltip">带宽: ~20 TB/s<br>延迟: 0 cycles<br>作用域: 单个 Thread</div>
+        </div>
+        <div class="mem-arrow">▼</div>
+        <div class="mem-level mem-shared">
+          Shared Memory (最高 228KB/SM)
+          <div class="bandwidth-tooltip">带宽: ~19 TB/s<br>延迟: ~20 cycles<br>作用域: Thread Block</div>
+        </div>
+        <div class="mem-arrow">▼</div>
+        <div class="mem-level mem-l2">
+          L2 Cache (50MB on H100)
+          <div class="bandwidth-tooltip">带宽: ~12 TB/s<br>延迟: ~200 cycles<br>作用域: 全 GPU</div>
+        </div>
+        <div class="mem-arrow">▼</div>
+        <div class="mem-level mem-hbm">
+          HBM3 (80GB on H100)
+          <div class="bandwidth-tooltip">带宽: 3.35 TB/s (H100)<br>延迟: ~400 cycles<br>作用域: 全 GPU (Global)</div>
+        </div>
+      </div>
+      <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:12px;">越靠近计算单元，容量越小但带宽越高、延迟越低</p>
+    </div>
+
+    <div class="card">
+      <h3>带宽对比（H100 SXM）</h3>
+      <div style="margin-top:12px;">
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;"><span>Registers</span><span style="color:#ff6b6b;">~20 TB/s</span></div>
+          <div style="height:8px;background:#333;border-radius:4px;overflow:hidden;"><div style="width:100%;height:100%;background:linear-gradient(90deg,#ff6b6b,#ee5a24);border-radius:4px;"></div></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;"><span>Shared Memory</span><span style="color:#f9ca24;">~19 TB/s</span></div>
+          <div style="height:8px;background:#333;border-radius:4px;overflow:hidden;"><div style="width:95%;height:100%;background:linear-gradient(90deg,#f9ca24,#f0932b);border-radius:4px;"></div></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;"><span>L2 Cache</span><span style="color:#6ab04c;">~12 TB/s</span></div>
+          <div style="height:8px;background:#333;border-radius:4px;overflow:hidden;"><div style="width:60%;height:100%;background:linear-gradient(90deg,#6ab04c,#009432);border-radius:4px;"></div></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;"><span>HBM3</span><span style="color:#00d2ff;">3.35 TB/s</span></div>
+          <div style="height:8px;background:#333;border-radius:4px;overflow:hidden;"><div style="width:17%;height:100%;background:linear-gradient(90deg,#00d2ff,#7b2ff7);border-radius:4px;"></div></div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:4px;"><span>PCIe 5.0 (Host ↔ Device)</span><span style="color:#888;">64 GB/s</span></div>
+          <div style="height:8px;background:#333;border-radius:4px;overflow:hidden;"><div style="width:1%;height:100%;background:#888;border-radius:4px;min-width:4px;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>关键设计原则</h3>
+      <ul>
+        <li><strong>数据复用 (Data Reuse)</strong>：尽可能在 Shared Memory 中复用数据，减少对 HBM 的访问</li>
+        <li><strong>Coalesced Access</strong>：同一个 Warp 的线程访问连续内存地址，合并为一次事务</li>
+        <li><strong>Bank Conflict 避免</strong>：Shared Memory 分为 32 个 bank，避免同一 Warp 内多个线程访问同一 bank</li>
+        <li><strong>Occupancy 优化</strong>：平衡 Shared Memory 和 Register 使用量，最大化 SM 上的活跃 Warp 数</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Section 3: GEMM and Tensor Core -->
+  <section class="section" id="sec-gemm">
+    <h2 class="section-title">2.3 GEMM 与 Tensor Core</h2>
+
+    <div class="card">
+      <h3>为什么 GEMM 如此重要？</h3>
+      <p>深度学习的核心运算 — 全连接层、卷积、Attention 的 QK^T 和 AV — 本质都是矩阵乘法 (General Matrix Multiply, GEMM)。优化 GEMM 就是优化整个训练和推理过程。</p>
+      <p style="margin-top:10px;">一个 <code>C[M,N] = A[M,K] × B[K,N]</code> 需要 <code>2*M*N*K</code> FLOPs（乘加各算一次）。对于 LLM 中典型的矩阵尺寸（如 4096×4096），这意味着数十亿次运算。</p>
+    </div>
+
+    <div class="card">
+      <h3>GEMM Tiling 动画（点击 "开始" 观察分块计算过程）</h3>
+      <div class="gemm-container" id="gemmContainer">
+        <div style="display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:20px;">
+          <div class="matrix-grid">
+            <div class="matrix-label">A [8×8]</div>
+            <div class="matrix-cells" id="matrixA" style="grid-template-columns:repeat(8,22px);"></div>
+          </div>
+          <div style="font-size:1.5rem;color:#7b2ff7;font-weight:bold;align-self:center;">×</div>
+          <div class="matrix-grid">
+            <div class="matrix-label">B [8×8]</div>
+            <div class="matrix-cells" id="matrixB" style="grid-template-columns:repeat(8,22px);"></div>
+          </div>
+          <div style="font-size:1.5rem;color:#7b2ff7;font-weight:bold;align-self:center;">=</div>
+          <div class="matrix-grid">
+            <div class="matrix-label">C [8×8]</div>
+            <div class="matrix-cells" id="matrixC" style="grid-template-columns:repeat(8,22px);"></div>
+          </div>
+        </div>
+        <div class="gemm-controls">
+          <button id="gemmStartBtn" onclick="startGemmAnimation()">开始 Tiling 动画</button>
+          <button id="gemmResetBtn" onclick="resetGemmAnimation()">重置</button>
+        </div>
+        <div class="gemm-info" id="gemmInfo">点击 "开始" 观察 4×4 tile 如何逐步计算 8×8 矩阵乘法</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tensor Core 工作原理</h3>
+      <p>Tensor Core 是专门用于矩阵乘加运算的硬件单元。每个 Tensor Core 在<strong>一个时钟周期</strong>内完成一次 4×4 的矩阵乘加运算 <code>D = A × B + C</code>：</p>
+      <div class="tensor-core-visual">
+        <div>
+          <div style="text-align:center;font-size:0.8rem;color:#ff6b6b;margin-bottom:4px;">A (FP16) 4×4</div>
+          <div class="tc-matrix">
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b20;color:#ff6b6b;">a</div>
+            <div class="tc-cell" style="background:#ff6b6b30;color:#ff6b6b;">a</div>
+          </div>
+        </div>
+        <div class="tc-op">×</div>
+        <div>
+          <div style="text-align:center;font-size:0.8rem;color:#00d2ff;margin-bottom:4px;">B (FP16) 4×4</div>
+          <div class="tc-matrix">
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff20;color:#00d2ff;">b</div>
+            <div class="tc-cell" style="background:#00d2ff30;color:#00d2ff;">b</div>
+          </div>
+        </div>
+        <div class="tc-op">+</div>
+        <div>
+          <div style="text-align:center;font-size:0.8rem;color:#6ab04c;margin-bottom:4px;">C (FP32) 4×4</div>
+          <div class="tc-matrix">
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c20;color:#6ab04c;">c</div>
+            <div class="tc-cell" style="background:#6ab04c30;color:#6ab04c;">c</div>
+          </div>
+        </div>
+        <div class="tc-op">=</div>
+        <div>
+          <div style="text-align:center;font-size:0.8rem;color:#7b2ff7;margin-bottom:4px;">D (FP32) 4×4</div>
+          <div class="tc-matrix">
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff720;color:#7b2ff7;">d</div>
+            <div class="tc-cell" style="background:#7b2ff730;color:#7b2ff7;">d</div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:0.85rem;color:#aaa;margin-top:10px;">H100 的 Tensor Core 支持更大的 <code>mma.m16n8k16</code> 指令，一个 Warp 协作完成 16×8×16 的矩阵乘加。FP16 输入 → FP32 累加器，保证精度。</p>
+    </div>
+
+    <div class="card">
+      <h3>Tiling 策略分层</h3>
+      <pre><code><span class="comment">// GEMM Tiling 分层策略 (概念伪代码)</span>
+<span class="comment">// Level 1: Thread Block Tile (从 Global Memory 加载到 Shared Memory)</span>
+<span class="keyword">for</span> tile_k <span class="keyword">in</span> range(K // BLOCK_K):
+    <span class="comment"># 每个 Thread Block 负责 C 的一个 BLOCK_M × BLOCK_N 子块</span>
+    load A[block_m, tile_k] → shared_A   <span class="comment"># Cooperative load</span>
+    load B[tile_k, block_n] → shared_B
+    __syncthreads()
+
+    <span class="comment">// Level 2: Warp Tile (从 Shared Memory 到 Registers)</span>
+    <span class="keyword">for</span> warp_tile:
+        load shared_A[warp_m] → reg_A
+        load shared_B[warp_n] → reg_B
+
+        <span class="comment">// Level 3: Tensor Core MMA (在 Registers 中计算)</span>
+        reg_C += mma(reg_A, reg_B)   <span class="comment"># Tensor Core 指令</span>
+
+    __syncthreads()
+
+store reg_C → C[block_m, block_n]   <span class="comment"># 写回 Global Memory</span></code></pre>
+    </div>
+  </section>
+
+  <!-- Section 4: CUDA Graphs -->
+  <section class="section" id="sec-cudagraph">
+    <h2 class="section-title">2.4 CUDA Graphs：消除 Kernel Launch 开销</h2>
+
+    <div class="card">
+      <h3>问题：Kernel Launch Overhead</h3>
+      <p>每次 CPU 向 GPU 提交一个 kernel，都有约 <strong>5-10 微秒</strong>的启动开销。对于单个大 kernel 这不是问题，但在 LLM 推理的 decode 阶段，模型有数百个小 kernel 依次执行：</p>
+      <ul>
+        <li>一个 Transformer layer 可能包含 20+ 个 kernel（LayerNorm, QKV projection, Attention, FFN...）</li>
+        <li>如果每个 kernel 计算时间只有 10-20μs，那 launch overhead 占比可达 30-50%</li>
+        <li>CPU 成为瓶颈 — GPU 在等待 CPU 发射下一个 kernel</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>CUDA Graph 时间线对比（动画）</h3>
+      <div class="timeline-container" id="timelineContainer">
+        <div class="timeline-column">
+          <h4 style="color:#ff6b6b;">Without CUDA Graph</h4>
+          <div id="timelineNormal">
+            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:40%;">Kernel 1</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:35%;">Kernel 2</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:45%;">Kernel 3</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:38%;">Kernel 4</div></div>
+          </div>
+          <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:10px;">总时间: ~120μs（其中 launch + gap 占 ~45μs）</p>
+        </div>
+        <div class="timeline-column">
+          <h4 style="color:#7b2ff7;">With CUDA Graph</h4>
+          <div id="timelineGraph">
+            <div class="timeline-bar-group"><div class="timeline-bar bar-graph" style="width:20%;">Graph Launch (一次)</div></div>
+            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:100%;">Kernel 1 → 2 → 3 → 4 (back-to-back)</div></div>
+          </div>
+          <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:10px;">总时间: ~80μs（launch 仅一次 ~5μs）</p>
+          <div class="speedup-badge">
+            <span>~1.5× speedup</span>
+            <p style="font-size:0.8rem;color:#aaa;margin-top:4px;">Kernel 越小越多，加速比越大</p>
+          </div>
+        </div>
+      </div>
+      <button style="display:block;margin:16px auto;background:linear-gradient(135deg,#00d2ff,#7b2ff7);border:none;color:#fff;padding:8px 20px;border-radius:6px;cursor:pointer;" onclick="animateTimeline()">重播动画</button>
+    </div>
+
+    <div class="card">
+      <h3>CUDA Graph 三步流程：Capture → Instantiate → Replay</h3>
+      <pre><code><span class="keyword">import</span> torch
+
+<span class="comment"># Step 0: Warmup (确保所有 memory 分配和 kernel 编译完成)</span>
+model = MyModel().cuda()
+static_input = torch.randn(batch_size, seq_len, d_model, device=<span class="string">'cuda'</span>)
+
+<span class="keyword">for</span> _ <span class="keyword">in</span> range(<span class="number">3</span>):
+    _ = model(static_input)  <span class="comment"># warmup runs</span>
+
+<span class="comment"># Step 1: Capture - 录制 kernel 执行序列</span>
+graph = torch.cuda.CUDAGraph()
+<span class="keyword">with</span> torch.cuda.graph(graph):
+    static_output = model(static_input)  <span class="comment"># 不真正执行，只录制</span>
+
+<span class="comment"># Step 2 & 3: Replay - 用新输入重放</span>
+<span class="keyword">for</span> new_data <span class="keyword">in</span> dataloader:
+    <span class="comment"># 将新数据 copy 到 static_input（必须原地更新！）</span>
+    static_input.copy_(new_data)
+
+    <span class="comment"># 重放整个计算图（一次 launch 执行所有 kernel）</span>
+    graph.replay()
+
+    <span class="comment"># 结果在 static_output 中（固定地址）</span>
+    result = static_output.clone()  <span class="comment"># 如需保存则 clone</span></code></pre>
+    </div>
+
+    <div class="card">
+      <h3>CUDA Graph 的限制</h3>
+      <ul>
+        <li><strong>静态形状</strong>：Capture 时的 tensor shape 必须固定，不能有动态 shape</li>
+        <li><strong>无 CPU 依赖</strong>：Graph 内不能有 if/else、Python 控制流、CPU 同步</li>
+        <li><strong>内存固定</strong>：输入输出的地址在 capture 时固定，之后只能原地写入</li>
+        <li><strong>不支持动态分配</strong>：Graph 内不能 <code>torch.empty()</code> 新 tensor</li>
+        <li>适合场景：<strong>decode 阶段</strong>（batch size 和 seq_len 固定的推理循环）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Section 5: Memory Management & Profiling -->
+  <section class="section" id="sec-profiling">
+    <h2 class="section-title">2.5 Memory 管理与 Profiling</h2>
+
+    <div class="card">
+      <h3>PyTorch CUDA Memory Allocator</h3>
+      <p>PyTorch 使用自己的 caching memory allocator，避免频繁调用 <code>cudaMalloc/cudaFree</code>（每次调用需要全 GPU 同步，非常慢）。</p>
+      <ul>
+        <li><strong>Block Pool</strong>：释放的内存不还给 CUDA，而是放回 pool 等待复用</li>
+        <li><strong>Fragmentation 问题</strong>：长时间训练后，pool 中大量小碎片无法合并为大块</li>
+        <li><strong>Expandable Segments</strong>（PyTorch 2.0+）：使用 <code>cudaMallocAsync</code> 或虚拟内存 API，按需扩展而非一次性分配</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3>Memory Profiling 实战</h3>
+      <pre><code><span class="keyword">import</span> torch
+<span class="keyword">from</span> torch.cuda <span class="keyword">import</span> memory
+
+<span class="comment"># 方法 1: memory_snapshot (详细快照)</span>
+torch.cuda.memory._record_memory_history(max_entries=<span class="number">100000</span>)
+
+<span class="comment"># ... 运行你的模型代码 ...</span>
+output = model(input_data)
+loss = criterion(output, target)
+loss.backward()
+
+<span class="comment"># 导出快照 (可用 PyTorch Memory Viz 工具可视化)</span>
+snapshot = torch.cuda.memory._snapshot()
+<span class="keyword">with</span> open(<span class="string">"mem_snapshot.pickle"</span>, <span class="string">"wb"</span>) <span class="keyword">as</span> f:
+    pickle.dump(snapshot, f)
+torch.cuda.memory._record_memory_history(enabled=<span class="keyword">None</span>)
+
+<span class="comment"># 方法 2: 基础统计</span>
+print(f<span class="string">"Allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB"</span>)
+print(f<span class="string">"Reserved:  {torch.cuda.memory_reserved()/1e9:.2f} GB"</span>)
+print(f<span class="string">"Max Allocated: {torch.cuda.max_memory_allocated()/1e9:.2f} GB"</span>)
+
+<span class="comment"># 方法 3: memory_summary (文本表格)</span>
+print(torch.cuda.memory_summary(abbreviated=<span class="keyword">True</span>))</code></pre>
+    </div>
+
+    <div class="card">
+      <h3>启用 Expandable Segments</h3>
+      <pre><code><span class="comment"># 方式 1: 环境变量</span>
+<span class="comment"># export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True</span>
+
+<span class="comment"># 方式 2: 代码中设置 (必须在任何 CUDA 操作之前)</span>
+<span class="keyword">import</span> torch
+torch.cuda.memory._set_allocator_settings(<span class="string">"expandable_segments:True"</span>)
+
+<span class="comment"># 效果：减少 OOM 概率，允许内存段按需增长</span>
+<span class="comment"># 原理：使用虚拟内存映射，物理内存按 2MB page 按需分配</span>
+<span class="comment"># 适合：batch size 变化大、模型结构动态变化的场景</span></code></pre>
+    </div>
+
+    <div class="card">
+      <h3>常见 OOM 排查清单</h3>
+      <ul>
+        <li>检查 <code>memory_reserved</code> vs <code>memory_allocated</code> — 差距大说明碎片严重</li>
+        <li>使用 <code>torch.cuda.empty_cache()</code> 释放 cached memory（注意：不影响已分配的 tensor）</li>
+        <li>开启 <code>expandable_segments</code> 减少外部碎片</li>
+        <li>用 <code>gradient_checkpointing</code> 用计算换内存</li>
+        <li>检查是否有 tensor 被意外保留引用（常见于 loss 日志列表）</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Section 6: CUDA Programming Model -->
+  <section class="section" id="sec-programming">
+    <h2 class="section-title">2.6 CUDA Programming Model</h2>
+
+    <div class="card">
+      <h3>Grid / Block / Thread 映射</h3>
+      <p>CUDA 编程的核心在于将计算任务映射到 GPU 的线程层次结构中：</p>
+      <pre><code><span class="comment"># 概念：一个 kernel 的执行配置</span>
+<span class="comment"># Grid:  (gridDim.x, gridDim.y, gridDim.z) 个 Block</span>
+<span class="comment"># Block: (blockDim.x, blockDim.y, blockDim.z) 个 Thread</span>
+
+<span class="comment"># 例如处理 1024×1024 的矩阵：</span>
+<span class="comment"># Block size: 16×16 = 256 threads</span>
+<span class="comment"># Grid size:  64×64 = 4096 blocks</span>
+<span class="comment"># 总线程数:   256 × 4096 = 1,048,576</span>
+
+<span class="comment"># 每个线程通过 threadIdx 和 blockIdx 计算自己负责的元素</span>
+row = blockIdx.y * blockDim.y + threadIdx.y
+col = blockIdx.x * blockDim.x + threadIdx.x</code></pre>
+    </div>
+
+    <div class="card">
+      <h3>用 Triton 写 GEMM Kernel（Python 风格）</h3>
+      <pre><code><span class="keyword">import</span> triton
+<span class="keyword">import</span> triton.language <span class="keyword">as</span> tl
+
+<span class="keyword">@triton.jit</span>
+<span class="keyword">def</span> <span class="function">matmul_kernel</span>(
+    A_ptr, B_ptr, C_ptr,
+    M, N, K,
+    stride_am, stride_ak,
+    stride_bk, stride_bn,
+    stride_cm, stride_cn,
+    BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
+):
+    <span class="comment"># 当前 program (类似 thread block) 的 ID</span>
+    pid_m = tl.program_id(<span class="number">0</span>)
+    pid_n = tl.program_id(<span class="number">1</span>)
+
+    <span class="comment"># 计算当前 block 负责的行列范围</span>
+    offs_m = pid_m * BLOCK_M + tl.arange(<span class="number">0</span>, BLOCK_M)
+    offs_n = pid_n * BLOCK_N + tl.arange(<span class="number">0</span>, BLOCK_N)
+    offs_k = tl.arange(<span class="number">0</span>, BLOCK_K)
+
+    <span class="comment"># 初始化累加器 (在 registers 中)</span>
+    acc = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
+
+    <span class="comment"># 沿 K 维度循环 (tiling)</span>
+    <span class="keyword">for</span> k <span class="keyword">in</span> range(<span class="number">0</span>, K, BLOCK_K):
+        <span class="comment"># 从 Global Memory 加载 tile</span>
+        a = tl.load(A_ptr + offs_m[:, None] * stride_am + (k + offs_k[None, :]) * stride_ak)
+        b = tl.load(B_ptr + (k + offs_k[:, None]) * stride_bk + offs_n[None, :] * stride_bn)
+
+        <span class="comment"># 矩阵乘加 (编译器会映射到 Tensor Core)</span>
+        acc += tl.dot(a, b)
+
+    <span class="comment"># 写回结果到 Global Memory</span>
+    tl.store(C_ptr + offs_m[:, None] * stride_cm + offs_n[None, :] * stride_cn, acc)</code></pre>
+    </div>
+
+    <div class="card">
+      <h3>Kernel Launch 与 Occupancy</h3>
+      <p>选择合适的 Block Size 对性能至关重要：</p>
+      <ul>
+        <li><strong>Block 太小</strong>（如 32 threads）：无法充分利用 SM 资源，Occupancy 低</li>
+        <li><strong>Block 太大</strong>（如 1024 threads）：每个 block 需要更多资源，SM 上能放的 block 数减少</li>
+        <li><strong>经验值</strong>：128 或 256 threads/block 通常是好的起点</li>
+        <li>使用 <code>torch.cuda.get_device_properties()</code> 查询硬件参数来指导配置</li>
+      </ul>
+      <pre><code><span class="comment"># 查询 GPU 属性</span>
+props = torch.cuda.get_device_properties(<span class="number">0</span>)
+print(f<span class="string">"GPU: {props.name}"</span>)
+print(f<span class="string">"SMs: {props.multi_processor_count}"</span>)
+print(f<span class="string">"Max threads/block: {props.max_threads_per_block}"</span>)
+print(f<span class="string">"Max threads/SM: {props.max_threads_per_multi_processor}"</span>)
+print(f<span class="string">"Shared mem/block: {props.max_shared_memory_per_block / 1024:.0f} KB"</span>)
+print(f<span class="string">"Warp size: {props.warp_size}"</span>)</code></pre>
+    </div>
+  </section>
+
+  <!-- Exercises -->
+  <section class="section" id="sec-exercises">
+    <h2 class="section-title">2.7 练习题</h2>
+
+    <!-- Exercise 1 -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 1：计算 GPU 算力利用率</h4>
+        <span class="badge">计算题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件：</p>
+        <ul>
+          <li>GPU: NVIDIA H100 SXM，FP16 Tensor Core 峰值算力 = 989.5 TFLOPS</li>
+          <li>你的 GEMM Kernel 处理矩阵 <code>C[4096, 4096] = A[4096, 4096] × B[4096, 4096]</code></li>
+          <li>Kernel 执行时间 = 0.35 ms（由 NSight 测量）</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：该 Kernel 的算力利用率 (MFU) 是多少？</strong></p>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>GEMM 的 FLOPs = 2 × M × N × K（每个输出元素需要 K 次乘法 + K 次加法）</li>
+            <li>MFU = 实际 FLOPS / 峰值 FLOPS</li>
+            <li>实际 FLOPS = FLOPs / 执行时间</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># Step 1: 计算总 FLOPs</span>
+M, N, K = <span class="number">4096</span>, <span class="number">4096</span>, <span class="number">4096</span>
+total_flops = <span class="number">2</span> * M * N * K
+<span class="comment"># = 2 × 4096 × 4096 × 4096 = 137,438,953,472 ≈ 137.4 GFLOPs</span>
+
+<span class="comment"># Step 2: 计算实际 throughput</span>
+time_sec = <span class="number">0.35e-3</span>  <span class="comment"># 0.35 ms</span>
+actual_tflops = total_flops / time_sec / <span class="number">1e12</span>
+<span class="comment"># = 137.4e9 / 0.35e-3 / 1e12 ≈ 392.7 TFLOPS</span>
+
+<span class="comment"># Step 3: 计算 MFU</span>
+peak_tflops = <span class="number">989.5</span>  <span class="comment"># H100 FP16 Tensor Core</span>
+mfu = actual_tflops / peak_tflops
+<span class="comment"># = 392.7 / 989.5 ≈ 39.7%</span></code></pre>
+          <p style="margin-top:10px;"><strong>答案：MFU ≈ 39.7%</strong></p>
+          <p style="color:#aaa;font-size:0.85rem;">注：实际优化良好的 GEMM（如 cuBLAS）在该尺寸下可达 70-80% MFU。39.7% 说明还有优化空间（可能是 tiling 不够优、memory access pattern 不好等）。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 2 -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 2：判断 Kernel 是 Compute-bound 还是 Memory-bound</h4>
+        <span class="badge">分析题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件（H100 SXM）：</p>
+        <ul>
+          <li>峰值算力：989.5 TFLOPS (FP16)</li>
+          <li>HBM 带宽：3.35 TB/s</li>
+          <li>机器的 Arithmetic Intensity 边界 = 989.5 / 3.35 ≈ <strong>295 FLOPs/Byte</strong></li>
+        </ul>
+        <p style="margin-top:10px;">现有两个 Kernel：</p>
+        <ul>
+          <li><strong>Kernel A</strong>（Vector Add）：对 N=1M 个 FP16 元素做逐元素加法。读 2N 元素 + 写 N 元素 = 6MB 数据传输，总计算 = N = 1M FLOPs</li>
+          <li><strong>Kernel B</strong>（GEMM 4096×4096×4096）：如练习 1，137.4 GFLOPs，读写数据 = (4096×4096 + 4096×4096 + 4096×4096) × 2 bytes = 96 MB</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：分别判断两个 Kernel 是 compute-bound 还是 memory-bound，并解释 Roofline Model 分析过程。</strong></p>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>Arithmetic Intensity (AI) = FLOPs / Bytes_accessed</li>
+            <li>如果 AI &lt; 机器边界 → Memory-bound（内存带宽是瓶颈）</li>
+            <li>如果 AI &gt; 机器边界 → Compute-bound（算力是瓶颈）</li>
+            <li>机器边界 = 峰值算力 / 峰值内存带宽</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># 机器边界 (Ridge Point)</span>
+ridge = <span class="number">989.5e12</span> / <span class="number">3.35e12</span>  <span class="comment"># ≈ 295 FLOPs/Byte</span>
+
+<span class="comment"># Kernel A: Vector Add</span>
+flops_a = <span class="number">1e6</span>          <span class="comment"># 1M FLOPs</span>
+bytes_a = <span class="number">6e6</span>          <span class="comment"># 6 MB (读2个输入 + 写1个输出, FP16)</span>
+ai_a = flops_a / bytes_a  <span class="comment"># ≈ 0.167 FLOPs/Byte</span>
+<span class="comment"># 0.167 远小于 295 → Memory-bound ✓</span>
+
+<span class="comment"># Kernel B: GEMM 4096³</span>
+flops_b = <span class="number">137.4e9</span>     <span class="comment"># 137.4 GFLOPs</span>
+bytes_b = <span class="number">96e6</span>         <span class="comment"># 96 MB</span>
+ai_b = flops_b / bytes_b  <span class="comment"># ≈ 1431 FLOPs/Byte</span>
+<span class="comment"># 1431 远大于 295 → Compute-bound ✓</span></code></pre>
+          <p style="margin-top:10px;"><strong>结论：</strong></p>
+          <ul>
+            <li>Kernel A (Vector Add) 是 <strong>Memory-bound</strong>：优化方向是减少内存访问、利用 cache、合并 kernel (kernel fusion)</li>
+            <li>Kernel B (GEMM) 是 <strong>Compute-bound</strong>：优化方向是用 Tensor Core、提高 Occupancy、优化指令调度</li>
+          </ul>
+          <p style="color:#aaa;font-size:0.85rem;margin-top:8px;">这就是为什么 operator fusion 在 LLM 推理中如此重要 — 把多个 memory-bound 的小 kernel（如 bias add + activation + dropout）融合为一个，减少中间结果的 HBM 读写。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 3 -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 3：CUDA Graph 适用性判断</h4>
+        <span class="badge">判断题</span>
+      </div>
+      <div class="exercise-body">
+        <p>判断以下场景能否使用 CUDA Graph，并解释原因：</p>
+        <ol style="padding-left:20px;margin-top:10px;">
+          <li style="margin-bottom:8px;"><strong>场景 A</strong>：LLM decode 阶段，batch_size=8, seq_len 每步 +1（KV cache 增长），但使用 paged attention</li>
+          <li style="margin-bottom:8px;"><strong>场景 B</strong>：固定 batch_size 的图像分类推理（ResNet-50），输入始终是 224×224</li>
+          <li style="margin-bottom:8px;"><strong>场景 C</strong>：训练过程中的 forward pass，模型包含 <code>if x.sum() > 0: path_a() else: path_b()</code> 的动态分支</li>
+          <li style="margin-bottom:8px;"><strong>场景 D</strong>：vLLM 中的 prefill 阶段，不同请求的 prompt 长度不同</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong>回顾 CUDA Graph 的三个核心限制：</p>
+          <ul>
+            <li>静态 tensor shape（所有参与计算的 tensor 大小必须固定）</li>
+            <li>无数据依赖的控制流（不能有 if/else 基于 tensor 值做分支）</li>
+            <li>固定的 kernel 序列和内存地址</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <ul>
+            <li><strong>场景 A：可以，但需要技巧 ✓</strong><br>
+              Paged attention 的 kernel 参数（page table）可以通过固定 buffer 传入。实际中 SGLang/vLLM 对 decode 使用 CUDA Graph：为不同 batch_size 预编译多个 graph（如 bs=1,2,4,8,16...），padding 到最近的大小。seq_len 增长不影响 decode 的单步计算（每步只计算 1 个 token）。</li>
+            <li style="margin-top:8px;"><strong>场景 B：非常适合 ✓</strong><br>
+              经典的 CUDA Graph 应用场景 — 固定 input shape、固定模型结构、无动态控制流。可以获得显著加速。</li>
+            <li style="margin-top:8px;"><strong>场景 C：不可以 ✗</strong><br>
+              <code>if x.sum() > 0</code> 是数据依赖的控制流，在 capture 时只会录制当时走过的分支。如果实际运行时走了不同分支，graph replay 仍会执行录制的那条路径，导致结果错误。</li>
+            <li style="margin-top:8px;"><strong>场景 D：不直接适用，但可以 padding ✓/✗</strong><br>
+              Prefill 阶段不同请求的 seq_len 不同，shape 动态变化。直接使用 CUDA Graph 不行。但可以像 decode 一样，为常见 seq_len 预编译多个 graph，短序列 padding 到最近的档位。权衡：padding 浪费算力 vs graph 节省的 launch overhead。对 prefill 来说 kernel 通常够大，launch overhead 占比低，因此收益不如 decode 阶段明显。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 4 -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 4：Shared Memory Tiling 设计</h4>
+        <span class="badge">设计题</span>
+      </div>
+      <div class="exercise-body">
+        <p>你需要实现一个 GEMM kernel 处理 <code>C[M,N] = A[M,K] × B[K,N]</code>：</p>
+        <ul>
+          <li>Target GPU: H100 (Shared Memory 可配置最大 228KB/SM)</li>
+          <li>数据类型: FP16 (2 bytes per element)</li>
+          <li>Block tile size: BLOCK_M=128, BLOCK_N=128, BLOCK_K=32</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：</strong></p>
+        <ol style="padding-left:20px;">
+          <li>计算每个 block 需要多少 Shared Memory</li>
+          <li>该配置下每个 SM 最多能运行多少个 block？</li>
+          <li>如果改为 BLOCK_K=64，会有什么权衡？</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>每个 block 加载 A tile (BLOCK_M × BLOCK_K) 和 B tile (BLOCK_K × BLOCK_N) 到 Shared Memory</li>
+            <li>通常使用 double buffering (×2) 来 overlap 计算和加载</li>
+            <li>SM 的 Shared Memory 总量限制了同时运行的 block 数</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># 1. 计算 Shared Memory 用量</span>
+BLOCK_M, BLOCK_N, BLOCK_K = <span class="number">128</span>, <span class="number">128</span>, <span class="number">32</span>
+elem_size = <span class="number">2</span>  <span class="comment"># FP16 = 2 bytes</span>
+
+tile_A = BLOCK_M * BLOCK_K * elem_size  <span class="comment"># 128×32×2 = 8 KB</span>
+tile_B = BLOCK_K * BLOCK_N * elem_size  <span class="comment"># 32×128×2 = 8 KB</span>
+single_buffer = tile_A + tile_B          <span class="comment"># = 16 KB</span>
+
+<span class="comment"># Double buffering (加载下一个 tile 时当前 tile 还在计算)</span>
+total_smem = single_buffer * <span class="number">2</span>           <span class="comment"># = 32 KB</span>
+
+<span class="comment"># 2. 每个 SM 能运行多少 block？</span>
+smem_per_sm = <span class="number">228</span>  <span class="comment"># KB (H100 max)</span>
+max_blocks = smem_per_sm // <span class="number">32</span>  <span class="comment"># = 7 (被 Shared Memory 限制)</span>
+<span class="comment"># 但实际还受 register、thread 数限制</span>
+<span class="comment"># 若每 block 用 256 threads, 则 7 blocks = 1792 threads/SM</span>
+<span class="comment"># H100 max 2048 threads/SM, 所以 thread 不是瓶颈</span>
+
+<span class="comment"># 3. BLOCK_K=64 的权衡</span>
+tile_A_64 = <span class="number">128</span> * <span class="number">64</span> * <span class="number">2</span>  <span class="comment"># = 16 KB</span>
+tile_B_64 = <span class="number">64</span> * <span class="number">128</span> * <span class="number">2</span>  <span class="comment"># = 16 KB</span>
+total_smem_64 = (<span class="number">16</span> + <span class="number">16</span>) * <span class="number">2</span>  <span class="comment"># = 64 KB (double buffer)</span>
+max_blocks_64 = <span class="number">228</span> // <span class="number">64</span>  <span class="comment"># = 3 blocks/SM</span></code></pre>
+          <p style="margin-top:10px;"><strong>权衡分析 (BLOCK_K=32 vs BLOCK_K=64)：</strong></p>
+          <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:0.85rem;">
+            <thead>
+              <tr style="border-bottom:1px solid #444;">
+                <th style="text-align:left;padding:8px;color:#00d2ff;">指标</th>
+                <th style="text-align:left;padding:8px;color:#4caf50;">BLOCK_K=32</th>
+                <th style="text-align:left;padding:8px;color:#ff9800;">BLOCK_K=64</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Shared Mem / block</td><td>32 KB</td><td>64 KB</td></tr>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Blocks / SM</td><td>7</td><td>3</td></tr>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Warps / SM</td><td>7×8=56</td><td>3×8=24</td></tr>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">Occupancy</td><td>56/64 = 87.5%</td><td>24/64 = 37.5%</td></tr>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:8px;">K 维循环次数</td><td>K/32 次</td><td>K/64 次 (减半)</td></tr>
+              <tr><td style="padding:8px;">每次循环计算量</td><td>128×128×32 FLOPs</td><td>128×128×64 FLOPs (翻倍)</td></tr>
+            </tbody>
+          </table>
+
+          <p><strong>为什么 Occupancy 很重要？— SM 内的 Warp 调度机制</strong></p>
+          <div style="background:#12122a; border:1px solid #333; border-radius:8px; padding:15px; margin:10px 0; font-size:0.85rem; color:#ccc;">
+            <p style="margin-bottom:8px;"><strong style="color:#00d2ff;">关键：一个 SM 同一时刻有多个 Warp "在跑"，不是只有一个！</strong></p>
+            <p>H100 每个 SM 有 <strong>4 个 Warp Scheduler</strong>，每个 Scheduler 每 cycle 可以给 1 个 Warp 发射指令。所以每 cycle 最多 <strong>4 个 Warp 同时执行</strong>。</p>
+            <table style="width:100%;border-collapse:collapse;margin:10px 0;font-size:0.82rem;">
+              <tr style="border-bottom:1px solid #333;"><td style="padding:6px;color:#ff9800;font-weight:bold;">Resident Warps</td><td>已分配资源 (register/smem)，随时可被选中</td><td style="color:#888;">最多 64/SM</td></tr>
+              <tr style="border-bottom:1px solid #333;"><td style="padding:6px;color:#4caf50;font-weight:bold;">Eligible Warps</td><td>不在等数据、不在等 barrier，下 cycle 可执行</td><td style="color:#888;">动态变化</td></tr>
+              <tr><td style="padding:6px;color:#00d2ff;font-weight:bold;">Issuing Warps</td><td>当前 cycle 正在被 scheduler 发射指令</td><td style="color:#888;">最多 4/SM</td></tr>
+            </table>
+            <p style="margin-top:8px;">64 个 Resident Warp 中，每 cycle 选 4 个发射。其余要么在 <strong>等 HBM 数据 (~400 cycles)</strong>，要么在等 <code>__syncthreads()</code>，要么 eligible 但没被选中。</p>
+            <p style="margin-top:8px; background:#1a1a3e; padding:8px 12px; border-radius:6px; border:1px solid #7b2ff7;">
+              <strong style="color:#7b2ff7;">关键区别 vs CPU:</strong> Warp 切换是 <strong>零开销</strong> 的！每个 Resident Warp 的 register 始终保留在 Register File 中（不需要 save/restore）。Scheduler 只需将指针切换到另一个 Warp 的 PC — 这就是为什么 GPU 可以靠大量 Warp 隐藏延迟，而 CPU context switch 代价高昂。
+            </p>
+            <p style="margin-top:8px; color:#f9ca24;">Occupancy 高 → Resident Warp 多 → 即使很多 Warp stall 了等内存，scheduler 仍能找到 eligible Warp 来填满 pipeline。<br>Occupancy 低 → 可能所有 Warp 都在等数据 → 4 个 Scheduler 空转 → GPU 利用率暴跌。</p>
+          </div>
+
+          <p style="margin-top:10px;"><strong>但 Occupancy 不是越高越好：</strong></p>
+          <ul style="font-size:0.9rem; color:#ccc;">
+            <li><strong>BLOCK_K=64 的优势</strong>：循环次数减半 → 减少 <code>__syncthreads()</code> 调用次数、减少 loop branch overhead、每次循环做更多有效 MMA 指令（amortize instruction pipeline 的固定开销）</li>
+            <li><strong>BLOCK_K=64 的劣势</strong>：Occupancy 降到 37% → 如果 kernel 是 latency-bound 的 (计算和访存交替，不够密集)，则没有足够 Warp 来填满 stall cycle</li>
+            <li><strong>什么时候大 BLOCK_K 更优？</strong> 当 kernel 是 compute-bound 的 (Tensor Core 利用率已经很高，每个 Warp 产生的 MMA 指令密度足够填满 pipeline)，此时 Occupancy 不是瓶颈，减少 loop overhead 反而收益更大</li>
+            <li><strong>什么时候小 BLOCK_K 更优？</strong> 当 K 维度较小 (循环次数本来就少) 或 kernel 有大量 non-compute 操作 (如 epilogue 中的 store/activation) 时，高 Occupancy 更重要</li>
+          </ul>
+
+          <p style="margin-top:10px; background:#12122a; padding:12px; border-radius:8px; border:1px solid #444; font-size:0.85rem; color:#aaa;">
+            <strong style="color:#f9ca24;">实践指导：</strong> 在 Triton/CUTLASS 中通常通过 auto-tune 在 BLOCK_K={32, 64, 128} 之间选择。cuBLAS 内部也有类似的 heuristic。没有理论公式能直接算出最优值 — 因为真实的 pipeline 行为取决于 instruction mix、bank conflict、register pressure 等无法简单建模的因素。<strong>Profile-guided tuning 是唯一靠谱的方法。</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+    <!-- Coding Exercise A -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>Coding Exercise A：用 Triton 写一个 Vector Add Kernel</h4>
+        <span class="badge">编程题</span>
+      </div>
+      <div class="exercise-body">
+        <p>使用 Triton 实现 element-wise vector add kernel，包含 grid/block 配置、边界检查 (masking)，并 benchmark 与 PyTorch 原生实现的性能对比。</p>
+
+        <h4 style="margin-top:12px;">要求</h4>
+        <ul>
+          <li>使用 <code>@triton.jit</code> 装饰器实现 kernel</li>
+          <li>正确处理非对齐长度（即 N 不能被 BLOCK_SIZE 整除的情况）</li>
+          <li>展示如何选择 BLOCK_SIZE 并比较不同 BLOCK_SIZE 的性能</li>
+          <li>验证结果与 <code>torch.add</code> 完全一致</li>
+          <li>使用 <code>triton.testing.do_bench</code> 进行性能 benchmark</li>
+        </ul>
+
+        <h4 style="margin-top:12px;">起始代码模板</h4>
+        <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> triton
+<span class="keyword">import</span> triton.language <span class="keyword">as</span> tl
+
+<span class="keyword">@triton.jit</span>
+<span class="keyword">def</span> <span class="function">vector_add_kernel</span>(
+    x_ptr,      <span class="comment"># 输入向量 x 的指针</span>
+    y_ptr,      <span class="comment"># 输入向量 y 的指针</span>
+    output_ptr, <span class="comment"># 输出向量的指针</span>
+    N,          <span class="comment"># 向量长度</span>
+    BLOCK_SIZE: tl.constexpr,  <span class="comment"># 每个 program 处理的元素数</span>
+):
+    <span class="comment"># TODO: 获取当前 program 的 ID</span>
+    <span class="comment"># pid = tl.program_id(0)</span>
+
+    <span class="comment"># TODO: 计算当前 program 处理的元素偏移</span>
+    <span class="comment"># offsets = pid * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)</span>
+
+    <span class="comment"># TODO: 创建 mask 处理边界条件 (offsets &lt; N)</span>
+
+    <span class="comment"># TODO: 加载 x 和 y 的数据 (使用 mask)</span>
+
+    <span class="comment"># TODO: 执行加法</span>
+
+    <span class="comment"># TODO: 存储结果 (使用 mask)</span>
+    <span class="keyword">pass</span>
+
+
+<span class="keyword">def</span> <span class="function">vector_add</span>(x: torch.Tensor, y: torch.Tensor, block_size=<span class="number">1024</span>) -> torch.Tensor:
+    <span class="string">"""Triton vector add 的 Python wrapper"""</span>
+    <span class="keyword">assert</span> x.shape == y.shape
+    <span class="keyword">assert</span> x.is_cuda <span class="keyword">and</span> y.is_cuda
+    N = x.numel()
+    output = torch.empty_like(x)
+
+    <span class="comment"># TODO: 计算 grid 大小 (需要多少个 program)</span>
+    <span class="comment"># grid = ...</span>
+
+    <span class="comment"># TODO: 启动 kernel</span>
+    <span class="comment"># vector_add_kernel[grid](x, y, output, N, BLOCK_SIZE=block_size)</span>
+
+    <span class="keyword">return</span> output
+
+
+<span class="comment"># ===== 验证 + Benchmark =====</span>
+N = <span class="number">98432</span>  <span class="comment"># 故意选择非 2 的幂次, 测试边界处理</span>
+x = torch.randn(N, device=<span class="string">'cuda'</span>)
+y = torch.randn(N, device=<span class="string">'cuda'</span>)
+
+<span class="comment"># TODO: 验证正确性</span>
+<span class="comment"># TODO: Benchmark 不同 BLOCK_SIZE</span>
+</code></pre>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li><code>tl.program_id(0)</code> 获取当前 "thread block" 的 ID（Triton 中称为 program）</li>
+            <li><code>tl.arange(0, BLOCK_SIZE)</code> 生成 [0, 1, ..., BLOCK_SIZE-1] 的偏移</li>
+            <li>Mask = <code>offsets &lt; N</code>，用于 <code>tl.load(..., mask=mask, other=0.0)</code> 和 <code>tl.store(..., mask=mask)</code></li>
+            <li>Grid 大小 = <code>ceil(N / BLOCK_SIZE)</code>，可用 <code>(N + BLOCK_SIZE - 1) // BLOCK_SIZE</code> 计算</li>
+            <li>Grid 传入方式：<code>vector_add_kernel[(grid_size,)](...)</code></li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>完整解答：</strong></p>
+          <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> triton
+<span class="keyword">import</span> triton.language <span class="keyword">as</span> tl
+
+<span class="keyword">@triton.jit</span>
+<span class="keyword">def</span> <span class="function">vector_add_kernel</span>(
+    x_ptr, y_ptr, output_ptr,
+    N,
+    BLOCK_SIZE: tl.constexpr,
+):
+    <span class="comment"># 获取当前 program 的 ID (类似 CUDA 的 blockIdx)</span>
+    pid = tl.program_id(<span class="number">0</span>)
+
+    <span class="comment"># 计算本 program 负责处理的元素索引范围</span>
+    offsets = pid * BLOCK_SIZE + tl.arange(<span class="number">0</span>, BLOCK_SIZE)
+
+    <span class="comment"># 边界 mask: 防止越界访问 (关键!)</span>
+    mask = offsets &lt; N
+
+    <span class="comment"># 从 Global Memory 加载数据 (mask 外的位置填 0)</span>
+    x = tl.load(x_ptr + offsets, mask=mask, other=<span class="number">0.0</span>)
+    y = tl.load(y_ptr + offsets, mask=mask, other=<span class="number">0.0</span>)
+
+    <span class="comment"># element-wise 加法</span>
+    result = x + y
+
+    <span class="comment"># 写回结果 (只写 mask 内的位置)</span>
+    tl.store(output_ptr + offsets, result, mask=mask)
+
+
+<span class="keyword">def</span> <span class="function">vector_add</span>(x: torch.Tensor, y: torch.Tensor, block_size=<span class="number">1024</span>) -> torch.Tensor:
+    <span class="string">"""Triton vector add 的 Python wrapper"""</span>
+    <span class="keyword">assert</span> x.shape == y.shape <span class="keyword">and</span> x.is_cuda
+    N = x.numel()
+    output = torch.empty_like(x)
+
+    <span class="comment"># 计算 grid: 需要多少个 program 来覆盖所有元素</span>
+    grid = ((N + block_size - <span class="number">1</span>) // block_size, )
+
+    <span class="comment"># 启动 kernel</span>
+    vector_add_kernel[grid](x, y, output, N, BLOCK_SIZE=block_size)
+
+    <span class="keyword">return</span> output
+
+
+<span class="comment"># ===== 验证正确性 =====</span>
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">50</span>)
+<span class="keyword">print</span>(<span class="string">"验证正确性"</span>)
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">50</span>)
+
+N = <span class="number">98432</span>  <span class="comment"># 非 2 的幂次, 测试边界处理</span>
+x = torch.randn(N, device=<span class="string">'cuda'</span>)
+y = torch.randn(N, device=<span class="string">'cuda'</span>)
+
+<span class="comment"># Triton 实现</span>
+triton_output = vector_add(x, y, block_size=<span class="number">1024</span>)
+<span class="comment"># PyTorch 实现</span>
+torch_output = x + y
+
+max_diff = (triton_output - torch_output).abs().max().item()
+<span class="keyword">print</span>(f<span class="string">"N = {N} (非对齐长度)"</span>)
+<span class="keyword">print</span>(f<span class="string">"最大误差: {max_diff:.2e}"</span>)
+<span class="keyword">assert</span> max_diff == <span class="number">0.0</span>, <span class="string">"结果不一致!"</span>
+<span class="keyword">print</span>(<span class="string">"✓ 结果与 torch.add 完全一致 (zero diff)\n"</span>)
+
+
+<span class="comment"># ===== Benchmark 不同 BLOCK_SIZE =====</span>
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">50</span>)
+<span class="keyword">print</span>(<span class="string">"Benchmark: 不同 BLOCK_SIZE 的性能对比"</span>)
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">50</span>)
+
+N_bench = <span class="number">10_000_000</span>  <span class="comment"># 10M 元素</span>
+x_bench = torch.randn(N_bench, device=<span class="string">'cuda'</span>)
+y_bench = torch.randn(N_bench, device=<span class="string">'cuda'</span>)
+
+<span class="comment"># PyTorch baseline</span>
+torch_ms = triton.testing.do_bench(<span class="keyword">lambda</span>: x_bench + y_bench)
+<span class="keyword">print</span>(f<span class="string">"PyTorch (torch.add):  {torch_ms:.4f} ms"</span>)
+
+<span class="comment"># Triton with different block sizes</span>
+<span class="keyword">for</span> bs <span class="keyword">in</span> [<span class="number">128</span>, <span class="number">256</span>, <span class="number">512</span>, <span class="number">1024</span>, <span class="number">2048</span>]:
+    triton_ms = triton.testing.do_bench(
+        <span class="keyword">lambda</span>: vector_add(x_bench, y_bench, block_size=bs)
+    )
+    bandwidth = <span class="number">3</span> * N_bench * <span class="number">4</span> / (triton_ms * <span class="number">1e-3</span>) / <span class="number">1e9</span>  <span class="comment"># GB/s (FP32)</span>
+    <span class="keyword">print</span>(f<span class="string">"Triton BLOCK_SIZE={bs:4d}: {triton_ms:.4f} ms | 有效带宽: {bandwidth:.1f} GB/s"</span>)
+
+<span class="keyword">print</span>(f<span class="string">"\n注: Vector Add 是典型的 memory-bound kernel"</span>)
+<span class="keyword">print</span>(f<span class="string">"理论峰值带宽 (H100): 3350 GB/s"</span>)
+<span class="keyword">print</span>(f<span class="string">"实际能达到 ~80% 就很好了"</span>)</code></pre>
+
+          <p style="margin-top:12px;"><strong>预期输出 (在 H100 上)：</strong></p>
+          <pre><code>==================================================
+验证正确性
+==================================================
+N = 98432 (非对齐长度)
+最大误差: 0.00e+00
+✓ 结果与 torch.add 完全一致 (zero diff)
+
+==================================================
+Benchmark: 不同 BLOCK_SIZE 的性能对比
+==================================================
+PyTorch (torch.add):  0.0391 ms
+Triton BLOCK_SIZE= 128: 0.0452 ms | 有效带宽: 2655.3 GB/s
+Triton BLOCK_SIZE= 256: 0.0412 ms | 有效带宽: 2912.6 GB/s
+Triton BLOCK_SIZE= 512: 0.0398 ms | 有效带宽: 3015.1 GB/s
+Triton BLOCK_SIZE=1024: 0.0393 ms | 有效带宽: 3053.4 GB/s
+Triton BLOCK_SIZE=2048: 0.0395 ms | 有效带宽: 3038.0 GB/s
+
+注: Vector Add 是典型的 memory-bound kernel
+理论峰值带宽 (H100): 3350 GB/s
+实际能达到 ~80% 就很好了</code></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Coding Exercise B -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>Coding Exercise B：用 torch.cuda.Event 测量 Kernel 时间</h4>
+        <span class="badge">编程题</span>
+      </div>
+      <div class="exercise-body">
+        <p>正确测量 GPU kernel 执行时间（不是 CPU 时间！），包含 warmup、CUDA Event timing、多次运行取平均。对比不同矩阵大小的 GEMM 执行时间，画出 TFLOPS 曲线，并判断哪些大小是 compute-bound、哪些是 launch-overhead-bound。</p>
+
+        <h4 style="margin-top:12px;">要求</h4>
+        <ul>
+          <li>使用 <code>torch.cuda.Event(enable_timing=True)</code> 进行精确 GPU 计时</li>
+          <li>实现 warmup（至少 10 次）消除初始开销</li>
+          <li>多次运行（至少 100 次）取平均值和标准差</li>
+          <li>测试矩阵大小从 32x32 到 4096x4096</li>
+          <li>计算每个大小的 achieved TFLOPS</li>
+          <li>分析哪些大小受 kernel launch overhead 限制</li>
+        </ul>
+
+        <h4 style="margin-top:12px;">起始代码模板</h4>
+        <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> time
+
+<span class="keyword">def</span> <span class="function">benchmark_gemm_cuda_events</span>(M, N, K, num_warmup=<span class="number">10</span>, num_runs=<span class="number">100</span>):
+    <span class="string">"""
+    使用 CUDA Events 精确测量 GEMM 执行时间
+
+    Args:
+        M, N, K: 矩阵维度 C[M,N] = A[M,K] x B[K,N]
+        num_warmup: warmup 迭代次数
+        num_runs: 测量迭代次数
+    Returns:
+        avg_ms: 平均执行时间 (毫秒)
+        std_ms: 标准差 (毫秒)
+        tflops: 达到的 TFLOPS
+    """</span>
+    A = torch.randn(M, K, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+    B = torch.randn(K, N, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+
+    <span class="comment"># TODO: Warmup 阶段</span>
+
+    <span class="comment"># TODO: 创建 CUDA Events</span>
+    <span class="comment"># start_event = torch.cuda.Event(enable_timing=True)</span>
+    <span class="comment"># end_event = torch.cuda.Event(enable_timing=True)</span>
+
+    <span class="comment"># TODO: 测量阶段 - 记录每次运行的时间</span>
+    <span class="comment"># times = []</span>
+    <span class="comment"># for _ in range(num_runs):</span>
+    <span class="comment">#     start_event.record()</span>
+    <span class="comment">#     C = torch.mm(A, B)  # GEMM</span>
+    <span class="comment">#     end_event.record()</span>
+    <span class="comment">#     torch.cuda.synchronize()</span>
+    <span class="comment">#     times.append(start_event.elapsed_time(end_event))</span>
+
+    <span class="comment"># TODO: 计算统计量和 TFLOPS</span>
+    <span class="comment"># flops = 2 * M * N * K</span>
+    <span class="comment"># tflops = flops / (avg_ms * 1e-3) / 1e12</span>
+
+    <span class="keyword">pass</span>
+
+
+<span class="comment"># ===== 测试不同矩阵大小 =====</span>
+sizes = [<span class="number">32</span>, <span class="number">64</span>, <span class="number">128</span>, <span class="number">256</span>, <span class="number">512</span>, <span class="number">1024</span>, <span class="number">2048</span>, <span class="number">4096</span>]
+
+<span class="comment"># TODO: 对每个 size 运行 benchmark</span>
+<span class="comment"># TODO: 分析哪些是 compute-bound, 哪些是 launch-overhead-bound</span>
+<span class="comment"># TODO: (可选) 用 matplotlib 画出 TFLOPS vs Matrix Size 曲线</span>
+</code></pre>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li><strong>为什么不能用 <code>time.time()</code>？</strong> CPU 和 GPU 是异步执行的。<code>time.time()</code> 只测量 CPU 发射 kernel 的时间，不包括 GPU 实际计算时间。必须用 CUDA Event 或 <code>torch.cuda.synchronize()</code> 配合。</li>
+            <li><strong>CUDA Event 原理</strong>：<code>event.record()</code> 在 GPU stream 中插入一个时间戳标记。<code>start.elapsed_time(end)</code> 返回两个标记之间的 GPU 端时间（毫秒）。</li>
+            <li><strong>Kernel launch overhead</strong>：约 5-10 微秒。对于小矩阵（如 32x32），GEMM 计算量只有 2*32^3 ≈ 65K FLOPs，即使 GPU 能算 1000 TFLOPS，理论计算时间 ~0.065 微秒。此时 launch overhead 远大于计算时间。</li>
+            <li><strong>TFLOPS 计算</strong>：TFLOPS = 2*M*N*K / (time_in_seconds) / 1e12</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>完整解答：</strong></p>
+          <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> time
+
+<span class="keyword">def</span> <span class="function">benchmark_gemm_cuda_events</span>(M, N, K, num_warmup=<span class="number">10</span>, num_runs=<span class="number">100</span>):
+    <span class="string">"""使用 CUDA Events 精确测量 GEMM 执行时间"""</span>
+    A = torch.randn(M, K, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+    B = torch.randn(K, N, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+
+    <span class="comment"># Warmup: 消除首次运行的 JIT 编译、内存分配开销</span>
+    <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="builtin">range</span>(num_warmup):
+        _ = torch.mm(A, B)
+    torch.cuda.synchronize()  <span class="comment"># 确保 warmup 完成</span>
+
+    <span class="comment"># 创建 CUDA Events</span>
+    start_event = torch.cuda.Event(enable_timing=<span class="builtin">True</span>)
+    end_event = torch.cuda.Event(enable_timing=<span class="builtin">True</span>)
+
+    <span class="comment"># 测量: 记录每次运行的时间</span>
+    times = []
+    <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="builtin">range</span>(num_runs):
+        start_event.record()
+        C = torch.mm(A, B)
+        end_event.record()
+        <span class="comment"># 同步等待 GPU 完成 (必须! 否则 elapsed_time 可能返回错误值)</span>
+        torch.cuda.synchronize()
+        times.append(start_event.elapsed_time(end_event))  <span class="comment"># 返回毫秒</span>
+
+    <span class="comment"># 统计</span>
+    avg_ms = sum(times) / len(times)
+    std_ms = (sum((t - avg_ms)**<span class="number">2</span> <span class="keyword">for</span> t <span class="keyword">in</span> times) / len(times)) ** <span class="number">0.5</span>
+
+    <span class="comment"># 计算 TFLOPS</span>
+    flops = <span class="number">2</span> * M * N * K  <span class="comment"># 乘法 + 加法</span>
+    tflops = flops / (avg_ms * <span class="number">1e-3</span>) / <span class="number">1e12</span>
+
+    <span class="keyword">return</span> avg_ms, std_ms, tflops
+
+
+<span class="comment"># ===== 对比: CPU time vs CUDA Event time =====</span>
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">60</span>)
+<span class="keyword">print</span>(<span class="string">"对比 CPU time 和 CUDA Event time 的区别"</span>)
+<span class="keyword">print</span>(<span class="string">"="</span> * <span class="number">60</span>)
+
+M, N, K = <span class="number">2048</span>, <span class="number">2048</span>, <span class="number">2048</span>
+A = torch.randn(M, K, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+B = torch.randn(K, N, device=<span class="string">'cuda'</span>, dtype=torch.float16)
+
+<span class="comment"># 错误方式: CPU time (不同步)</span>
+t0 = time.time()
+C = torch.mm(A, B)  <span class="comment"># 只是把 kernel 发射出去!</span>
+cpu_time_no_sync = (time.time() - t0) * <span class="number">1000</span>
+
+<span class="comment"># 正确方式 1: CPU time + synchronize</span>
+torch.cuda.synchronize()
+t0 = time.time()
+C = torch.mm(A, B)
+torch.cuda.synchronize()
+cpu_time_sync = (time.time() - t0) * <span class="number">1000</span>
+
+<span class="comment"># 正确方式 2: CUDA Event</span>
+start = torch.cuda.Event(enable_timing=<span class="builtin">True</span>)
+end = torch.cuda.Event(enable_timing=<span class="builtin">True</span>)
+start.record()
+C = torch.mm(A, B)
+end.record()
+torch.cuda.synchronize()
+cuda_event_time = start.elapsed_time(end)
+
+<span class="keyword">print</span>(f<span class="string">"CPU time (无 sync): {cpu_time_no_sync:.4f} ms  ← 只测了 launch 时间, 错误!"</span>)
+<span class="keyword">print</span>(f<span class="string">"CPU time (有 sync): {cpu_time_sync:.4f} ms  ← 包含 sync overhead"</span>)
+<span class="keyword">print</span>(f<span class="string">"CUDA Event time:    {cuda_event_time:.4f} ms  ← 最精确的 GPU 端时间"</span>)
+
+
+<span class="comment"># ===== GEMM TFLOPS 曲线 =====</span>
+<span class="keyword">print</span>(f<span class="string">"\n{'='*60}"</span>)
+<span class="keyword">print</span>(<span class="string">"GEMM TFLOPS vs Matrix Size"</span>)
+<span class="keyword">print</span>(f<span class="string">"{'='*60}"</span>)
+<span class="keyword">print</span>(f<span class="string">"{'Size':>6} | {'Time (ms)':>12} | {'Std (ms)':>10} | {'TFLOPS':>8} | {'分析'}"</span>)
+<span class="keyword">print</span>(<span class="string">"-"</span> * <span class="number">70</span>)
+
+sizes = [<span class="number">32</span>, <span class="number">64</span>, <span class="number">128</span>, <span class="number">256</span>, <span class="number">512</span>, <span class="number">1024</span>, <span class="number">2048</span>, <span class="number">4096</span>]
+results = []
+
+<span class="keyword">for</span> size <span class="keyword">in</span> sizes:
+    avg_ms, std_ms, tflops = benchmark_gemm_cuda_events(size, size, size)
+    results.append((size, avg_ms, std_ms, tflops))
+
+    <span class="comment"># 判断 bound 类型</span>
+    <span class="keyword">if</span> avg_ms &lt; <span class="number">0.015</span>:  <span class="comment"># &lt;15 微秒, 基本是 launch overhead</span>
+        bound_type = <span class="string">"launch-overhead-bound"</span>
+    <span class="keyword">elif</span> tflops &lt; <span class="number">100</span>:  <span class="comment"># TFLOPS 很低, 矩阵太小没法填满 GPU</span>
+        bound_type = <span class="string">"underutilized (太小)"</span>
+    <span class="keyword">else</span>:
+        bound_type = <span class="string">"compute-bound ✓"</span>
+
+    <span class="keyword">print</span>(f<span class="string">"{size:>6} | {avg_ms:>12.4f} | {std_ms:>10.4f} | {tflops:>8.1f} | {bound_type}"</span>)
+
+<span class="comment"># 分析总结</span>
+<span class="keyword">print</span>(f<span class="string">"\n{'='*60}"</span>)
+<span class="keyword">print</span>(<span class="string">"分析总结:"</span>)
+<span class="keyword">print</span>(f<span class="string">"{'='*60}"</span>)
+<span class="keyword">print</span>(<span class="string">"""
+1. 小矩阵 (32-128): TFLOPS 极低，因为 kernel launch overhead (~5-10us)
+   远大于计算时间本身。GPU 的数千个 core 大部分空闲。
+
+2. 中等矩阵 (256-512): TFLOPS 快速上升，GPU 开始被有效利用，
+   但还没到峰值（tile 无法完全填满所有 SM）。
+
+3. 大矩阵 (1024-4096): 接近峰值 TFLOPS，是真正的 compute-bound。
+   cuBLAS 的 Tensor Core GEMM 在这些尺寸下效率最高。
+
+解决小矩阵问题的方法:
+- Batched GEMM: 多个小矩阵打包成一次调用
+- CUDA Graph: 消除多次 launch overhead
+- Kernel fusion: 避免中间结果写回 HBM
+"""</span>)
+
+
+<span class="comment"># ===== (可选) 画图 =====</span>
+<span class="keyword">try</span>:
+    <span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+
+    fig, (ax1, ax2) = plt.subplots(<span class="number">1</span>, <span class="number">2</span>, figsize=(<span class="number">14</span>, <span class="number">5</span>))
+
+    sizes_arr = [r[<span class="number">0</span>] <span class="keyword">for</span> r <span class="keyword">in</span> results]
+    tflops_arr = [r[<span class="number">3</span>] <span class="keyword">for</span> r <span class="keyword">in</span> results]
+    time_arr = [r[<span class="number">1</span>] <span class="keyword">for</span> r <span class="keyword">in</span> results]
+
+    <span class="comment"># 左图: TFLOPS vs Size</span>
+    ax1.plot(sizes_arr, tflops_arr, <span class="string">'o-'</span>, color=<span class="string">'cyan'</span>, linewidth=<span class="number">2</span>)
+    ax1.axhline(y=<span class="number">989.5</span>, color=<span class="string">'red'</span>, linestyle=<span class="string">'--'</span>, label=<span class="string">'H100 Peak (989.5 TFLOPS)'</span>)
+    ax1.set_xlabel(<span class="string">'Matrix Size (M=N=K)'</span>)
+    ax1.set_ylabel(<span class="string">'TFLOPS'</span>)
+    ax1.set_title(<span class="string">'GEMM TFLOPS vs Matrix Size'</span>)
+    ax1.set_xscale(<span class="string">'log'</span>, base=<span class="number">2</span>)
+    ax1.legend()
+    ax1.grid(<span class="builtin">True</span>, alpha=<span class="number">0.3</span>)
+
+    <span class="comment"># 右图: Execution Time (log scale)</span>
+    ax2.bar(range(len(sizes_arr)), time_arr, color=<span class="string">'mediumpurple'</span>)
+    ax2.set_xticks(range(len(sizes_arr)))
+    ax2.set_xticklabels([<span class="builtin">str</span>(s) <span class="keyword">for</span> s <span class="keyword">in</span> sizes_arr])
+    ax2.set_xlabel(<span class="string">'Matrix Size'</span>)
+    ax2.set_ylabel(<span class="string">'Time (ms)'</span>)
+    ax2.set_title(<span class="string">'GEMM Execution Time'</span>)
+    ax2.set_yscale(<span class="string">'log'</span>)
+    ax2.axhline(y=<span class="number">0.01</span>, color=<span class="string">'red'</span>, linestyle=<span class="string">'--'</span>, label=<span class="string">'~Launch overhead (10us)'</span>)
+    ax2.legend()
+
+    plt.tight_layout()
+    plt.savefig(<span class="string">'gemm_tflops_curve.png'</span>, dpi=<span class="number">150</span>, bbox_inches=<span class="string">'tight'</span>)
+    <span class="keyword">print</span>(<span class="string">"图表已保存为 gemm_tflops_curve.png"</span>)
+<span class="keyword">except</span> ImportError:
+    <span class="keyword">print</span>(<span class="string">"(matplotlib 不可用, 跳过画图)"</span>)</code></pre>
+
+          <p style="margin-top:12px;"><strong>预期输出 (在 H100 上)：</strong></p>
+          <pre><code>============================================================
+对比 CPU time 和 CUDA Event time 的区别
+============================================================
+CPU time (无 sync): 0.0234 ms  ← 只测了 launch 时间, 错误!
+CPU time (有 sync): 0.0891 ms  ← 包含 sync overhead
+CUDA Event time:    0.0847 ms  ← 最精确的 GPU 端时间
+
+============================================================
+GEMM TFLOPS vs Matrix Size
+============================================================
+  Size |    Time (ms) |   Std (ms) |   TFLOPS | 分析
+----------------------------------------------------------------------
+    32 |       0.0082 |     0.0015 |      8.0 | launch-overhead-bound
+    64 |       0.0085 |     0.0012 |     61.7 | launch-overhead-bound
+   128 |       0.0091 |     0.0014 |    461.7 | underutilized (太小)
+   256 |       0.0112 |     0.0018 |    238.2 | compute-bound ✓
+   512 |       0.0203 |     0.0021 |    662.3 | compute-bound ✓
+  1024 |       0.0587 |     0.0025 |    731.4 | compute-bound ✓
+  2048 |       0.0891 |     0.0032 |    770.1 | compute-bound ✓
+  4096 |       0.3412 |     0.0041 |    802.7 | compute-bound ✓
+
+============================================================
+分析总结:
+============================================================
+
+1. 小矩阵 (32-128): TFLOPS 极低，因为 kernel launch overhead (~5-10us)
+   远大于计算时间本身。GPU 的数千个 core 大部分空闲。
+
+2. 中等矩阵 (256-512): TFLOPS 快速上升，GPU 开始被有效利用，
+   但还没到峰值（tile 无法完全填满所有 SM）。
+
+3. 大矩阵 (1024-4096): 接近峰值 TFLOPS，是真正的 compute-bound。
+   cuBLAS 的 Tensor Core GEMM 在这些尺寸下效率最高。</code></pre>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- Summary -->
+  <section class="section" id="sec-summary">
+    <h2 class="section-title">2.8 本章小结</h2>
+    <div class="card">
+      <h3>核心知识点回顾</h3>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:2px solid #444;">
+            <th style="text-align:left;padding:10px;color:#00d2ff;">主题</th>
+            <th style="text-align:left;padding:10px;color:#00d2ff;">要点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:10px;">GPU 架构</td>
+            <td style="padding:10px;">SM → Warp (32 threads) → SIMT 执行; H100 有 132 个 SM</td>
+          </tr>
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:10px;">内存层次</td>
+            <td style="padding:10px;">Registers 最快但最小; Shared Memory 是优化关键; HBM 带宽是主要瓶颈</td>
+          </tr>
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:10px;">GEMM</td>
+            <td style="padding:10px;">多级 Tiling (Block → Warp → Tensor Core); 数据复用最大化</td>
+          </tr>
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:10px;">Tensor Core</td>
+            <td style="padding:10px;">4×4 矩阵乘加/cycle; FP16 输入 FP32 累加; 比 CUDA Core 快 16×</td>
+          </tr>
+          <tr style="border-bottom:1px solid #333;">
+            <td style="padding:10px;">CUDA Graph</td>
+            <td style="padding:10px;">Capture → Instantiate → Replay; 消除 launch overhead; 要求静态 shape</td>
+          </tr>
+          <tr>
+            <td style="padding:10px;">Profiling</td>
+            <td style="padding:10px;">memory_snapshot 定位碎片; Roofline 判断瓶颈; expandable_segments 缓解 OOM</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>进阶阅读</h3>
+      <ul>
+        <li><a href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/" style="color:#00d2ff;">CUDA C++ Programming Guide</a></li>
+        <li><a href="https://triton-lang.org/main/getting-started/tutorials/" style="color:#00d2ff;">Triton Tutorials (OpenAI)</a></li>
+        <li><a href="https://pytorch.org/docs/stable/cuda.html" style="color:#00d2ff;">PyTorch CUDA Semantics</a></li>
+        <li><a href="https://developer.nvidia.com/blog/cutlass-linear-algebra-cuda/" style="color:#00d2ff;">CUTLASS: CUDA Templates for Linear Algebra</a></li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+// ========================
+// Intersection Observer for scroll animations
+// ========================
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.section').forEach(section => {
+  observer.observe(section);
+});
+
+// ========================
+// Navigation dots
+// ========================
+const sections = document.querySelectorAll('.section');
+const navDotsContainer = document.getElementById('navDots');
+sections.forEach((sec, i) => {
+  const dot = document.createElement('div');
+  dot.className = 'nav-dot';
+  dot.title = sec.querySelector('.section-title')?.textContent || '';
+  dot.onclick = () => sec.scrollIntoView({ behavior: 'smooth' });
+  navDotsContainer.appendChild(dot);
+});
+
+const navObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const idx = Array.from(sections).indexOf(entry.target);
+      document.querySelectorAll('.nav-dot').forEach((d, i) => {
+        d.classList.toggle('active', i === idx);
+      });
+    }
+  });
+}, { threshold: 0.3 });
+sections.forEach(sec => navObserver.observe(sec));
+
+// ========================
+// GPU Architecture Interactive
+// ========================
+const gpuChip = document.getElementById('gpuChip');
+const smCount = 16; // Simplified representation
+for (let i = 0; i < smCount; i++) {
+  const sm = document.createElement('div');
+  sm.className = 'sm-unit';
+  sm.innerHTML = `<div class="sm-label">SM ${i}</div><div style="font-size:0.65rem;color:#888;margin-top:4px;">128 CUDA Cores<br>4 Tensor Cores</div>`;
+  sm.onclick = () => openSmPanel(i);
+  gpuChip.appendChild(sm);
+}
+
+function openSmPanel(idx) {
+  document.querySelectorAll('.sm-unit').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sm-unit')[idx].classList.add('active');
+
+  const panel = document.getElementById('smDetailPanel');
+  document.getElementById('smDetailTitle').textContent = `SM ${idx} 内部结构`;
+
+  // Generate warp display
+  const warpDisplay = document.getElementById('warpDisplay');
+  warpDisplay.innerHTML = '';
+  const warpCount = 4; // Show 4 warps
+  for (let w = 0; w < warpCount; w++) {
+    const warpLabel = document.createElement('div');
+    warpLabel.style.cssText = 'font-size:0.75rem;color:#7b2ff7;margin-top:8px;margin-bottom:4px;';
+    warpLabel.textContent = `Warp ${w} (32 threads):`;
+    warpDisplay.appendChild(warpLabel);
+
+    const grid = document.createElement('div');
+    grid.className = 'warp-grid';
+    for (let t = 0; t < 32; t++) {
+      const dot = document.createElement('div');
+      dot.className = 'thread-dot';
+      dot.style.animationDelay = `${(t * 0.05)}s`;
+      grid.appendChild(dot);
+    }
+    warpDisplay.appendChild(grid);
+  }
+
+  panel.classList.add('open');
+}
+
+function closeSmPanel() {
+  document.getElementById('smDetailPanel').classList.remove('open');
+  document.querySelectorAll('.sm-unit').forEach(s => s.classList.remove('active'));
+}
+
+// ========================
+// GEMM Tiling Animation
+// ========================
+const MATRIX_SIZE = 8;
+const TILE_SIZE = 4;
+let gemmAnimationRunning = false;
+let gemmTimeouts = [];
+
+function initMatrices() {
+  ['matrixA', 'matrixB', 'matrixC'].forEach(id => {
+    const container = document.getElementById(id);
+    container.innerHTML = '';
+    for (let i = 0; i < MATRIX_SIZE * MATRIX_SIZE; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'matrix-cell';
+      container.appendChild(cell);
+    }
+  });
+}
+initMatrices();
+
+function highlightTile(matrixId, startRow, startCol, tileRows, tileCols, className) {
+  const container = document.getElementById(matrixId);
+  const cells = container.querySelectorAll('.matrix-cell');
+  for (let r = startRow; r < startRow + tileRows; r++) {
+    for (let c = startCol; c < startCol + tileCols; c++) {
+      if (r < MATRIX_SIZE && c < MATRIX_SIZE) {
+        cells[r * MATRIX_SIZE + c].classList.add(className);
+      }
+    }
+  }
+}
+
+function clearHighlights() {
+  document.querySelectorAll('.matrix-cell').forEach(cell => {
+    cell.classList.remove('highlight-a', 'highlight-b', 'highlight-c');
+  });
+}
+
+function startGemmAnimation() {
+  if (gemmAnimationRunning) return;
+  gemmAnimationRunning = true;
+  document.getElementById('gemmStartBtn').disabled = true;
+  clearHighlights();
+
+  const steps = [];
+  // For each output tile (TILE_SIZE x TILE_SIZE block of C)
+  for (let bm = 0; bm < MATRIX_SIZE; bm += TILE_SIZE) {
+    for (let bn = 0; bn < MATRIX_SIZE; bn += TILE_SIZE) {
+      // For each K tile
+      for (let bk = 0; bk < MATRIX_SIZE; bk += TILE_SIZE) {
+        steps.push({ bm, bn, bk });
+      }
+    }
+  }
+
+  let stepIdx = 0;
+  function doStep() {
+    if (stepIdx >= steps.length) {
+      document.getElementById('gemmInfo').textContent = '动画完成！共 ' + steps.length + ' 个 tile 计算步骤';
+      gemmAnimationRunning = false;
+      document.getElementById('gemmStartBtn').disabled = false;
+      return;
+    }
+
+    clearHighlights();
+    const { bm, bn, bk } = steps[stepIdx];
+
+    // Highlight A tile: rows [bm, bm+TILE), cols [bk, bk+TILE)
+    highlightTile('matrixA', bm, bk, TILE_SIZE, TILE_SIZE, 'highlight-a');
+    // Highlight B tile: rows [bk, bk+TILE), cols [bn, bn+TILE)
+    highlightTile('matrixB', bk, bn, TILE_SIZE, TILE_SIZE, 'highlight-b');
+    // Highlight C tile: rows [bm, bm+TILE), cols [bn, bn+TILE)
+    highlightTile('matrixC', bm, bn, TILE_SIZE, TILE_SIZE, 'highlight-c');
+
+    document.getElementById('gemmInfo').textContent =
+      `Step ${stepIdx + 1}/${steps.length}: C[${bm}:${bm+TILE_SIZE}, ${bn}:${bn+TILE_SIZE}] += A[${bm}:${bm+TILE_SIZE}, ${bk}:${bk+TILE_SIZE}] × B[${bk}:${bk+TILE_SIZE}, ${bn}:${bn+TILE_SIZE}]`;
+
+    stepIdx++;
+    const t = setTimeout(doStep, 600);
+    gemmTimeouts.push(t);
+  }
+
+  doStep();
+}
+
+function resetGemmAnimation() {
+  gemmTimeouts.forEach(t => clearTimeout(t));
+  gemmTimeouts = [];
+  gemmAnimationRunning = false;
+  document.getElementById('gemmStartBtn').disabled = false;
+  clearHighlights();
+  document.getElementById('gemmInfo').textContent = '点击 "开始" 观察 4×4 tile 如何逐步计算 8×8 矩阵乘法';
+}
+
+// ========================
+// CUDA Graph Timeline Animation
+// ========================
+function animateTimeline() {
+  const bars = document.querySelectorAll('.timeline-container .timeline-bar');
+  bars.forEach(bar => {
+    bar.style.width = '0';
+    bar.style.transition = 'none';
+  });
+
+  setTimeout(() => {
+    bars.forEach((bar, i) => {
+      const origWidth = bar.getAttribute('data-width') || bar.style.width;
+      if (!bar.getAttribute('data-width')) {
+        bar.setAttribute('data-width', getComputedStyle(bar).width);
+      }
+      bar.style.transition = `width 0.5s ease ${i * 0.12}s`;
+      bar.style.width = bar.getAttribute('data-width');
+    });
+  }, 50);
+}
+
+// Store initial widths
+window.addEventListener('load', () => {
+  document.querySelectorAll('.timeline-container .timeline-bar').forEach(bar => {
+    bar.setAttribute('data-width', bar.style.width || '100%');
+  });
+});
+
+// ========================
+// Exercise Toggle
+// ========================
+function toggleExercise(header) {
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function toggleHint(btn) {
+  const content = btn.parentElement.querySelector('.hint-content');
+  content.classList.toggle('show');
+  btn.textContent = content.classList.contains('show') ? '隐藏提示' : '显示提示';
+}
+
+function toggleSolution(btn) {
+  const content = btn.parentElement.querySelector('.solution-content');
+  content.classList.toggle('show');
+  btn.textContent = content.classList.contains('show') ? '隐藏答案' : '显示答案';
+}
+
+// ========================
+// Memory Pyramid hover animation enhancement
+// ========================
+document.querySelectorAll('.mem-level').forEach(level => {
+  level.addEventListener('mouseenter', function() {
+    this.style.boxShadow = '0 0 20px rgba(0,210,255,0.3)';
+  });
+  level.addEventListener('mouseleave', function() {
+    this.style.boxShadow = 'none';
+  });
+});
+</script>
+
+</body>
+</html>

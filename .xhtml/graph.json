@@ -1,0 +1,507 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "id": "node-1778703436362-8nq903",
+      "type": "html",
+      "position": {
+        "x": -182.42979026438033,
+        "y": -564.3067971008572
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "cuda_graph.html",
+      "label": "cuda_graph"
+    },
+    {
+      "id": "node-1778703436964-u9saub",
+      "type": "html",
+      "position": {
+        "x": 375.2423057566599,
+        "y": -514.5261897319469
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "gemm_tiling.html",
+      "label": "gemm_tiling"
+    },
+    {
+      "id": "node-1778703437930-eodg9f",
+      "type": "html",
+      "position": {
+        "x": 698.9141372875861,
+        "y": 553.1888743083178
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "parallelism_explained.html",
+      "label": "parallelism_explained"
+    },
+    {
+      "id": "node-1778703448894-9fhnti",
+      "type": "shape",
+      "position": {
+        "x": -52.187433617298865,
+        "y": 97.30725585285468
+      },
+      "size": {
+        "width": 102,
+        "height": 50
+      },
+      "content": "ML Infra",
+      "label": "ML Infra"
+    },
+    {
+      "id": "node-1778703448894-qpugk7",
+      "type": "shape",
+      "position": {
+        "x": 0.6836900360525249,
+        "y": -213.05044126972382
+      },
+      "size": {
+        "width": 102,
+        "height": 40
+      },
+      "content": "CUDA/GPU",
+      "label": "CUDA/GPU"
+    },
+    {
+      "id": "node-1778703448894-chd3d5",
+      "type": "shape",
+      "position": {
+        "x": -147.08495747127415,
+        "y": -332.1041165966755
+      },
+      "size": {
+        "width": 120,
+        "height": 40
+      },
+      "content": "CUDA Graph",
+      "label": "CUDA Graph"
+    },
+    {
+      "id": "node-1778703448894-midskv",
+      "type": "shape",
+      "position": {
+        "x": 181.47421059264482,
+        "y": -375.71323512544865
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "GEMM",
+      "label": "GEMM"
+    },
+    {
+      "id": "node-1778703448894-k01ajp",
+      "type": "shape",
+      "position": {
+        "x": 270.95464840984135,
+        "y": -82.67154870590711
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "Model",
+      "label": "Model"
+    },
+    {
+      "id": "node-1778703448894-5b3hb7",
+      "type": "shape",
+      "position": {
+        "x": 598.5633125702027,
+        "y": -163.070673693901
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "MoE",
+      "label": "MoE"
+    },
+    {
+      "id": "node-1778703448894-u7zbpo",
+      "type": "shape",
+      "position": {
+        "x": 822.6874387274077,
+        "y": -315.49485222839957
+      },
+      "size": {
+        "width": 147,
+        "height": 40
+      },
+      "content": "Gated Network",
+      "label": "Gated Network"
+    },
+    {
+      "id": "node-1778703448894-hdvk7u",
+      "type": "shape",
+      "position": {
+        "x": 866.9609990889983,
+        "y": -126.33800355321435
+      },
+      "size": {
+        "width": 93,
+        "height": 40
+      },
+      "content": "Routing",
+      "label": "Routing"
+    },
+    {
+      "id": "node-1778703448894-qufs25",
+      "type": "shape",
+      "position": {
+        "x": 157.92525569547098,
+        "y": 347.76806877783275
+      },
+      "size": {
+        "width": 102,
+        "height": 40
+      },
+      "content": "Training",
+      "label": "Training"
+    },
+    {
+      "id": "node-1778703448894-uvrj88",
+      "type": "shape",
+      "position": {
+        "x": 442.8145928315106,
+        "y": 458.42756158962527
+      },
+      "size": {
+        "width": 111,
+        "height": 40
+      },
+      "content": "Parallism",
+      "label": "Parallism"
+    },
+    {
+      "id": "node-1778703448894-b5ng6n",
+      "type": "shape",
+      "position": {
+        "x": 255.8008152065113,
+        "y": 703.1149224862543
+      },
+      "size": {
+        "width": 111,
+        "height": 40
+      },
+      "content": "Framework",
+      "label": "Framework"
+    },
+    {
+      "id": "node-1778703448894-mqyd99",
+      "type": "shape",
+      "position": {
+        "x": 443.0952120071158,
+        "y": 900.9896051180758
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "VeRL",
+      "label": "VeRL"
+    },
+    {
+      "id": "node-1778703448894-nx5e8k",
+      "type": "shape",
+      "position": {
+        "x": 268.36064952420065,
+        "y": 975.4876479553607
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "AReaL",
+      "label": "AReaL"
+    },
+    {
+      "id": "node-1778703448894-xiruy1",
+      "type": "shape",
+      "position": {
+        "x": -440.21727838141857,
+        "y": -91.74185052828982
+      },
+      "size": {
+        "width": 111,
+        "height": 40
+      },
+      "content": "Inference",
+      "label": "Inference"
+    },
+    {
+      "id": "node-1778703448894-eujp58",
+      "type": "shape",
+      "position": {
+        "x": -602.2596232439723,
+        "y": -302.5443351511855
+      },
+      "size": {
+        "width": 147,
+        "height": 40
+      },
+      "content": "Kernel Fusion",
+      "label": "Kernel Fusion"
+    },
+    {
+      "id": "node-1778703448894-mo2lx6",
+      "type": "shape",
+      "position": {
+        "x": -810.4319008557037,
+        "y": -135.34778957851267
+      },
+      "size": {
+        "width": 111,
+        "height": 40
+      },
+      "content": "Framework",
+      "label": "Framework"
+    },
+    {
+      "id": "node-1778703448894-2i01aa",
+      "type": "shape",
+      "position": {
+        "x": -1042.100844486521,
+        "y": -278.19158985417806
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "vLLM",
+      "label": "vLLM"
+    },
+    {
+      "id": "node-1778703448894-2yz2qt",
+      "type": "shape",
+      "position": {
+        "x": -1076.8490074636197,
+        "y": -80.74438761701748
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "SGLang",
+      "label": "SGLang"
+    },
+    {
+      "id": "node-1778703448894-obe8by",
+      "type": "shape",
+      "position": {
+        "x": -268.0331316094425,
+        "y": 250.03520330731368
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "Quant",
+      "label": "Quant"
+    },
+    {
+      "id": "node-1778703448894-o0z5uy",
+      "type": "shape",
+      "position": {
+        "x": -505.6462878722637,
+        "y": 380.31641927949676
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "AWQ",
+      "label": "AWQ"
+    },
+    {
+      "id": "node-1778703448894-v815qg",
+      "type": "shape",
+      "position": {
+        "x": -369.6564230356719,
+        "y": 501.3905127322809
+      },
+      "size": {
+        "width": 90,
+        "height": 40
+      },
+      "content": "FP8",
+      "label": "FP8"
+    },
+    {
+      "id": "node-1778703541069-9x3r7d",
+      "type": "markdown",
+      "position": {
+        "x": -1350.5490810768108,
+        "y": 194.91261951169878
+      },
+      "size": {
+        "width": 160,
+        "height": 70
+      },
+      "filePath": "sglang/code-walk-through/sgl_diffusion.md",
+      "label": "sgl_diffusion"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-node-1778703448894-9fhnti-node-1778703448894-qpugk7-1778703448894-0-jh0f",
+      "source": "node-1778703448894-9fhnti",
+      "target": "node-1778703448894-qpugk7",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-qpugk7-node-1778703448894-chd3d5-1778703448894-1-9t08",
+      "source": "node-1778703448894-qpugk7",
+      "target": "node-1778703448894-chd3d5",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-qpugk7-node-1778703448894-midskv-1778703448894-2-w4s4",
+      "source": "node-1778703448894-qpugk7",
+      "target": "node-1778703448894-midskv",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-9fhnti-node-1778703448894-k01ajp-1778703448894-3-uo3k",
+      "source": "node-1778703448894-9fhnti",
+      "target": "node-1778703448894-k01ajp",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-k01ajp-node-1778703448894-5b3hb7-1778703448894-4-0b1i",
+      "source": "node-1778703448894-k01ajp",
+      "target": "node-1778703448894-5b3hb7",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-5b3hb7-node-1778703448894-u7zbpo-1778703448894-5-x589",
+      "source": "node-1778703448894-5b3hb7",
+      "target": "node-1778703448894-u7zbpo",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-5b3hb7-node-1778703448894-hdvk7u-1778703448894-6-nrvc",
+      "source": "node-1778703448894-5b3hb7",
+      "target": "node-1778703448894-hdvk7u",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-9fhnti-node-1778703448894-qufs25-1778703448894-7-ve8q",
+      "source": "node-1778703448894-9fhnti",
+      "target": "node-1778703448894-qufs25",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-qufs25-node-1778703448894-uvrj88-1778703448894-8-lyk5",
+      "source": "node-1778703448894-qufs25",
+      "target": "node-1778703448894-uvrj88",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-qufs25-node-1778703448894-b5ng6n-1778703448894-9-2ovw",
+      "source": "node-1778703448894-qufs25",
+      "target": "node-1778703448894-b5ng6n",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-b5ng6n-node-1778703448894-mqyd99-1778703448894-10-idi1",
+      "source": "node-1778703448894-b5ng6n",
+      "target": "node-1778703448894-mqyd99",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-b5ng6n-node-1778703448894-nx5e8k-1778703448894-11-ne1d",
+      "source": "node-1778703448894-b5ng6n",
+      "target": "node-1778703448894-nx5e8k",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-9fhnti-node-1778703448894-xiruy1-1778703448894-12-35oo",
+      "source": "node-1778703448894-9fhnti",
+      "target": "node-1778703448894-xiruy1",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-xiruy1-node-1778703448894-eujp58-1778703448894-13-7jav",
+      "source": "node-1778703448894-xiruy1",
+      "target": "node-1778703448894-eujp58",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-xiruy1-node-1778703448894-mo2lx6-1778703448894-14-7qeu",
+      "source": "node-1778703448894-xiruy1",
+      "target": "node-1778703448894-mo2lx6",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-mo2lx6-node-1778703448894-2i01aa-1778703448894-15-en92",
+      "source": "node-1778703448894-mo2lx6",
+      "target": "node-1778703448894-2i01aa",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-mo2lx6-node-1778703448894-2yz2qt-1778703448894-16-p35e",
+      "source": "node-1778703448894-mo2lx6",
+      "target": "node-1778703448894-2yz2qt",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-9fhnti-node-1778703448894-obe8by-1778703448894-17-tw52",
+      "source": "node-1778703448894-9fhnti",
+      "target": "node-1778703448894-obe8by",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-obe8by-node-1778703448894-o0z5uy-1778703448894-18-o83d",
+      "source": "node-1778703448894-obe8by",
+      "target": "node-1778703448894-o0z5uy",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-obe8by-node-1778703448894-v815qg-1778703448894-19-jepg",
+      "source": "node-1778703448894-obe8by",
+      "target": "node-1778703448894-v815qg",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-midskv-node-1778703436964-u9saub-1778703466470-rc72f",
+      "source": "node-1778703448894-midskv",
+      "target": "node-1778703436964-u9saub",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-uvrj88-node-1778703437930-eodg9f-1778703483750-4gpw6",
+      "source": "node-1778703448894-uvrj88",
+      "target": "node-1778703437930-eodg9f",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703448894-chd3d5-node-1778703436362-8nq903-1778703488330-gxbwe",
+      "source": "node-1778703448894-chd3d5",
+      "target": "node-1778703436362-8nq903",
+      "type": "manual"
+    },
+    {
+      "id": "edge-node-1778703541069-9x3r7d-node-1778703448894-2yz2qt-1778703600360-am7vf",
+      "source": "node-1778703541069-9x3r7d",
+      "target": "node-1778703448894-2yz2qt",
+      "type": "manual"
+    }
+  ],
+  "viewport": {
+    "x": 484.54974106885925,
+    "y": 359.341692512224,
+    "zoom": 0.6701505337694623
+  },
+  "layoutMode": "force"
+}

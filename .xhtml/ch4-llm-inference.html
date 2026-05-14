@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 4: LLM 推理系统 (SGLang 深度解析)</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 2.5em; background: linear-gradient(135deg, #ff9800, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; }
+h2 { font-size: 1.8em; background: linear-gradient(135deg, #ff9800, #ffd700); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 40px 0 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+h3 { font-size: 1.3em; color: #ffd700; margin: 25px 0 15px; }
+h4 { font-size: 1.1em; color: #ff9800; margin: 15px 0 10px; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 25px; margin: 20px 0; transition: transform 0.3s, box-shadow 0.3s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255, 152, 0, 0.1); }
+.subtitle { color: #aaa; font-size: 1.1em; margin-bottom: 30px; }
+code { background: #2d2d4e; padding: 2px 8px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #7dd3fc; }
+pre { background: #1e1e3f; border: 1px solid #444; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 15px 0; line-height: 1.5; }
+pre code { background: none; padding: 0; color: #e0e0e0; }
+.comment { color: #6a9955; }
+.keyword { color: #c586c0; }
+.function { color: #dcdcaa; }
+.string { color: #ce9178; }
+.number { color: #b5cea8; }
+.type { color: #4ec9b0; }
+
+/* Animation container styles */
+.anim-container { background: #12122a; border: 1px solid #444; border-radius: 12px; padding: 20px; margin: 20px 0; position: relative; overflow: hidden; min-height: 200px; }
+.anim-label { position: absolute; top: 10px; right: 15px; font-size: 0.75em; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Pipeline animation */
+.pipeline-stages { display: flex; align-items: center; justify-content: space-around; padding: 30px 10px; flex-wrap: wrap; gap: 10px; }
+.pipeline-stage { background: #2a2a4a; border: 2px solid #444; border-radius: 10px; padding: 15px 20px; text-align: center; min-width: 120px; transition: all 0.5s; position: relative; }
+.pipeline-stage.active { border-color: #ff9800; background: #2a2a3a; box-shadow: 0 0 20px rgba(255, 152, 0, 0.3); }
+.pipeline-arrow { color: #ff9800; font-size: 1.5em; }
+.request-token { position: absolute; width: 12px; height: 12px; background: #ffd700; border-radius: 50%; top: -6px; left: 50%; transform: translateX(-50%); opacity: 0; transition: all 0.3s; }
+.pipeline-stage.active .request-token { opacity: 1; animation: pulse 1s infinite; }
+@keyframes pulse { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.5); } }
+
+/* Batching comparison */
+.batch-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media (max-width: 768px) { .batch-compare { grid-template-columns: 1fr; } }
+.batch-panel { background: #1e1e3f; border-radius: 8px; padding: 15px; border: 1px solid #444; }
+.batch-panel h4 { text-align: center; margin-bottom: 10px; }
+.batch-slot { height: 24px; margin: 3px 0; border-radius: 4px; position: relative; overflow: hidden; background: #333; }
+.batch-slot .fill { height: 100%; border-radius: 4px; transition: width 0.5s; }
+.batch-slot .fill.active { background: linear-gradient(90deg, #ff9800, #ffd700); }
+.batch-slot .fill.idle { background: #555; }
+.batch-slot .fill.wasted { background: #ff4444; opacity: 0.5; }
+.utilization-bar { margin-top: 10px; text-align: center; font-size: 0.85em; color: #aaa; }
+
+/* Radix tree */
+.radix-container { min-height: 350px; position: relative; }
+.radix-node { position: absolute; background: #2a2a4a; border: 2px solid #ff9800; border-radius: 8px; padding: 8px 12px; font-size: 0.8em; transition: all 0.5s; cursor: pointer; white-space: nowrap; }
+.radix-node:hover { background: #3a3a5a; transform: scale(1.05); }
+.radix-node.highlight { border-color: #ffd700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+.radix-edge { position: absolute; background: #ff9800; height: 2px; transform-origin: left center; transition: all 0.5s; }
+.radix-controls { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+.radix-controls button { background: linear-gradient(135deg, #ff9800, #e68900); color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: all 0.2s; }
+.radix-controls button:hover { transform: scale(1.05); box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3); }
+.radix-info { background: #1e1e3f; border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 0.85em; color: #aaa; min-height: 40px; }
+
+/* Speculative decoding */
+.spec-container { padding: 20px 10px; }
+.spec-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
+.spec-token { display: inline-block; padding: 6px 12px; border-radius: 6px; font-size: 0.85em; transition: all 0.3s; opacity: 0; transform: translateY(10px); }
+.spec-token.draft { background: #2a4a6a; border: 1px solid #4a8abf; color: #7dd3fc; }
+.spec-token.accepted { background: #2a4a2a; border: 1px solid #4a9f4a; color: #7dfc7d; }
+.spec-token.rejected { background: #4a2a2a; border: 1px solid #9f4a4a; color: #fc7d7d; text-decoration: line-through; }
+.spec-token.verified { background: #4a4a2a; border: 1px solid #9f9f4a; color: #fcfc7d; }
+.spec-token.visible { opacity: 1; transform: translateY(0); }
+.spec-label { font-size: 0.75em; color: #888; min-width: 80px; }
+
+/* Quantization slider */
+.quant-container { text-align: center; padding: 20px; }
+.quant-slider { width: 80%; max-width: 400px; margin: 20px auto; -webkit-appearance: none; appearance: none; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #ff4444, #ff9800, #ffd700, #44ff44); outline: none; }
+.quant-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #fff; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.quant-display { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 20px; }
+.quant-card { background: #2a2a4a; border-radius: 8px; padding: 15px; text-align: center; border: 2px solid transparent; transition: all 0.3s; }
+.quant-card.selected { border-color: #ff9800; box-shadow: 0 0 15px rgba(255, 152, 0, 0.3); }
+.quant-card .precision { font-size: 1.4em; font-weight: bold; color: #ffd700; }
+.quant-card .memory { font-size: 0.9em; color: #aaa; margin-top: 5px; }
+.memory-bar { height: 20px; background: #333; border-radius: 10px; margin-top: 8px; overflow: hidden; }
+.memory-bar .fill { height: 100%; border-radius: 10px; transition: width 0.5s; background: linear-gradient(90deg, #ff9800, #ffd700); }
+
+/* Exercise styles */
+.exercise { background: #1a2a1a; border: 1px solid #2a4a2a; border-radius: 12px; padding: 25px; margin: 20px 0; }
+.exercise h4 { color: #4caf50; }
+.exercise-hint, .exercise-solution { margin-top: 15px; }
+.exercise-hint summary, .exercise-solution summary { cursor: pointer; color: #ff9800; font-weight: 500; padding: 8px 0; }
+.exercise-hint summary:hover, .exercise-solution summary:hover { color: #ffd700; }
+.exercise-hint .content, .exercise-solution .content { padding: 15px; background: #1e2e1e; border-radius: 8px; margin-top: 10px; border: 1px solid #3a5a3a; }
+
+/* Controls */
+.btn { background: linear-gradient(135deg, #ff9800, #e68900); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9em; transition: all 0.2s; margin: 5px; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4); }
+.btn:active { transform: translateY(0); }
+.btn.secondary { background: linear-gradient(135deg, #555, #444); }
+
+/* Scroll animations */
+.fade-in { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+
+/* Table styles */
+table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+th, td { padding: 10px 15px; text-align: left; border-bottom: 1px solid #333; }
+th { background: #2a2a4a; color: #ffd700; }
+tr:hover { background: #1e1e3f; }
+
+/* Tooltip */
+.tooltip { position: relative; display: inline-block; border-bottom: 1px dashed #ff9800; cursor: help; }
+.tooltip .tooltip-text { visibility: hidden; background: #2a2a4a; color: #e0e0e0; padding: 8px 12px; border-radius: 6px; position: absolute; bottom: 125%; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.8em; border: 1px solid #ff9800; z-index: 10; opacity: 0; transition: opacity 0.3s; }
+.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+/* Navigation */
+.toc { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 20px; margin: 30px 0; }
+.toc a { color: #ff9800; text-decoration: none; display: block; padding: 5px 0; transition: color 0.2s; }
+.toc a:hover { color: #ffd700; padding-left: 5px; }
+.toc ol { padding-left: 20px; }
+.toc li { margin: 5px 0; }
+
+/* SVG canvas */
+.svg-canvas { width: 100%; min-height: 300px; }
+.svg-canvas line, .svg-canvas path { stroke: #ff9800; stroke-width: 2; fill: none; }
+.svg-canvas text { fill: #e0e0e0; font-size: 12px; }
+.svg-canvas rect { fill: #2a2a4a; stroke: #ff9800; stroke-width: 1.5; rx: 6; }
+</style>
+</head>
+<body>
+
+<h1>Chapter 4: LLM 推理系统</h1>
+<p class="subtitle">SGLang 深度解析 - 从请求到生成的完整链路</p>
+
+<nav class="toc card">
+<h3>目录</h3>
+<ol>
+<li><a href="#lifecycle">请求生命周期 (Request Lifecycle)</a></li>
+<li><a href="#batching">Continuous Batching vs Static Batching</a></li>
+<li><a href="#kvcache">KV Cache 管理 - PageAttention &amp; Radix Cache</a></li>
+<li><a href="#scheduler">Scheduler 设计</a></li>
+<li><a href="#quantization">Quantization 概述</a></li>
+<li><a href="#speculative">Speculative Decoding</a></li>
+<li><a href="#constraint">Constraint Decoding</a></li>
+<li><a href="#loading">Model Loading Pipeline</a></li>
+<li><a href="#exercises">练习题</a></li>
+</ol>
+</nav>
+
+<!-- Section 1: Request Lifecycle -->
+<section id="lifecycle" class="fade-in">
+<h2>4.1 请求生命周期 (Request Lifecycle)</h2>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/sglang-worker/SGLang-Archi.png" alt="SGLang Architecture Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: SGLang 整体架构: TokenizerManager → Scheduler → TpModelWorker → DetokenizerManager</div>
+</div>
+
+<div class="card">
+<p>一个 LLM 推理请求从用户输入到最终输出，需要经历多个阶段。在 SGLang 中，这个过程被精心设计为一个高效的 pipeline：</p>
+
+<div class="anim-container" id="pipeline-anim">
+<span class="anim-label">Pipeline Animation</span>
+<div class="pipeline-stages">
+<div class="pipeline-stage" id="stage-tokenize">
+<div class="request-token"></div>
+<strong>Tokenize</strong>
+<div style="font-size:0.75em; color:#aaa; margin-top:5px;">文本 → Token IDs</div>
+</div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage" id="stage-schedule">
+<div class="request-token"></div>
+<strong>Schedule</strong>
+<div style="font-size:0.75em; color:#aaa; margin-top:5px;">Batch 组装</div>
+</div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage" id="stage-prefill">
+<div class="request-token"></div>
+<strong>Prefill</strong>
+<div style="font-size:0.75em; color:#aaa; margin-top:5px;">并行处理 prompt</div>
+</div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage" id="stage-decode">
+<div class="request-token"></div>
+<strong>Decode</strong>
+<div style="font-size:0.75em; color:#aaa; margin-top:5px;">逐 token 生成</div>
+</div>
+<span class="pipeline-arrow">→</span>
+<div class="pipeline-stage" id="stage-detokenize">
+<div class="request-token"></div>
+<strong>Detokenize</strong>
+<div style="font-size:0.75em; color:#aaa; margin-top:5px;">Token IDs → 文本</div>
+</div>
+</div>
+<div style="text-align:center; margin-top:15px;">
+<button class="btn" onclick="startPipelineAnim()">播放动画</button>
+<button class="btn secondary" onclick="resetPipelineAnim()">重置</button>
+</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>各阶段详解</h3>
+<table>
+<thead>
+<tr><th>阶段</th><th>操作</th><th>瓶颈</th><th>SGLang 优化</th></tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Tokenize</code></td>
+<td>将用户输入文本转换为 token ID 序列</td>
+<td>CPU 密集</td>
+<td>异步 tokenization，与 GPU 计算重叠</td>
+</tr>
+<tr>
+<td><code>Schedule</code></td>
+<td>将请求分配到 batch slot，管理优先级</td>
+<td>调度延迟</td>
+<td>Continuous Batching + 优先级队列</td>
+</tr>
+<tr>
+<td><code>Prefill</code></td>
+<td>并行处理所有 prompt tokens，填充 KV Cache</td>
+<td>Compute bound</td>
+<td>Chunked Prefill，Radix Cache 复用</td>
+</tr>
+<tr>
+<td><code>Decode</code></td>
+<td>自回归逐 token 生成</td>
+<td>Memory bandwidth</td>
+<td>PageAttention，高效 KV Cache 访问</td>
+</tr>
+<tr>
+<td><code>Detokenize</code></td>
+<td>将生成的 token IDs 转换回文本</td>
+<td>CPU 密集</td>
+<td>增量 detokenization + streaming</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+<div class="card fade-in">
+<h3>Prefill vs Decode 的本质区别</h3>
+<p><strong>Prefill 阶段</strong>是 <span class="tooltip">compute-bound<span class="tooltip-text">计算量大，GPU 计算单元是瓶颈</span></span>：所有 prompt tokens 可以并行计算 attention，矩阵运算密集。</p>
+<p style="margin-top:10px;"><strong>Decode 阶段</strong>是 <span class="tooltip">memory-bandwidth-bound<span class="tooltip-text">需要频繁读取 KV Cache，显存带宽是瓶颈</span></span>：每步只生成一个 token，但需要读取完整的 KV Cache。</p>
+<pre><code><span class="comment">// Prefill: 并行处理 N 个 tokens</span>
+<span class="comment">// FLOPs ≈ 2 * N * d_model^2 * num_layers (compute bound)</span>
+attention_output = <span class="function">softmax</span>(Q @ K.T / sqrt(d)) @ V  <span class="comment">// Q: [N, d], K: [N, d]</span>
+
+<span class="comment">// Decode: 每次只处理 1 个 token</span>
+<span class="comment">// Memory reads ≈ 2 * seq_len * d_model * num_layers (memory bound)</span>
+attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)) @ V_cache  <span class="comment">// q: [1, d], K: [seq, d]</span></code></pre>
+</div>
+</section>
+
+<!-- Section 2: Continuous Batching -->
+<section id="batching" class="fade-in">
+<h2>4.2 Continuous Batching vs Static Batching</h2>
+
+<div class="card">
+<p>传统的 Static Batching 会等待一个 batch 内所有请求都生成完毕后才开始处理下一个 batch，造成严重的 GPU 资源浪费。Continuous Batching 通过动态地添加和移除请求，让 GPU 始终保持高利用率。</p>
+
+<div class="anim-container" id="batching-anim">
+<span class="anim-label">Batching Comparison</span>
+<div class="batch-compare">
+<div class="batch-panel">
+<h4 style="color:#ff4444;">Static Batching</h4>
+<div id="static-slots"></div>
+<div class="utilization-bar" id="static-util">利用率: <span>0%</span></div>
+</div>
+<div class="batch-panel">
+<h4 style="color:#44ff44;">Continuous Batching</h4>
+<div id="continuous-slots"></div>
+<div class="utilization-bar" id="continuous-util">利用率: <span>0%</span></div>
+</div>
+</div>
+<div style="text-align:center; margin-top:15px;">
+<button class="btn" onclick="startBatchingAnim()">开始对比</button>
+<button class="btn secondary" onclick="resetBatchingAnim()">重置</button>
+</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>Continuous Batching 核心实现</h3>
+<pre><code><span class="keyword">class</span> <span class="type">ContinuousBatchScheduler</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, max_batch_size, max_seq_len):
+        self.running_batch = []        <span class="comment"># 正在处理的请求</span>
+        self.waiting_queue = []        <span class="comment"># 等待队列</span>
+        self.max_batch_size = max_batch_size
+        self.max_seq_len = max_seq_len
+        self.kv_pool = <span class="type">KVCachePool</span>()  <span class="comment"># KV Cache 内存池</span>
+
+    <span class="keyword">def</span> <span class="function">schedule_step</span>(self):
+        <span class="comment"># 1. 移除已完成的请求 (遇到 EOS 或达到 max_len)</span>
+        finished = [r <span class="keyword">for</span> r <span class="keyword">in</span> self.running_batch <span class="keyword">if</span> r.is_finished()]
+        <span class="keyword">for</span> req <span class="keyword">in</span> finished:
+            self.running_batch.remove(req)
+            self.kv_pool.<span class="function">free</span>(req.kv_blocks)  <span class="comment"># 释放 KV Cache</span>
+            <span class="function">yield_response</span>(req)
+
+        <span class="comment"># 2. 从等待队列中取出新请求填充空位</span>
+        available_slots = self.max_batch_size - len(self.running_batch)
+        <span class="keyword">while</span> available_slots > <span class="number">0</span> <span class="keyword">and</span> self.waiting_queue:
+            new_req = self.waiting_queue.<span class="function">pop</span>(<span class="number">0</span>)
+            <span class="keyword">if</span> self.kv_pool.<span class="function">can_allocate</span>(new_req.prompt_len):
+                new_req.kv_blocks = self.kv_pool.<span class="function">allocate</span>(new_req.prompt_len)
+                self.running_batch.<span class="function">append</span>(new_req)
+                available_slots -= <span class="number">1</span>
+            <span class="keyword">else</span>:
+                self.waiting_queue.<span class="function">insert</span>(<span class="number">0</span>, new_req)
+                <span class="keyword">break</span>  <span class="comment"># 内存不足，停止调度</span>
+
+        <span class="comment"># 3. 执行一个 decode step</span>
+        <span class="keyword">if</span> self.running_batch:
+            <span class="function">model_forward</span>(self.running_batch)</code></pre>
+
+<h4>关键设计要点：</h4>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>Iteration-level scheduling</strong>：每个 decode iteration 后都可能有请求加入或退出</li>
+<li><strong>无需 padding</strong>：不同长度的请求通过 PageAttention 高效处理</li>
+<li><strong>内存感知调度</strong>：只有当 KV Cache pool 有足够空间时才接纳新请求</li>
+<li><strong>优先级支持</strong>：短请求优先完成，降低平均 latency</li>
+</ul>
+</div>
+
+<div class="card fade-in">
+<h3>性能对比</h3>
+<table>
+<thead>
+<tr><th>指标</th><th>Static Batching</th><th>Continuous Batching</th><th>提升</th></tr>
+</thead>
+<tbody>
+<tr><td>GPU 利用率</td><td>30-50%</td><td>85-95%</td><td>~2x</td></tr>
+<tr><td>Throughput (tokens/s)</td><td>基准</td><td>2-3x</td><td>显著</td></tr>
+<tr><td>平均 Latency</td><td>高 (等待最长请求)</td><td>低 (及时释放)</td><td>50-70%↓</td></tr>
+<tr><td>尾部 Latency (P99)</td><td>极高</td><td>可控</td><td>大幅改善</td></tr>
+</tbody>
+</table>
+</div>
+</section>
+
+<!-- Section 3: KV Cache Management -->
+<section id="kvcache" class="fade-in">
+<h2>4.3 KV Cache 管理</h2>
+
+<div class="card">
+<h3>PageAttention: KV Cache 的虚拟内存</h3>
+<p>灵感来自操作系统的分页内存管理。PageAttention 将 KV Cache 分割成固定大小的 <strong>pages (blocks)</strong>，通过 page table 实现非连续的物理内存映射，解决了传统方法中的内存碎片问题。</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">KVCachePool</span>:
+    <span class="string">"""类似 OS 虚拟内存的 KV Cache 管理器"""</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, num_blocks, block_size, num_layers, num_heads, head_dim):
+        <span class="comment"># block_size: 每个 block 存储的 token 数 (通常 16 或 32)</span>
+        self.block_size = block_size
+        self.num_blocks = num_blocks
+
+        <span class="comment"># 物理内存池: [num_blocks, 2, num_layers, block_size, num_heads, head_dim]</span>
+        <span class="comment"># 2 代表 K 和 V</span>
+        self.kv_pool = torch.<span class="function">zeros</span>(
+            num_blocks, <span class="number">2</span>, num_layers, block_size, num_heads, head_dim,
+            dtype=torch.float16, device=<span class="string">"cuda"</span>
+        )
+        self.free_blocks = list(range(num_blocks))  <span class="comment"># 空闲 block 列表</span>
+        self.page_tables = {}  <span class="comment"># request_id → [block_indices]</span>
+
+    <span class="keyword">def</span> <span class="function">allocate</span>(self, request_id, num_tokens):
+        <span class="comment"># 计算需要的 block 数量 (向上取整)</span>
+        num_needed = <span class="function">ceil_div</span>(num_tokens, self.block_size)
+        <span class="keyword">if</span> len(self.free_blocks) < num_needed:
+            <span class="keyword">raise</span> <span class="type">MemoryError</span>(<span class="string">"KV Cache pool exhausted"</span>)
+
+        blocks = [self.free_blocks.<span class="function">pop</span>() <span class="keyword">for</span> _ <span class="keyword">in</span> range(num_needed)]
+        self.page_tables[request_id] = blocks
+        <span class="keyword">return</span> blocks
+
+    <span class="keyword">def</span> <span class="function">free</span>(self, request_id):
+        blocks = self.page_tables.<span class="function">pop</span>(request_id)
+        self.free_blocks.<span class="function">extend</span>(blocks)
+
+    <span class="keyword">def</span> <span class="function">append_token</span>(self, request_id, layer, k, v):
+        <span class="comment"># 追加新 token 的 KV，可能需要分配新 block</span>
+        blocks = self.page_tables[request_id]
+        current_len = self.token_counts[request_id]
+        block_idx = current_len // self.block_size
+        offset = current_len % self.block_size
+
+        <span class="keyword">if</span> offset == <span class="number">0</span> <span class="keyword">and</span> block_idx == len(blocks):
+            <span class="comment"># 需要新 block</span>
+            new_block = self.free_blocks.<span class="function">pop</span>()
+            blocks.<span class="function">append</span>(new_block)
+
+        physical_block = blocks[block_idx]
+        self.kv_pool[physical_block, <span class="number">0</span>, layer, offset] = k
+        self.kv_pool[physical_block, <span class="number">1</span>, layer, offset] = v</code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>Radix Cache: 前缀共享树</h3>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/kvcache-code-walk-through/kv-cache-request-lifecycle.png" alt="KV Cache Request Lifecycle" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: KV Cache 请求生命周期: 从分配到复用的完整流程</div>
+</div>
+
+<p>SGLang 的核心创新之一。当多个请求共享相同的 system prompt 或前缀时，Radix Cache 通过树结构共享 KV Cache，避免重复计算。</p>
+
+<div class="anim-container" id="radix-anim">
+<span class="anim-label">Interactive Radix Tree</span>
+<div class="radix-controls">
+<button onclick="addRadixRequest('system_prompt + user: hello')">添加 "system + hello"</button>
+<button onclick="addRadixRequest('system_prompt + user: world')">添加 "system + world"</button>
+<button onclick="addRadixRequest('system_prompt + user: hello + how are you')">添加 "system + hello + how are you"</button>
+<button onclick="addRadixRequest('different_prefix + query')">添加 "different + query"</button>
+<button onclick="resetRadixTree()" class="secondary" style="background:linear-gradient(135deg,#555,#444);">重置</button>
+</div>
+<div class="radix-container" id="radix-tree">
+<svg class="svg-canvas" id="radix-svg" width="100%" height="320"></svg>
+</div>
+<div class="radix-info" id="radix-info">点击上方按钮添加请求，观察前缀共享如何工作。</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>Radix Cache 实现原理</h3>
+<pre><code><span class="keyword">class</span> <span class="type">RadixCacheNode</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self):
+        self.children = {}       <span class="comment"># token_id → RadixCacheNode</span>
+        self.kv_indices = []     <span class="comment"># 对应的 KV cache block indices</span>
+        self.ref_count = <span class="number">0</span>       <span class="comment"># 引用计数 (用于 eviction)</span>
+        self.last_access = <span class="number">0</span>    <span class="comment"># LRU 时间戳</span>
+
+<span class="keyword">class</span> <span class="type">RadixCache</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, kv_pool):
+        self.root = <span class="type">RadixCacheNode</span>()
+        self.kv_pool = kv_pool
+
+    <span class="keyword">def</span> <span class="function">match_prefix</span>(self, token_ids):
+        <span class="string">"""找到最长匹配前缀，返回 (匹配长度, KV blocks)"""</span>
+        node = self.root
+        matched_len = <span class="number">0</span>
+        kv_blocks = []
+
+        <span class="keyword">for</span> token_id <span class="keyword">in</span> token_ids:
+            <span class="keyword">if</span> token_id <span class="keyword">in</span> node.children:
+                node = node.children[token_id]
+                node.ref_count += <span class="number">1</span>
+                node.last_access = <span class="function">current_time</span>()
+                kv_blocks.<span class="function">extend</span>(node.kv_indices)
+                matched_len += <span class="number">1</span>
+            <span class="keyword">else</span>:
+                <span class="keyword">break</span>
+
+        <span class="keyword">return</span> matched_len, kv_blocks
+
+    <span class="keyword">def</span> <span class="function">insert</span>(self, token_ids, kv_blocks):
+        <span class="string">"""插入新的 KV cache 到树中"""</span>
+        node = self.root
+        <span class="keyword">for</span> i, token_id <span class="keyword">in</span> enumerate(token_ids):
+            <span class="keyword">if</span> token_id <span class="keyword">not in</span> node.children:
+                new_node = <span class="type">RadixCacheNode</span>()
+                new_node.kv_indices = [kv_blocks[i]]
+                node.children[token_id] = new_node
+            node = node.children[token_id]
+            node.ref_count += <span class="number">1</span>
+
+    <span class="keyword">def</span> <span class="function">evict_lru</span>(self, num_blocks_needed):
+        <span class="string">"""当内存不足时，按 LRU 策略驱逐"""</span>
+        <span class="comment"># 收集所有叶子节点，按 last_access 排序</span>
+        leaves = self.<span class="function">_collect_leaves</span>(self.root)
+        leaves.<span class="function">sort</span>(key=<span class="keyword">lambda</span> n: n.last_access)
+
+        freed = <span class="number">0</span>
+        <span class="keyword">for</span> leaf <span class="keyword">in</span> leaves:
+            <span class="keyword">if</span> leaf.ref_count == <span class="number">0</span> <span class="keyword">and</span> freed < num_blocks_needed:
+                self.kv_pool.<span class="function">free_blocks</span>(leaf.kv_indices)
+                freed += len(leaf.kv_indices)
+                self.<span class="function">_remove_node</span>(leaf)
+        <span class="keyword">return</span> freed</code></pre>
+
+<h4>Radix Cache 的优势：</h4>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>前缀共享</strong>：相同 system prompt 的请求共享 KV Cache，节省显存</li>
+<li><strong>自动匹配</strong>：新请求自动找到最长匹配前缀，跳过已缓存的 prefill 计算</li>
+<li><strong>LRU 驱逐</strong>：内存不足时按 LRU 策略回收不常用的缓存</li>
+<li><strong>Multi-turn 加速</strong>：多轮对话中前几轮的 KV 被缓存复用</li>
+</ul>
+</div>
+</section>
+
+<!-- Section 4: Scheduler Design -->
+<section id="scheduler" class="fade-in">
+<h2>4.4 Scheduler 设计</h2>
+
+<div class="card">
+<h3>Prefill 与 Decode 的调度矛盾</h3>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/scheduler-evolution/img/overlap.png" alt="Overlap Scheduling" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Overlap Scheduling: CPU 调度与 GPU 计算重叠, 实现零开销调度</div>
+</div>
+
+<p>Prefill 和 Decode 有根本性的计算特性差异，如何在同一 GPU 上高效调度是核心挑战：</p>
+
+<table>
+<thead>
+<tr><th>特性</th><th>Prefill</th><th>Decode</th></tr>
+</thead>
+<tbody>
+<tr><td>计算特征</td><td>Compute-bound (大矩阵乘)</td><td>Memory-bound (读 KV Cache)</td></tr>
+<tr><td>延迟敏感度</td><td>影响 TTFT</td><td>影响 TPOT</td></tr>
+<tr><td>Token 数量</td><td>数百~数千</td><td>1 per step</td></tr>
+<tr><td>GPU 利用模式</td><td>高计算密度</td><td>高带宽需求</td></tr>
+</tbody>
+</table>
+
+<h4>SGLang 的调度策略：</h4>
+<pre><code><span class="keyword">class</span> <span class="type">OverlapScheduler</span>:
+    <span class="string">"""Prefill-Decode Overlap Scheduling"""</span>
+
+    <span class="keyword">def</span> <span class="function">schedule_batch</span>(self):
+        <span class="comment"># 策略: Chunked Prefill + Decode 混合</span>
+        batch = <span class="type">MixedBatch</span>()
+
+        <span class="comment"># 1. 优先加入正在 decode 的请求 (保证 TPOT)</span>
+        <span class="keyword">for</span> req <span class="keyword">in</span> self.running_decode:
+            batch.<span class="function">add_decode_request</span>(req)
+
+        <span class="comment"># 2. 用剩余算力做 prefill (chunked)</span>
+        remaining_budget = self.compute_budget - batch.decode_flops
+        <span class="keyword">for</span> req <span class="keyword">in</span> self.waiting_prefill:
+            chunk_size = <span class="function">min</span>(req.remaining_prefill, remaining_budget)
+            <span class="keyword">if</span> chunk_size > <span class="number">0</span>:
+                batch.<span class="function">add_prefill_chunk</span>(req, chunk_size)
+                remaining_budget -= chunk_size
+
+        <span class="comment"># 3. 拥塞控制: 如果等待队列过长，限制新请求</span>
+        <span class="keyword">if</span> len(self.waiting_prefill) > self.congestion_threshold:
+            self.<span class="function">apply_backpressure</span>()
+
+        <span class="keyword">return</span> batch</code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>Chunked Prefill</h3>
+<p>将长 prompt 的 prefill 分成多个 chunk，每个 chunk 与 decode 请求混合执行。这样既不会因为一个长 prompt 阻塞所有 decode 请求，又能充分利用 GPU 算力：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>降低 TTFT 方差</strong>：长 prompt 不再独占 GPU</li>
+<li><strong>保护 Decode 延迟</strong>：每步 decode 不会被大 prefill 阻塞</li>
+<li><strong>更好的 GPU 利用</strong>：prefill (compute) + decode (memory) 互补</li>
+</ul>
+
+<h4>拥塞控制机制：</h4>
+<p>类似 TCP 的拥塞控制，当系统负载过高时：</p>
+<ol style="margin-left: 20px; margin-top: 10px;">
+<li>监控等待队列长度和 KV Cache 利用率</li>
+<li>超过阈值时减少新接纳的 prefill 请求</li>
+<li>极端情况下触发 preemption (暂停低优先级请求)</li>
+<li>负载降低后逐步恢复接纳速率</li>
+</ol>
+</div>
+</section>
+
+<!-- Section 5: Quantization -->
+<section id="quantization" class="fade-in">
+<h2>4.5 Quantization 概述</h2>
+
+<div class="card">
+<p>Quantization 通过降低权重和/或激活的数值精度来减少模型的内存占用和计算开销。对于 LLM 推理来说，这是在有限 GPU 显存上部署大模型的关键技术。</p>
+
+<div class="anim-container" id="quant-anim">
+<span class="anim-label">Precision Comparison</span>
+<div class="quant-container">
+<p style="margin-bottom:10px;">拖动滑块切换精度级别：</p>
+<input type="range" min="0" max="3" value="1" class="quant-slider" id="quant-slider" oninput="updateQuantDisplay(this.value)">
+<div class="quant-display" id="quant-display">
+<div class="quant-card" id="qcard-0">
+<div class="precision">FP32</div>
+<div class="memory">32 bits/param</div>
+<div class="memory-bar"><div class="fill" style="width:100%"></div></div>
+<div class="memory" style="margin-top:5px;">70B → 280 GB</div>
+</div>
+<div class="quant-card selected" id="qcard-1">
+<div class="precision">FP16/BF16</div>
+<div class="memory">16 bits/param</div>
+<div class="memory-bar"><div class="fill" style="width:50%"></div></div>
+<div class="memory" style="margin-top:5px;">70B → 140 GB</div>
+</div>
+<div class="quant-card" id="qcard-2">
+<div class="precision">FP8</div>
+<div class="memory">8 bits/param</div>
+<div class="memory-bar"><div class="fill" style="width:25%"></div></div>
+<div class="memory" style="margin-top:5px;">70B → 70 GB</div>
+</div>
+<div class="quant-card" id="qcard-3">
+<div class="precision">INT4</div>
+<div class="memory">4 bits/param</div>
+<div class="memory-bar"><div class="fill" style="width:12.5%"></div></div>
+<div class="memory" style="margin-top:5px;">70B → 35 GB</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>常见量化策略</h3>
+<table>
+<thead>
+<tr><th>方法</th><th>权重精度</th><th>激活精度</th><th>特点</th></tr>
+</thead>
+<tbody>
+<tr><td>W16A16</td><td>FP16</td><td>FP16</td><td>基准，无损</td></tr>
+<tr><td>W8A8 (FP8)</td><td>FP8 E4M3</td><td>FP8 E5M2</td><td>H100 原生支持，几乎无损</td></tr>
+<tr><td>W4A16 (GPTQ/AWQ)</td><td>INT4</td><td>FP16</td><td>权重量化，激活保持高精度</td></tr>
+<tr><td>W4A8</td><td>INT4</td><td>INT8</td><td>极致压缩，需要校准</td></tr>
+</tbody>
+</table>
+
+<h4>FP8 量化 (H100 Tensor Core 原生支持)</h4>
+<pre><code><span class="comment"># FP8 E4M3: 1 sign + 4 exponent + 3 mantissa (权重)</span>
+<span class="comment"># FP8 E5M2: 1 sign + 5 exponent + 2 mantissa (梯度/激活)</span>
+<span class="comment"># 范围: E4M3 → [-448, 448], E5M2 → [-57344, 57344]</span>
+
+<span class="keyword">def</span> <span class="function">quantize_to_fp8</span>(tensor, dtype=<span class="string">"e4m3"</span>):
+    <span class="comment"># Per-tensor 或 per-channel scaling</span>
+    scale = tensor.<span class="function">abs</span>().<span class="function">max</span>() / <span class="function">fp8_max</span>(dtype)
+    quantized = (tensor / scale).<span class="function">to</span>(torch.float8_e4m3fn)
+    <span class="keyword">return</span> quantized, scale
+
+<span class="keyword">def</span> <span class="function">fp8_matmul</span>(x_fp8, w_fp8, x_scale, w_scale):
+    <span class="comment"># H100 可以直接做 FP8 矩阵乘, 吞吐是 FP16 的 2x</span>
+    result = torch._scaled_mm(x_fp8, w_fp8.T,
+                              scale_a=x_scale, scale_b=w_scale,
+                              out_dtype=torch.bfloat16)
+    <span class="keyword">return</span> result</code></pre>
+
+<h4>Mixed Precision 策略</h4>
+<p>并非所有层都适合量化。通常的策略：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>Attention QKV/O 投影</strong>：适合 FP8 量化</li>
+<li><strong>FFN 层</strong>：适合 INT4 权重量化 (参数量大)</li>
+<li><strong>LayerNorm</strong>：保持 FP32 (对精度敏感)</li>
+<li><strong>第一层和最后一层</strong>：通常保持高精度</li>
+</ul>
+</div>
+</section>
+
+<!-- Section 6: Speculative Decoding -->
+<section id="speculative" class="fade-in">
+<h2>4.6 Speculative Decoding</h2>
+
+<div class="card">
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/speculative-decoding/withSpec1.png" alt="Speculative Decoding" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Speculative Decoding: Draft model 生成候选 token, Target model 并行验证</div>
+</div>
+
+<p>Speculative Decoding 的核心思想：用一个小而快的 <strong>draft model</strong> 先生成多个候选 token，然后用大的 <strong>target model</strong> 并行验证这些 token。因为验证 N 个 token 的开销与生成 1 个 token 几乎相同 (都是一次 forward pass)，所以当 acceptance rate 足够高时可以显著加速。</p>
+
+<div class="anim-container" id="spec-anim">
+<span class="anim-label">Speculative Decoding Animation</span>
+<div class="spec-container">
+<div class="spec-row">
+<span class="spec-label">Draft Model:</span>
+<span class="spec-token draft" id="spec-d0">The</span>
+<span class="spec-token draft" id="spec-d1">cat</span>
+<span class="spec-token draft" id="spec-d2">sat</span>
+<span class="spec-token draft" id="spec-d3">on</span>
+<span class="spec-token draft" id="spec-d4">the</span>
+</div>
+<div class="spec-row">
+<span class="spec-label">Verification:</span>
+<span class="spec-token" id="spec-v0">The</span>
+<span class="spec-token" id="spec-v1">cat</span>
+<span class="spec-token" id="spec-v2">sat</span>
+<span class="spec-token" id="spec-v3">upon</span>
+<span class="spec-token" id="spec-v4">-</span>
+</div>
+<div class="spec-row">
+<span class="spec-label">结果:</span>
+<span class="spec-token" id="spec-r0">-</span>
+<span class="spec-token" id="spec-r1">-</span>
+<span class="spec-token" id="spec-r2">-</span>
+<span class="spec-token" id="spec-r3">-</span>
+<span class="spec-token" id="spec-r4">-</span>
+</div>
+<div id="spec-summary" style="margin-top:15px; font-size:0.9em; color:#aaa;"></div>
+</div>
+<div style="text-align:center;">
+<button class="btn" onclick="startSpecAnim()">播放动画</button>
+<button class="btn secondary" onclick="resetSpecAnim()">重置</button>
+</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>验证算法</h3>
+<pre><code><span class="keyword">def</span> <span class="function">speculative_decode</span>(target_model, draft_model, prompt, gamma=<span class="number">5</span>):
+    <span class="string">"""
+    gamma: draft 步数 (每次投机生成的 token 数)
+    """</span>
+    generated = []
+
+    <span class="keyword">while not</span> <span class="function">is_finished</span>(generated):
+        <span class="comment"># Step 1: Draft model 快速生成 gamma 个 token</span>
+        draft_tokens = []
+        draft_probs = []
+        <span class="keyword">for</span> _ <span class="keyword">in</span> range(gamma):
+            p_draft = draft_model.<span class="function">forward</span>(prompt + generated + draft_tokens)
+            token = <span class="function">sample</span>(p_draft)
+            draft_tokens.<span class="function">append</span>(token)
+            draft_probs.<span class="function">append</span>(p_draft)
+
+        <span class="comment"># Step 2: Target model 并行验证所有 draft tokens</span>
+        <span class="comment"># 一次 forward pass 验证所有位置!</span>
+        target_probs = target_model.<span class="function">forward_batch</span>(
+            prompt + generated + draft_tokens  <span class="comment"># 并行处理 gamma 个位置</span>
+        )
+
+        <span class="comment"># Step 3: 逐个验证，使用 rejection sampling</span>
+        accepted = <span class="number">0</span>
+        <span class="keyword">for</span> i <span class="keyword">in</span> range(gamma):
+            <span class="comment"># 接受概率: min(1, p_target / p_draft)</span>
+            accept_prob = <span class="function">min</span>(<span class="number">1.0</span>, target_probs[i][draft_tokens[i]] /
+                                     draft_probs[i][draft_tokens[i]])
+            <span class="keyword">if</span> <span class="function">random</span>() < accept_prob:
+                generated.<span class="function">append</span>(draft_tokens[i])
+                accepted += <span class="number">1</span>
+            <span class="keyword">else</span>:
+                <span class="comment"># 拒绝: 从修正分布中采样</span>
+                adjusted_dist = <span class="function">normalize</span>(
+                    <span class="function">max</span>(<span class="number">0</span>, target_probs[i] - draft_probs[i])
+                )
+                generated.<span class="function">append</span>(<span class="function">sample</span>(adjusted_dist))
+                <span class="keyword">break</span>  <span class="comment"># 后续 draft tokens 作废</span>
+        <span class="keyword">else</span>:
+            <span class="comment"># 所有 draft tokens 都被接受，bonus: 再采样一个</span>
+            bonus_token = <span class="function">sample</span>(target_probs[gamma])
+            generated.<span class="function">append</span>(bonus_token)
+
+    <span class="keyword">return</span> generated</code></pre>
+
+<h4>加速比分析</h4>
+<p>设 acceptance rate 为 <em>α</em>，draft 步数为 <em>γ</em>，draft model 速度为 target 的 <em>c</em> 倍：</p>
+<pre><code><span class="comment"># 期望接受的 token 数: E[accepted] = (1 - α^(γ+1)) / (1 - α)</span>
+<span class="comment"># 每轮开销: γ * cost_draft + 1 * cost_target</span>
+<span class="comment"># 加速比 ≈ E[accepted] / (γ * c + 1)</span>
+
+<span class="comment"># 例: α=0.8, γ=5, c=0.1 (draft 是 target 的 10 倍快)</span>
+<span class="comment"># E[accepted] = (1 - 0.8^6) / (1 - 0.8) = 3.36 tokens</span>
+<span class="comment"># 开销 = 5 * 0.1 + 1 = 1.5 (相对 target 单步)</span>
+<span class="comment"># 加速比 = 3.36 / 1.5 = 2.24x</span></code></pre>
+</div>
+</section>
+
+<!-- Section 7: Constraint Decoding -->
+<section id="constraint" class="fade-in">
+<h2>4.7 Constraint Decoding</h2>
+
+<div class="card">
+<h3>结构化输出生成</h3>
+<p>在实际应用中，我们经常需要 LLM 生成符合特定格式的输出（如 JSON、SQL、代码等）。Constraint Decoding 通过在解码过程中动态屏蔽不合法的 token，保证输出始终符合给定的语法规则。</p>
+
+<h4>核心方法：</h4>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>CFG (Context-Free Grammar) 引导</strong>：定义语法规则，解码时只允许合法的下一个 token</li>
+<li><strong>JSON Schema 约束</strong>：根据 JSON Schema 动态计算合法 token mask</li>
+<li><strong>Regex 约束</strong>：基于正则表达式状态机过滤 token</li>
+<li><strong>FSM (Finite State Machine)</strong>：将约束编译为有限状态机，高效查找合法 token</li>
+</ul>
+
+<pre><code><span class="keyword">class</span> <span class="type">JSONConstraintDecoder</span>:
+    <span class="string">"""基于 JSON Schema 的约束解码器"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, schema, tokenizer):
+        self.schema = schema
+        self.tokenizer = tokenizer
+        <span class="comment"># 预编译 schema 为 FSM 状态转移表</span>
+        self.fsm = self.<span class="function">compile_schema_to_fsm</span>(schema)
+        <span class="comment"># 预计算每个状态对应的合法 token mask</span>
+        self.token_masks = self.<span class="function">precompute_masks</span>()
+
+    <span class="keyword">def</span> <span class="function">get_valid_tokens</span>(self, current_state):
+        <span class="string">"""返回当前状态下合法的 token IDs"""</span>
+        <span class="keyword">return</span> self.token_masks[current_state]
+
+    <span class="keyword">def</span> <span class="function">apply_constraint</span>(self, logits, state):
+        <span class="string">"""将非法 token 的 logits 设为 -inf"""</span>
+        valid_mask = self.<span class="function">get_valid_tokens</span>(state)
+        logits[~valid_mask] = <span class="function">float</span>(<span class="string">'-inf'</span>)
+        <span class="keyword">return</span> logits
+
+    <span class="keyword">def</span> <span class="function">decode_step</span>(self, model, input_ids, state):
+        logits = model.<span class="function">forward</span>(input_ids)
+        constrained_logits = self.<span class="function">apply_constraint</span>(logits, state)
+        token = <span class="function">sample</span>(constrained_logits)
+        new_state = self.fsm.<span class="function">transition</span>(state, token)
+        <span class="keyword">return</span> token, new_state</code></pre>
+
+<h4>SGLang 中的优化：</h4>
+<p>SGLang 将 FSM 状态转移与 Radix Cache 结合——相同约束规则下的前缀可以共享 FSM 状态和 token mask 计算结果，避免重复编译。此外，通过 <strong>jump-forward decoding</strong>，当 FSM 确定接下来只有一条合法路径时（如 JSON key 的引号），可以跳过模型推理直接输出。</p>
+</div>
+</section>
+
+<!-- Section 8: Model Loading -->
+<section id="loading" class="fade-in">
+<h2>4.8 Model Loading Pipeline</h2>
+
+<div class="card">
+<h3>从磁盘到 GPU 的完整流程</h3>
+<p>加载一个大型模型涉及多个步骤：权重文件解析 → 权重映射 → Tensor Parallel 切分 → GPU 内存分配 → 量化转换。</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">ModelLoader</span>:
+    <span class="keyword">def</span> <span class="function">load_model</span>(self, model_path, tp_size, dtype=<span class="string">"auto"</span>):
+        <span class="comment"># 1. 解析模型配置</span>
+        config = <span class="function">load_config</span>(model_path / <span class="string">"config.json"</span>)
+
+        <span class="comment"># 2. 创建模型骨架 (空权重)</span>
+        <span class="keyword">with</span> torch.device(<span class="string">"meta"</span>):
+            model = <span class="type">LlamaForCausalLM</span>(config)
+
+        <span class="comment"># 3. 确定权重映射 (safetensors index)</span>
+        weight_map = <span class="function">load_weight_map</span>(model_path / <span class="string">"model.safetensors.index.json"</span>)
+
+        <span class="comment"># 4. Tensor Parallel 切分计划</span>
+        tp_plan = self.<span class="function">compute_tp_plan</span>(config, tp_size)
+        <span class="comment"># 例: {</span>
+        <span class="comment">#   "q_proj.weight": ShardDim(0),   # 按行切分</span>
+        <span class="comment">#   "k_proj.weight": ShardDim(0),   # 按行切分</span>
+        <span class="comment">#   "o_proj.weight": ShardDim(1),   # 按列切分</span>
+        <span class="comment">#   "gate_proj.weight": ShardDim(0),</span>
+        <span class="comment">#   "embed_tokens.weight": Replicate(),  # 复制到所有 rank</span>
+        <span class="comment"># }</span>
+
+        <span class="comment"># 5. 逐 shard 加载 (流式，避免 CPU 内存爆炸)</span>
+        <span class="keyword">for</span> shard_file <span class="keyword">in</span> weight_map.shard_files:
+            tensors = <span class="function">load_safetensors</span>(shard_file)
+            <span class="keyword">for</span> name, tensor <span class="keyword">in</span> tensors.items():
+                <span class="comment"># 按 TP plan 切分</span>
+                <span class="keyword">if</span> name <span class="keyword">in</span> tp_plan:
+                    tensor = self.<span class="function">shard_tensor</span>(
+                        tensor, tp_plan[name], tp_rank, tp_size
+                    )
+                <span class="comment"># 量化转换 (如 FP16 → FP8)</span>
+                <span class="keyword">if</span> dtype != <span class="string">"auto"</span>:
+                    tensor = self.<span class="function">quantize</span>(tensor, dtype)
+                <span class="comment"># 传输到 GPU</span>
+                model.<span class="function">load_weight</span>(name, tensor.to(<span class="string">"cuda"</span>))
+
+        <span class="keyword">return</span> model
+
+    <span class="keyword">def</span> <span class="function">shard_tensor</span>(self, tensor, plan, rank, world_size):
+        <span class="string">"""按 TP plan 切分 tensor"""</span>
+        <span class="keyword">if</span> isinstance(plan, <span class="type">ShardDim</span>):
+            chunks = tensor.<span class="function">chunk</span>(world_size, dim=plan.dim)
+            <span class="keyword">return</span> chunks[rank].<span class="function">contiguous</span>()
+        <span class="keyword">elif</span> isinstance(plan, <span class="type">Replicate</span>):
+            <span class="keyword">return</span> tensor  <span class="comment"># 全量复制</span></code></pre>
+
+<h4>关键优化点：</h4>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li><strong>流式加载</strong>：逐个 shard 文件加载，避免 CPU 内存峰值</li>
+<li><strong>异步 H2D 传输</strong>：CPU → GPU 传输与下一个 shard 的 CPU 加载重叠</li>
+<li><strong>Safetensors 格式</strong>：零拷贝内存映射，按需加载特定 tensor</li>
+<li><strong>预计算切分</strong>：TP plan 提前确定，避免运行时分配</li>
+</ul>
+</div>
+</section>
+
+<!-- Section 9: Exercises -->
+<section id="exercises" class="fade-in">
+<h2>练习题</h2>
+
+<!-- Exercise 1 -->
+<div class="exercise">
+<h4>练习 1: 计算 KV Cache 内存</h4>
+<p>给定以下模型参数，计算单个请求在 sequence length = 4096 时的 KV Cache 内存占用：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>模型: Llama-70B</li>
+<li><code>num_layers</code> = 80</li>
+<li><code>num_kv_heads</code> = 8 (GQA, grouped query attention)</li>
+<li><code>head_dim</code> = 128</li>
+<li><code>sequence_length</code> = 4096</li>
+<li><code>batch_size</code> = 32</li>
+<li>精度: FP16 (2 bytes per element)</li>
+</ul>
+<p style="margin-top:10px;">问题：(a) 单个请求的 KV Cache 大小？ (b) 整个 batch 的 KV Cache 大小？ (c) 如果 GPU 有 80GB 显存，模型权重占 140GB (2x GPU with TP=2, 每卡 70GB)，还剩多少空间给 KV Cache？最大能支持多大 batch？</p>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>KV Cache 内存公式：</p>
+<code>memory = 2 (K+V) * num_layers * num_kv_heads * head_dim * seq_len * bytes_per_element</code>
+<p style="margin-top:5px;">注意 GQA 中 KV heads 数量远小于 Q heads。</p>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (a) 单个请求的 KV Cache</span>
+single_request = <span class="number">2</span> * <span class="number">80</span> * <span class="number">8</span> * <span class="number">128</span> * <span class="number">4096</span> * <span class="number">2</span>  <span class="comment"># bytes</span>
+= <span class="number">2</span> * <span class="number">80</span> * <span class="number">8</span> * <span class="number">128</span> * <span class="number">4096</span> * <span class="number">2</span>
+= <span class="number">2</span> * <span class="number">80</span> * <span class="number">8</span> * <span class="number">128</span> * <span class="number">4096</span> * <span class="number">2</span>
+= <span class="number">1,073,741,824</span> bytes = <span class="number">1 GB</span>
+
+计算过程:
+  K 或 V 单层: 8 * 128 * 4096 * 2 = 8,388,608 bytes = 8 MB
+  K 和 V 单层: 8 MB * 2 = 16 MB
+  所有层: 16 MB * 80 = 1,280 MB ≈ 1.25 GB
+
+更精确: 2 * 80 * 8 * 128 * 4096 * 2 = 1,342,177,280 bytes ≈ <span class="number">1.25 GB</span>
+
+<span class="comment"># (b) 整个 batch</span>
+batch_total = <span class="number">1.25</span> GB * <span class="number">32</span> = <span class="number">40 GB</span>
+
+<span class="comment"># (c) TP=2, 每卡 70GB 权重, 80GB 显存</span>
+available = <span class="number">80</span> - <span class="number">70</span> = <span class="number">10 GB</span> per GPU
+<span class="comment"># 注意: TP=2 时 KV heads 也会被分到 2 卡, 每卡 4 个 KV heads</span>
+per_request_per_gpu = <span class="number">1.25</span> / <span class="number">2</span> = <span class="number">0.625 GB</span>
+max_batch = <span class="number">10</span> / <span class="number">0.625</span> = <span class="number">16</span> 个请求
+
+<span class="comment"># 实际中还需要预留激活内存和临时buffer, 真实可用约 7-8 GB</span>
+realistic_max_batch ≈ <span class="number">12</span> 个请求</code></pre>
+</div>
+</details>
+</div>
+
+<!-- Exercise 2 -->
+<div class="exercise">
+<h4>练习 2: Scheduler 策略设计</h4>
+<p>场景：你有一个 serving 系统，当前状态：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>GPU: H100 (80GB), TP=1</li>
+<li>模型: 7B (FP16, 占 14GB 显存)</li>
+<li>KV Cache pool: 剩余 50GB</li>
+<li>Running batch: 20 个 decode 请求 (平均 seq_len=2000)</li>
+<li>Waiting queue: 5 个 prefill 请求 (prompt_len 分别为 100, 500, 2000, 8000, 32000)</li>
+<li>SLO 要求: TTFT &lt; 2s, TPOT &lt; 50ms</li>
+</ul>
+<p style="margin-top:10px;">问题：(a) 你会如何安排这 5 个 prefill 请求的顺序？ (b) 是否使用 chunked prefill？chunk size 如何选择？ (c) 是否需要 preempt 某些 decode 请求？</p>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>考虑以下因素：</p>
+<ul style="margin-left: 15px;">
+<li>长 prefill (32000 tokens) 会阻塞所有 decode 请求多长时间？</li>
+<li>7B 模型的 prefill 速度大约 20K-50K tokens/s</li>
+<li>TPOT 要求 50ms，如果 prefill 阻塞超过这个时间就会违反 SLO</li>
+<li>KV Cache 需求: 7B 模型约每 token 0.5MB (所有层)</li>
+</ul>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (a) 排序策略: SJF (Shortest Job First) + 内存感知</span>
+<span class="comment"># 优先处理短 prompt, 快速降低等待队列</span>
+order = [100, 500, 2000, 8000, 32000]  <span class="comment"># 按 prompt length 升序</span>
+
+<span class="comment"># (b) Chunked Prefill 分析</span>
+<span class="comment"># 7B 模型 prefill 速度 ≈ 30K tokens/s on H100</span>
+<span class="comment"># TPOT 要求 50ms → 每个 chunk 不能超过 50ms</span>
+<span class="comment"># max_chunk_size = 30000 * 0.05 = 1500 tokens</span>
+
+<span class="comment"># 对于短请求 (100, 500): 一次 prefill 完成, 不需要 chunk</span>
+<span class="comment"># 对于 2000: 分 2 个 chunk (1500 + 500)</span>
+<span class="comment"># 对于 8000: 分 6 个 chunk</span>
+<span class="comment"># 对于 32000: 分 22 个 chunk, 每个 chunk 间插入 decode step</span>
+
+chunk_size = <span class="number">1500</span>  <span class="comment"># tokens, 保证 decode latency < 50ms</span>
+
+<span class="comment"># (c) Preemption 分析</span>
+<span class="comment"># KV Cache 需求:</span>
+<span class="comment"># 当前 decode: 20 * 2000 * 0.5MB ≈ 20 GB</span>
+<span class="comment"># 新 prefill 请求总计: (100+500+2000+8000+32000) * 0.5MB ≈ 21.3 GB</span>
+<span class="comment"># 总需求: 20 + 21.3 = 41.3 GB < 50 GB (够用)</span>
+
+<span class="comment"># 但 32000 的请求单独就需要 16 GB!</span>
+<span class="comment"># 如果后续 decode 增长到 4096, 现有 decode 请求会需要:</span>
+<span class="comment"># 20 * 4096 * 0.5MB = 40 GB → 超出预算!</span>
+
+<span class="comment"># 策略: 暂时不 preempt, 但为 32000 的请求设置低优先级</span>
+<span class="comment"># 如果内存压力增大, 优先 preempt 32000 请求的 decode 阶段</span>
+<span class="comment"># (swap to CPU 或 recompute)</span></code></pre>
+</div>
+</details>
+</div>
+
+<!-- Exercise 3 -->
+<div class="exercise">
+<h4>练习 3: Speculative Decoding 加速比分析</h4>
+<p>给定以下参数：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>Target model: 70B, 单次 forward 延迟 = 50ms</li>
+<li>Draft model: 7B, 单次 forward 延迟 = 8ms</li>
+<li>Draft 步数 γ = 5</li>
+<li>Acceptance rate α = 0.75 (每个 token 被接受的独立概率)</li>
+</ul>
+<p style="margin-top:10px;">问题：(a) 计算期望每轮接受的 token 数 (b) 计算每轮的总延迟 (c) 计算加速比 vs 纯 target model decode (d) 如果 α 降到 0.5，加速比如何变化？值得用 speculative decoding 吗？</p>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>期望接受的 token 数 (包含最后采样的 bonus token 或修正 token):</p>
+<code>E[tokens] = (1 - α^(γ+1)) / (1 - α)</code>
+<p>每轮延迟 = γ * draft_latency + 1 * target_latency (draft 是串行的，target 验证是一次 forward)</p>
+<p>加速比 = E[tokens] * target_latency / round_latency</p>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (a) 期望接受 token 数</span>
+α = <span class="number">0.75</span>, γ = <span class="number">5</span>
+E_tokens = (<span class="number">1</span> - <span class="number">0.75</span>**<span class="number">6</span>) / (<span class="number">1</span> - <span class="number">0.75</span>)
+         = (<span class="number">1</span> - <span class="number">0.178</span>) / <span class="number">0.25</span>
+         = <span class="number">0.822</span> / <span class="number">0.25</span>
+         = <span class="number">3.29</span> tokens per round
+
+<span class="comment"># (b) 每轮延迟</span>
+round_latency = γ * draft_latency + <span class="number">1</span> * target_latency
+              = <span class="number">5</span> * <span class="number">8</span>ms + <span class="number">1</span> * <span class="number">50</span>ms
+              = <span class="number">40</span>ms + <span class="number">50</span>ms
+              = <span class="number">90</span>ms
+
+<span class="comment"># (c) 加速比</span>
+<span class="comment"># 纯 target: 1 token per 50ms</span>
+<span class="comment"># Speculative: 3.29 tokens per 90ms</span>
+throughput_target = <span class="number">1</span> / <span class="number">50</span> = <span class="number">0.02</span> tokens/ms
+throughput_spec = <span class="number">3.29</span> / <span class="number">90</span> = <span class="number">0.0366</span> tokens/ms
+speedup = <span class="number">0.0366</span> / <span class="number">0.02</span> = <span class="number">1.83x</span>
+
+<span class="comment"># 或等价地: speedup = E_tokens * target_latency / round_latency</span>
+speedup = <span class="number">3.29</span> * <span class="number">50</span> / <span class="number">90</span> = <span class="number">1.83x</span>
+
+<span class="comment"># (d) α = 0.5 的情况</span>
+E_tokens_05 = (<span class="number">1</span> - <span class="number">0.5</span>**<span class="number">6</span>) / (<span class="number">1</span> - <span class="number">0.5</span>)
+            = (<span class="number">1</span> - <span class="number">0.0156</span>) / <span class="number">0.5</span>
+            = <span class="number">1.97</span> tokens per round
+
+speedup_05 = <span class="number">1.97</span> * <span class="number">50</span> / <span class="number">90</span> = <span class="number">1.09x</span>
+
+<span class="comment"># α=0.5 时加速比仅 1.09x, 几乎没有收益!</span>
+<span class="comment"># 考虑到额外的工程复杂度和 draft model 的显存开销,</span>
+<span class="comment"># α < 0.6 时通常不值得使用 speculative decoding.</span>
+
+<span class="comment"># 盈亏平衡点: speedup = 1 时</span>
+<span class="comment"># E_tokens * 50 / 90 = 1 → E_tokens = 1.8</span>
+<span class="comment"># (1 - α^6) / (1 - α) = 1.8</span>
+<span class="comment"># α ≈ 0.47 (数值求解)</span>
+<span class="comment"># 即 acceptance rate > 47% 时有加速，但实际需 > 60% 才有显著收益</span></code></pre>
+</div>
+</details>
+</div>
+
+<!-- Exercise 4 -->
+<div class="exercise">
+<h4>练习 4: Radix Cache 命中率计算</h4>
+<p>场景：一个 chatbot 服务，所有请求共享相同的 system prompt (1000 tokens)。请求分布如下：</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>60% 的请求是同一个 FAQ topic 的变体 (共享前缀 1000 + 200 = 1200 tokens)</li>
+<li>25% 的请求是另一个 topic (共享前缀 1000 + 150 = 1150 tokens)</li>
+<li>15% 的请求前缀各不相同 (仅共享 system prompt 1000 tokens)</li>
+<li>平均 user query 长度: 300 tokens (在共享前缀之后)</li>
+<li>Radix Cache 容量：足够缓存所有前缀</li>
+</ul>
+<p style="margin-top:10px;">问题：(a) 计算平均 cache hit 的 token 数 (b) 计算平均需要新计算的 prefill token 数 (c) 相比没有 Radix Cache，prefill 计算量节省了多少？</p>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>对于每类请求：</p>
+<ul style="margin-left: 15px;">
+<li>Type A (60%): 命中 1200 tokens 的前缀</li>
+<li>Type B (25%): 命中 1150 tokens 的前缀</li>
+<li>Type C (15%): 仅命中 1000 tokens 的 system prompt</li>
+</ul>
+<p>平均总 prompt 长度 = 共享前缀 + 剩余 user query</p>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># 各类请求的总 prompt 长度和 cache hit</span>
+
+<span class="comment"># Type A (60%): prefix=1200, total=1200+300=1500</span>
+<span class="comment">#   cache hit: 1200, new compute: 300</span>
+
+<span class="comment"># Type B (25%): prefix=1150, total=1150+300=1450</span>
+<span class="comment">#   cache hit: 1150, new compute: 300</span>
+
+<span class="comment"># Type C (15%): prefix=1000, total=1000+300=1300</span>
+<span class="comment">#   cache hit: 1000, new compute: 300</span>
+
+<span class="comment"># (a) 平均 cache hit tokens</span>
+avg_hit = <span class="number">0.60</span> * <span class="number">1200</span> + <span class="number">0.25</span> * <span class="number">1150</span> + <span class="number">0.15</span> * <span class="number">1000</span>
+        = <span class="number">720</span> + <span class="number">287.5</span> + <span class="number">150</span>
+        = <span class="number">1157.5</span> tokens
+
+<span class="comment"># (b) 平均需要新计算的 tokens</span>
+avg_new_compute = <span class="number">0.60</span> * <span class="number">300</span> + <span class="number">0.25</span> * <span class="number">300</span> + <span class="number">0.15</span> * <span class="number">300</span>
+                = <span class="number">300</span> tokens  <span class="comment"># 恰好就是 user query 长度</span>
+
+<span class="comment"># (c) 节省比例</span>
+<span class="comment"># 无 cache: 平均 prefill 全部 tokens</span>
+avg_total = <span class="number">0.60</span> * <span class="number">1500</span> + <span class="number">0.25</span> * <span class="number">1450</span> + <span class="number">0.15</span> * <span class="number">1300</span>
+          = <span class="number">900</span> + <span class="number">362.5</span> + <span class="number">195</span>
+          = <span class="number">1457.5</span> tokens
+
+<span class="comment"># 有 cache: 只计算未命中部分</span>
+savings = <span class="number">1</span> - avg_new_compute / avg_total
+        = <span class="number">1</span> - <span class="number">300</span> / <span class="number">1457.5</span>
+        = <span class="number">1</span> - <span class="number">0.206</span>
+        = <span class="number">79.4%</span>
+
+<span class="comment"># Radix Cache 节省了约 79% 的 prefill 计算!</span>
+<span class="comment"># 这意味着 TTFT 也大幅降低 (接近 5x 快)</span>
+
+<span class="comment"># 额外思考: 如果 cache 容量有限，优先缓存哪个前缀?</span>
+<span class="comment"># Type A 的前缀 (1200 tokens) 被 60% 的请求使用</span>
+<span class="comment"># 价值 = hit_rate * prefix_len = 0.60 * 1200 = 720</span>
+<span class="comment"># Type B: 0.25 * 1150 = 287.5</span>
+<span class="comment"># System prompt: 1.0 * 1000 = 1000 (被所有请求共享, 最值得缓存!)</span></code></pre>
+</div>
+</details>
+</div>
+
+<!-- Coding Exercise A -->
+<div class="exercise">
+<h4>编程练习 A: 实现简单的 Continuous Batching Scheduler</h4>
+<p>实现一个支持动态插入和完成请求的 Continuous Batching Scheduler。与 Static Batching 不同，Continuous Batching 可以在任意 step 插入新请求、移除已完成的请求，从而大幅提高 GPU 利用率。</p>
+<p style="margin-top:10px;"><strong>要求：</strong></p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>实现 <code>Request</code> 类：包含 prompt_tokens, generated_tokens, max_len, is_done 属性</li>
+<li>实现 <code>Scheduler</code> 类：包含 add_request, step, get_batch 方法</li>
+<li>每个 step 移除 is_done 的请求，从 waiting queue 中插入新请求填充空 slot</li>
+<li>支持配置 max_batch_size</li>
+<li>模拟 10 个请求，展示 slot utilization 随时间变化</li>
+</ul>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>关键思路：</p>
+<ul style="margin-left: 15px;">
+<li>用一个 list 维护 running batch，用另一个 queue 维护 waiting requests</li>
+<li>每个 step: (1) 对 running 中的每个 request 增加 generated_tokens; (2) 标记达到 max_len 的为 done; (3) 移除 done 的; (4) 从 waiting 填充空位</li>
+<li>Slot utilization = len(running) / max_batch_size</li>
+</ul>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<p><strong>Starter Code (带 TODO):</strong></p>
+<pre><code><span class="keyword">import</span> random
+
+<span class="keyword">class</span> <span class="function">Request</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, req_id, prompt_tokens, max_len):
+        self.req_id = req_id
+        self.prompt_tokens = prompt_tokens
+        self.generated_tokens = <span class="number">0</span>
+        self.max_len = max_len
+        self.is_done = <span class="keyword">False</span>
+
+    <span class="keyword">def</span> <span class="function">step</span>(self):
+        <span class="comment"># TODO: 生成一个 token, 检查是否完成</span>
+        <span class="keyword">pass</span>
+
+<span class="keyword">class</span> <span class="function">ContinuousBatchingScheduler</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, max_batch_size):
+        self.max_batch_size = max_batch_size
+        self.running = []
+        self.waiting = []
+        self.completed = []
+
+    <span class="keyword">def</span> <span class="function">add_request</span>(self, request):
+        <span class="comment"># TODO: 添加到 waiting queue</span>
+        <span class="keyword">pass</span>
+
+    <span class="keyword">def</span> <span class="function">step</span>(self):
+        <span class="comment"># TODO: (1) 对 running 中每个请求执行一步</span>
+        <span class="comment"># TODO: (2) 移除已完成的请求到 completed</span>
+        <span class="comment"># TODO: (3) 从 waiting 填充空位</span>
+        <span class="keyword">pass</span>
+
+    <span class="keyword">def</span> <span class="function">get_utilization</span>(self):
+        <span class="comment"># TODO: 返回当前 slot 利用率</span>
+        <span class="keyword">pass</span></code></pre>
+
+<p style="margin-top: 15px;"><strong>完整解答:</strong></p>
+<pre><code><span class="keyword">import</span> random
+
+<span class="keyword">class</span> <span class="function">Request</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, req_id, prompt_tokens, max_len):
+        self.req_id = req_id
+        self.prompt_tokens = prompt_tokens
+        self.generated_tokens = <span class="number">0</span>
+        self.max_len = max_len
+        self.is_done = <span class="keyword">False</span>
+
+    <span class="keyword">def</span> <span class="function">step</span>(self):
+        self.generated_tokens += <span class="number">1</span>
+        <span class="keyword">if</span> self.generated_tokens >= self.max_len:
+            self.is_done = <span class="keyword">True</span>
+
+<span class="keyword">class</span> <span class="function">ContinuousBatchingScheduler</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, max_batch_size):
+        self.max_batch_size = max_batch_size
+        self.running = []
+        self.waiting = []
+        self.completed = []
+
+    <span class="keyword">def</span> <span class="function">add_request</span>(self, request):
+        self.waiting.append(request)
+
+    <span class="keyword">def</span> <span class="function">step</span>(self):
+        <span class="comment"># (1) 每个 running request 生成一个 token</span>
+        <span class="keyword">for</span> req <span class="keyword">in</span> self.running:
+            req.step()
+
+        <span class="comment"># (2) 移除已完成的请求</span>
+        done = [r <span class="keyword">for</span> r <span class="keyword">in</span> self.running <span class="keyword">if</span> r.is_done]
+        self.completed.extend(done)
+        self.running = [r <span class="keyword">for</span> r <span class="keyword">in</span> self.running <span class="keyword">if not</span> r.is_done]
+
+        <span class="comment"># (3) 从 waiting 填充空位</span>
+        free_slots = self.max_batch_size - len(self.running)
+        <span class="keyword">while</span> free_slots > <span class="number">0</span> <span class="keyword">and</span> self.waiting:
+            req = self.waiting.pop(<span class="number">0</span>)
+            self.running.append(req)
+            free_slots -= <span class="number">1</span>
+
+    <span class="keyword">def</span> <span class="function">get_utilization</span>(self):
+        <span class="keyword">return</span> len(self.running) / self.max_batch_size
+
+<span class="comment"># ======== 测试 ========</span>
+random.seed(<span class="number">42</span>)
+scheduler = ContinuousBatchingScheduler(max_batch_size=<span class="number">4</span>)
+
+<span class="comment"># 创建 10 个请求, 不同到达时间和生成长度</span>
+requests = []
+<span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">10</span>):
+    req = Request(
+        req_id=i,
+        prompt_tokens=random.randint(<span class="number">50</span>, <span class="number">200</span>),
+        max_len=random.randint(<span class="number">3</span>, <span class="number">8</span>)  <span class="comment"># 短生成方便观察</span>
+    )
+    requests.append(req)
+
+<span class="comment"># 模拟: 前 5 个立即到达, 后 5 个在 step 5 到达</span>
+<span class="keyword">for</span> req <span class="keyword">in</span> requests[:<span class="number">5</span>]:
+    scheduler.add_request(req)
+
+print(<span class="string">"Step | Running | Waiting | Completed | Utilization"</span>)
+print(<span class="string">"-" * 55</span>)
+
+<span class="keyword">for</span> step <span class="keyword">in</span> range(<span class="number">20</span>):
+    <span class="keyword">if</span> step == <span class="number">5</span>:
+        <span class="keyword">for</span> req <span class="keyword">in</span> requests[<span class="number">5</span>:]:
+            scheduler.add_request(req)
+        print(<span class="string">f"  -- [Step {step}] 5 new requests arrived --"</span>)
+
+    scheduler.step()
+    util = scheduler.get_utilization()
+    print(<span class="string">f"  {step:2d}  |    {len(scheduler.running)}    |    {len(scheduler.waiting)}    |"</span>
+          <span class="string">f"     {len(scheduler.completed)}     |   {util:.0%}"</span>)
+
+    <span class="keyword">if not</span> scheduler.running <span class="keyword">and not</span> scheduler.waiting:
+        print(<span class="string">"  -- All requests completed! --"</span>)
+        <span class="keyword">break</span></code></pre>
+
+<p style="margin-top: 15px;"><strong>预期输出 (示意):</strong></p>
+<pre><code>Step | Running | Waiting | Completed | Utilization
+-------------------------------------------------------
+   0  |    4    |    1    |     0     |   100%
+   1  |    4    |    1    |     0     |   100%
+   2  |    4    |    1    |     0     |   100%
+   3  |    4    |    0    |     1     |   100%
+   4  |    4    |    0    |     1     |   100%
+  -- [Step 5] 5 new requests arrived --
+   5  |    4    |    4    |     2     |   100%
+   6  |    4    |    3    |     3     |   100%
+   ...
+  -- All requests completed! --</code></pre>
+</div>
+</details>
+</div>
+
+<!-- Coding Exercise B -->
+<div class="exercise">
+<h4>编程练习 B: 实现 Speculative Decoding 的 Verification 逻辑</h4>
+<p>Speculative Decoding 使用小模型 (draft model) 快速生成 K 个候选 token，然后用大模型 (target model) 并行验证。核心在于 verification 算法：如何根据 draft 和 target 的概率分布决定 accept/reject。</p>
+<p style="margin-top:10px;"><strong>要求：</strong></p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>给定 draft_probs 和 target_probs (每个 token position 的概率分布)，实现逐 token 验证</li>
+<li>Accept 条件: <code>rand() < min(1, target_p[x] / draft_p[x])</code></li>
+<li>Reject 时从修正分布 <code>max(0, target_p - draft_p)</code> 归一化后采样</li>
+<li>计算 acceptance rate 并与理论值对比</li>
+<li>理论公式: <code>E[accepted] = sum_x min(p(x), q(x))</code>，其中 p 是 target，q 是 draft</li>
+</ul>
+
+<details class="exercise-hint">
+<summary>提示</summary>
+<div class="content">
+<p>关键步骤：</p>
+<ul style="margin-left: 15px;">
+<li>对每个 draft token x_i，计算 acceptance prob = min(1, p(x_i) / q(x_i))</li>
+<li>生成 uniform random，如果 < acceptance prob 则 accept</li>
+<li>一旦某个位置 reject，后续所有 draft tokens 都作废</li>
+<li>在 reject 位置，从 norm(max(0, p - q)) 采样一个新 token</li>
+<li>理论 acceptance rate per token = sum_x min(p(x), q(x)) — 这就是两个分布重叠的面积</li>
+</ul>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<p><strong>Starter Code (带 TODO):</strong></p>
+<pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="keyword">def</span> <span class="function">speculative_verify</span>(draft_tokens, draft_probs, target_probs, vocab_size):
+    <span class="string">"""
+    Args:
+        draft_tokens: list of int, K draft token ids
+        draft_probs: list of np.array, shape (vocab_size,) each
+        target_probs: list of np.array, shape (vocab_size,) each
+        vocab_size: int
+    Returns:
+        accepted_tokens: list of accepted token ids
+        bonus_token: one additional token (from rejection sampling or target)
+    """</span>
+    accepted_tokens = []
+
+    <span class="keyword">for</span> i, token <span class="keyword">in</span> enumerate(draft_tokens):
+        <span class="comment"># TODO: 计算 acceptance probability</span>
+        <span class="comment"># TODO: 决定 accept 或 reject</span>
+        <span class="comment"># TODO: 如果 reject, 从修正分布采样 bonus token</span>
+        <span class="keyword">pass</span>
+
+    <span class="comment"># TODO: 如果所有 draft tokens 都被接受, 从 target 分布采样 bonus token</span>
+    bonus_token = <span class="keyword">None</span>
+    <span class="keyword">return</span> accepted_tokens, bonus_token
+
+<span class="keyword">def</span> <span class="function">theoretical_acceptance_rate</span>(p, q):
+    <span class="string">"""计算理论 acceptance rate = sum min(p(x), q(x))"""</span>
+    <span class="comment"># TODO</span>
+    <span class="keyword">pass</span></code></pre>
+
+<p style="margin-top: 15px;"><strong>完整解答:</strong></p>
+<pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="keyword">def</span> <span class="function">speculative_verify</span>(draft_tokens, draft_probs, target_probs, vocab_size):
+    <span class="string">"""
+    Speculative Decoding verification 算法.
+    Args:
+        draft_tokens: list of int, K draft token ids
+        draft_probs: list of np.array, 每个位置的 draft 概率分布
+        target_probs: list of np.array, 每个位置的 target 概率分布
+        vocab_size: int
+    Returns:
+        accepted_tokens: list of accepted token ids
+        bonus_token: rejection sampling 得到的额外 token
+    """</span>
+    accepted_tokens = []
+
+    <span class="keyword">for</span> i, token <span class="keyword">in</span> enumerate(draft_tokens):
+        q_x = draft_probs[i][token]    <span class="comment"># draft prob of chosen token</span>
+        p_x = target_probs[i][token]   <span class="comment"># target prob of chosen token</span>
+
+        <span class="comment"># Acceptance probability</span>
+        accept_prob = min(<span class="number">1.0</span>, p_x / max(q_x, <span class="number">1e-10</span>))
+
+        <span class="comment"># Accept or reject</span>
+        <span class="keyword">if</span> np.random.random() < accept_prob:
+            accepted_tokens.append(token)
+        <span class="keyword">else</span>:
+            <span class="comment"># Reject: sample from corrected distribution</span>
+            corrected = np.maximum(target_probs[i] - draft_probs[i], <span class="number">0</span>)
+            corrected_sum = corrected.sum()
+            <span class="keyword">if</span> corrected_sum > <span class="number">0</span>:
+                corrected /= corrected_sum
+            <span class="keyword">else</span>:
+                corrected = target_probs[i]  <span class="comment"># fallback</span>
+            bonus_token = np.random.choice(vocab_size, p=corrected)
+            <span class="keyword">return</span> accepted_tokens, bonus_token
+
+    <span class="comment"># 所有 draft tokens 都被 accepted, 从 target 的下一个位置采样</span>
+    <span class="comment"># (这里简化: 用最后一个位置的 target 分布)</span>
+    bonus_token = np.random.choice(vocab_size, p=target_probs[-<span class="number">1</span>])
+    <span class="keyword">return</span> accepted_tokens, bonus_token
+
+<span class="keyword">def</span> <span class="function">theoretical_acceptance_rate</span>(p, q):
+    <span class="string">"""理论 acceptance rate = sum_x min(p(x), q(x))"""</span>
+    <span class="keyword">return</span> np.minimum(p, q).sum()
+
+<span class="comment"># ======== 测试 ========</span>
+np.random.seed(<span class="number">42</span>)
+vocab_size = <span class="number">100</span>
+K = <span class="number">5</span>  <span class="comment"># draft 生成 5 个 token</span>
+
+<span class="comment"># 创建模拟的 draft 和 target 分布</span>
+<span class="comment"># target 更 "peaked", draft 更 "flat" (小模型不够确定)</span>
+<span class="keyword">def</span> <span class="function">make_distribution</span>(vocab_size, temperature):
+    logits = np.random.randn(vocab_size)
+    probs = np.exp(logits / temperature)
+    <span class="keyword">return</span> probs / probs.sum()
+
+<span class="comment"># 重复实验计算 empirical acceptance rate</span>
+num_trials = <span class="number">5000</span>
+total_accepted = <span class="number">0</span>
+theoretical_rates = []
+
+<span class="keyword">for</span> trial <span class="keyword">in</span> range(num_trials):
+    draft_probs = []
+    target_probs = []
+    draft_tokens = []
+
+    <span class="keyword">for</span> k <span class="keyword">in</span> range(K):
+        q = make_distribution(vocab_size, temperature=<span class="number">1.5</span>)  <span class="comment"># draft: flatter</span>
+        p = make_distribution(vocab_size, temperature=<span class="number">0.8</span>)  <span class="comment"># target: sharper</span>
+        draft_probs.append(q)
+        target_probs.append(p)
+        <span class="comment"># Draft model samples from its own distribution</span>
+        draft_tokens.append(np.random.choice(vocab_size, p=q))
+
+    accepted, bonus = speculative_verify(draft_tokens, draft_probs, target_probs, vocab_size)
+    total_accepted += len(accepted)
+
+    <span class="comment"># 计算每个位置的理论 acceptance rate</span>
+    <span class="keyword">for</span> k <span class="keyword">in</span> range(K):
+        theoretical_rates.append(theoretical_acceptance_rate(target_probs[k], draft_probs[k]))
+
+avg_accepted = total_accepted / num_trials
+avg_theoretical_rate = np.mean(theoretical_rates)
+
+print(<span class="string">f"Draft length K = {K}"</span>)
+print(<span class="string">f"Empirical average accepted tokens: {avg_accepted:.2f}"</span>)
+print(<span class="string">f"Theoretical per-token acceptance rate: {avg_theoretical_rate:.3f}"</span>)
+print(<span class="string">f"Theoretical expected accepted (geometric): ~{avg_theoretical_rate/(1-avg_theoretical_rate):.2f}"</span>)
+print(<span class="string">f"\nNote: 实际 accepted tokens 受限于 K={K} 的上界"</span>)
+print(<span class="string">f"Effective speedup ≈ (avg_accepted + 1) / 1 = {avg_accepted + 1:.2f}x"</span>)
+print(<span class="string">f"(+1 因为 reject 时也能通过 rejection sampling 得到一个正确 token)"</span>)</code></pre>
+
+<p style="margin-top: 15px;"><strong>预期输出 (示意):</strong></p>
+<pre><code>Draft length K = 5
+Empirical average accepted tokens: 2.35
+Theoretical per-token acceptance rate: 0.612
+Theoretical expected accepted (geometric): ~1.58
+
+Note: 实际 accepted tokens 受限于 K=5 的上界
+Effective speedup ≈ (avg_accepted + 1) / 1 = 3.35x
+(+1 因为 reject 时也能通过 rejection sampling 得到一个正确 token)</code></pre>
+</div>
+</details>
+</div>
+
+</section>
+
+<!-- JavaScript -->
+<script>
+// ==================== Intersection Observer ====================
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+        }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// ==================== Pipeline Animation ====================
+let pipelineInterval = null;
+function startPipelineAnim() {
+    resetPipelineAnim();
+    const stages = ['stage-tokenize', 'stage-schedule', 'stage-prefill', 'stage-decode', 'stage-detokenize'];
+    let current = 0;
+    pipelineInterval = setInterval(() => {
+        stages.forEach(id => document.getElementById(id).classList.remove('active'));
+        if (current < stages.length) {
+            document.getElementById(stages[current]).classList.add('active');
+            current++;
+        } else {
+            current = 0;
+        }
+    }, 800);
+}
+
+function resetPipelineAnim() {
+    if (pipelineInterval) clearInterval(pipelineInterval);
+    pipelineInterval = null;
+    document.querySelectorAll('.pipeline-stage').forEach(s => s.classList.remove('active'));
+}
+
+// ==================== Batching Animation ====================
+let batchingInterval = null;
+const BATCH_SIZE = 6;
+
+function createBatchSlots() {
+    const staticContainer = document.getElementById('static-slots');
+    const contContainer = document.getElementById('continuous-slots');
+    staticContainer.innerHTML = '';
+    contContainer.innerHTML = '';
+    for (let i = 0; i < BATCH_SIZE; i++) {
+        staticContainer.innerHTML += `<div class="batch-slot"><div class="fill idle" id="static-fill-${i}" style="width:0%"></div></div>`;
+        contContainer.innerHTML += `<div class="batch-slot"><div class="fill idle" id="cont-fill-${i}" style="width:0%"></div></div>`;
+    }
+}
+createBatchSlots();
+
+function startBatchingAnim() {
+    resetBatchingAnim();
+    createBatchSlots();
+
+    // Simulate different request lengths
+    const requestLengths = [80, 50, 95, 30, 70, 60]; // percent of max
+    let staticProgress = [0, 0, 0, 0, 0, 0];
+    let contProgress = [0, 0, 0, 0, 0, 0];
+    let contFinished = [false, false, false, false, false, false];
+    let contQueue = [40, 90, 55, 75]; // additional requests
+    let step = 0;
+
+    batchingInterval = setInterval(() => {
+        step++;
+        let staticActive = 0;
+        let contActive = 0;
+
+        // Static batching: all slots advance together, wait for longest
+        const allDoneStatic = staticProgress.every((p, i) => p >= requestLengths[i]);
+        if (!allDoneStatic) {
+            for (let i = 0; i < BATCH_SIZE; i++) {
+                if (staticProgress[i] < requestLengths[i]) {
+                    staticProgress[i] = Math.min(staticProgress[i] + 5, requestLengths[i]);
+                    const fill = document.getElementById(`static-fill-${i}`);
+                    fill.style.width = staticProgress[i] + '%';
+                    fill.className = 'fill active';
+                    staticActive++;
+                } else {
+                    const fill = document.getElementById(`static-fill-${i}`);
+                    fill.className = 'fill wasted';
+                    fill.style.width = requestLengths[i] + '%';
+                }
+            }
+        }
+
+        // Continuous batching: finished slots get new requests
+        for (let i = 0; i < BATCH_SIZE; i++) {
+            if (!contFinished[i]) {
+                contProgress[i] = Math.min(contProgress[i] + 5, requestLengths[i]);
+                const fill = document.getElementById(`cont-fill-${i}`);
+                fill.style.width = contProgress[i] + '%';
+                fill.className = 'fill active';
+                contActive++;
+
+                if (contProgress[i] >= requestLengths[i]) {
+                    contFinished[i] = true;
+                    // Immediately assign new request from queue
+                    if (contQueue.length > 0) {
+                        setTimeout(() => {
+                            requestLengths[i] = contQueue.shift();
+                            contProgress[i] = 0;
+                            contFinished[i] = false;
+                        }, 200);
+                    }
+                }
+            } else {
+                const fill = document.getElementById(`cont-fill-${i}`);
+                fill.className = 'fill idle';
+                fill.style.width = '0%';
+            }
+        }
+
+        // Update utilization
+        document.getElementById('static-util').querySelector('span').textContent =
+            Math.round(staticActive / BATCH_SIZE * 100) + '%';
+        document.getElementById('continuous-util').querySelector('span').textContent =
+            Math.round(contActive / BATCH_SIZE * 100) + '%';
+
+        if (step > 60) clearInterval(batchingInterval);
+    }, 200);
+}
+
+function resetBatchingAnim() {
+    if (batchingInterval) clearInterval(batchingInterval);
+    batchingInterval = null;
+    createBatchSlots();
+    document.getElementById('static-util').querySelector('span').textContent = '0%';
+    document.getElementById('continuous-util').querySelector('span').textContent = '0%';
+}
+
+// ==================== Radix Tree Visualization ====================
+let radixState = { nodes: [], edges: [] };
+
+function resetRadixTree() {
+    radixState = { nodes: [{ id: 'root', label: 'ROOT', x: 350, y: 30, children: [] }], edges: [] };
+    renderRadixTree();
+    document.getElementById('radix-info').textContent = '树已重置。点击按钮添加请求。';
+}
+
+function addRadixRequest(requestStr) {
+    const parts = requestStr.split(' + ');
+    let currentParent = radixState.nodes[0];
+    let matched = 0;
+    let info = '';
+
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i].trim();
+        let found = false;
+
+        // Check if this part already exists as a child
+        for (const childId of currentParent.children) {
+            const childNode = radixState.nodes.find(n => n.id === childId);
+            if (childNode && childNode.label === part) {
+                found = true;
+                currentParent = childNode;
+                childNode.highlight = true;
+                matched++;
+                break;
+            }
+        }
+
+        if (!found) {
+            // Create new node
+            const newId = 'node_' + Date.now() + '_' + i;
+            const parentNode = currentParent;
+            const childCount = parentNode.children.length;
+            const spreadX = 160;
+            const newX = parentNode.x + (childCount - 0.5) * spreadX;
+            const newY = parentNode.y + 80;
+
+            const newNode = { id: newId, label: part, x: newX, y: newY, children: [], highlight: false };
+            radixState.nodes.push(newNode);
+            radixState.edges.push({ from: parentNode.id, to: newId });
+            parentNode.children.push(newId);
+            currentParent = newNode;
+        }
+    }
+
+    info = `请求 "${requestStr}": 前缀匹配 ${matched}/${parts.length} 段`;
+    if (matched > 0) {
+        info += ` (复用 ${matched} 段已缓存的 KV Cache)`;
+    }
+    if (matched < parts.length) {
+        info += `，新增 ${parts.length - matched} 个节点`;
+    }
+    document.getElementById('radix-info').textContent = info;
+    reLayoutTree();
+    renderRadixTree();
+
+    // Clear highlights after a moment
+    setTimeout(() => {
+        radixState.nodes.forEach(n => n.highlight = false);
+        renderRadixTree();
+    }, 2000);
+}
+
+function reLayoutTree() {
+    // Simple tree layout
+    const root = radixState.nodes[0];
+    const containerWidth = 700;
+    layoutSubtree(root, 0, containerWidth, 30);
+}
+
+function layoutSubtree(node, left, right, y) {
+    node.x = (left + right) / 2;
+    node.y = y;
+    const children = node.children.map(id => radixState.nodes.find(n => n.id === id)).filter(Boolean);
+    if (children.length > 0) {
+        const width = (right - left) / children.length;
+        children.forEach((child, i) => {
+            layoutSubtree(child, left + i * width, left + (i + 1) * width, y + 75);
+        });
+    }
+}
+
+function renderRadixTree() {
+    const svg = document.getElementById('radix-svg');
+    let html = '';
+
+    // Draw edges
+    for (const edge of radixState.edges) {
+        const fromNode = radixState.nodes.find(n => n.id === edge.from);
+        const toNode = radixState.nodes.find(n => n.id === edge.to);
+        if (fromNode && toNode) {
+            html += `<line x1="${fromNode.x}" y1="${fromNode.y + 20}" x2="${toNode.x}" y2="${toNode.y}" stroke="#ff9800" stroke-width="2" opacity="0.7"/>`;
+        }
+    }
+
+    // Draw nodes
+    for (const node of radixState.nodes) {
+        const textLen = node.label.length * 7 + 20;
+        const rx = textLen / 2;
+        const highlightStroke = node.highlight ? '#ffd700' : '#ff9800';
+        const highlightWidth = node.highlight ? '3' : '1.5';
+        const glow = node.highlight ? `<rect x="${node.x - rx}" y="${node.y - 12}" width="${textLen}" height="28" rx="6" fill="none" stroke="#ffd700" stroke-width="2" opacity="0.5"/>` : '';
+        html += `${glow}<rect x="${node.x - rx}" y="${node.y - 12}" width="${textLen}" height="28" rx="6" fill="#2a2a4a" stroke="${highlightStroke}" stroke-width="${highlightWidth}"/>`;
+        html += `<text x="${node.x}" y="${node.y + 5}" text-anchor="middle" fill="#e0e0e0" font-size="11">${node.label}</text>`;
+    }
+
+    svg.innerHTML = html;
+}
+
+resetRadixTree();
+
+// ==================== Speculative Decoding Animation ====================
+let specTimeout = null;
+function startSpecAnim() {
+    resetSpecAnim();
+    const draftTokens = ['The', 'cat', 'sat', 'on', 'the'];
+    const verifyResults = ['accepted', 'accepted', 'accepted', 'rejected', ''];
+    const verifyTokens = ['The', 'cat', 'sat', 'upon', ''];
+    const finalResults = ['accepted', 'accepted', 'accepted', 'rejected', 'skipped'];
+    const finalTokens = ['The', 'cat', 'sat', 'upon', ''];
+
+    let step = 0;
+    function animStep() {
+        if (step < 5) {
+            // Show draft tokens appearing
+            const dEl = document.getElementById(`spec-d${step}`);
+            dEl.classList.add('visible');
+            step++;
+            specTimeout = setTimeout(animStep, 400);
+        } else if (step < 10) {
+            // Show verification
+            const i = step - 5;
+            const vEl = document.getElementById(`spec-v${i}`);
+            vEl.textContent = verifyTokens[i] || '-';
+            if (verifyResults[i] === 'accepted') {
+                vEl.className = 'spec-token accepted visible';
+            } else if (verifyResults[i] === 'rejected') {
+                vEl.className = 'spec-token rejected visible';
+            } else {
+                vEl.className = 'spec-token visible';
+                vEl.style.opacity = '0.3';
+            }
+            step++;
+            specTimeout = setTimeout(animStep, 500);
+        } else if (step < 15) {
+            // Show final result
+            const i = step - 10;
+            const rEl = document.getElementById(`spec-r${i}`);
+            if (finalResults[i] === 'accepted') {
+                rEl.textContent = '✓ Accept';
+                rEl.className = 'spec-token accepted visible';
+            } else if (finalResults[i] === 'rejected') {
+                rEl.textContent = '✗ Reject → "upon"';
+                rEl.className = 'spec-token rejected visible';
+            } else {
+                rEl.textContent = '- Skip';
+                rEl.className = 'spec-token visible';
+                rEl.style.opacity = '0.4';
+            }
+            step++;
+            specTimeout = setTimeout(animStep, 400);
+        } else {
+            document.getElementById('spec-summary').innerHTML =
+                'Result: 接受了 3/5 个 draft tokens + 1 个修正 token = <strong style="color:#ffd700;">4 tokens in 1 verification pass</strong><br>' +
+                'Acceptance rate: 60% | 加速效果: 从 4 次 target forward 降到 1 次';
+        }
+    }
+    animStep();
+}
+
+function resetSpecAnim() {
+    if (specTimeout) clearTimeout(specTimeout);
+    specTimeout = null;
+    for (let i = 0; i < 5; i++) {
+        const dEl = document.getElementById(`spec-d${i}`);
+        dEl.className = 'spec-token draft';
+        const vEl = document.getElementById(`spec-v${i}`);
+        vEl.className = 'spec-token';
+        vEl.textContent = '-';
+        vEl.style.opacity = '';
+        const rEl = document.getElementById(`spec-r${i}`);
+        rEl.className = 'spec-token';
+        rEl.textContent = '-';
+        rEl.style.opacity = '';
+    }
+    document.getElementById('spec-summary').innerHTML = '';
+}
+
+// ==================== Quantization Slider ====================
+function updateQuantDisplay(value) {
+    const idx = parseInt(value);
+    document.querySelectorAll('.quant-card').forEach((card, i) => {
+        card.classList.toggle('selected', i === idx);
+    });
+}
+
+// ==================== Auto-start pipeline on scroll ====================
+const pipelineObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting && !pipelineInterval) {
+            startPipelineAnim();
+        }
+    });
+}, { threshold: 0.5 });
+
+const pipelineEl = document.getElementById('pipeline-anim');
+if (pipelineEl) pipelineObserver.observe(pipelineEl);
+</script>
+
+</body>
+</html>

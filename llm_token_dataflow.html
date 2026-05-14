@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPU 解剖 & LLM Token Data Flow</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #08080f;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        /* === SECTION LAYOUT === */
+        .page-section {
+            min-height: 100vh;
+            padding: 60px 30px;
+            position: relative;
+        }
+        .section-title {
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #00d2ff, #7b2ff7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .section-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 50px;
+            font-size: 0.95em;
+        }
+
+        /* === GPU DIE DIAGRAM === */
+        .gpu-die {
+            max-width: 1000px;
+            margin: 0 auto;
+            position: relative;
+            background: #0c0c18;
+            border: 3px solid #1a1a3a;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 60px rgba(0,210,255,0.05), inset 0 0 30px rgba(0,0,0,0.5);
+        }
+        .gpu-die::before {
+            content: 'H100 GPU Die (814mm²)';
+            position: absolute;
+            top: -14px;
+            left: 30px;
+            background: #08080f;
+            padding: 0 12px;
+            font-size: 0.8em;
+            color: #555;
+        }
+
+        .gpu-die-layout {
+            display: grid;
+            grid-template-columns: 80px 1fr 80px;
+            grid-template-rows: auto;
+            gap: 15px;
+            min-height: 600px;
+        }
+
+        /* HBM stacks on sides */
+        .hbm-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            justify-content: center;
+        }
+        .hbm-chip {
+            background: linear-gradient(135deg, #1a0a0a, #2a1515);
+            border: 2px solid #ff6b6b;
+            border-radius: 8px;
+            padding: 10px 6px;
+            text-align: center;
+            font-size: 0.65em;
+            color: #ff6b6b;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .hbm-chip:hover, .hbm-chip.active {
+            background: rgba(255,107,107,0.15);
+            box-shadow: 0 0 15px rgba(255,107,107,0.4);
+            transform: scale(1.05);
+        }
+        .hbm-chip .hbm-label { font-weight: bold; font-size: 1.1em; }
+        .hbm-chip .hbm-spec { color: #aa5555; margin-top: 3px; }
+
+        /* Central compute area */
+        .compute-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* Memory Controllers */
+        .mem-ctrl-bar {
+            background: linear-gradient(90deg, rgba(255,217,61,0.1), rgba(255,217,61,0.05));
+            border: 1px solid #ffd93d;
+            border-radius: 6px;
+            padding: 8px 15px;
+            text-align: center;
+            font-size: 0.75em;
+            color: #ffd93d;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mem-ctrl-bar:hover, .mem-ctrl-bar.active {
+            background: rgba(255,217,61,0.15);
+            box-shadow: 0 0 12px rgba(255,217,61,0.3);
+        }
+
+        /* L2 Cache */
+        .l2-cache-bar {
+            background: linear-gradient(90deg, rgba(255,165,0,0.08), rgba(255,165,0,0.03));
+            border: 1px solid #ffa500;
+            border-radius: 6px;
+            padding: 10px 15px;
+            text-align: center;
+            font-size: 0.75em;
+            color: #ffa500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .l2-cache-bar:hover, .l2-cache-bar.active {
+            background: rgba(255,165,0,0.15);
+            box-shadow: 0 0 12px rgba(255,165,0,0.3);
+        }
+
+        /* GPC / SM Grid */
+        .gpc-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 6px;
+            flex: 1;
+        }
+        .sm-unit {
+            background: #0f0f20;
+            border: 1px solid #2a2a4a;
+            border-radius: 6px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6em;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            min-height: 70px;
+        }
+        .sm-unit:hover, .sm-unit.active {
+            border-color: #6bff6b;
+            background: rgba(107,255,107,0.05);
+            box-shadow: 0 0 10px rgba(107,255,107,0.2);
+        }
+        .sm-unit .sm-label {
+            color: #6bff6b;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        .sm-unit .sm-sub {
+            display: flex;
+            gap: 2px;
+            margin-top: 3px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .sm-sub-item {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        .sm-sub-item.tc { background: #c77dff; }
+        .sm-sub-item.cuda-c { background: #ff9f43; }
+        .sm-sub-item.sram-c { background: #6bff6b; }
+        .sm-unit.active .sm-sub-item.tc { box-shadow: 0 0 4px #c77dff; }
+        .sm-unit.active .sm-sub-item.cuda-c { box-shadow: 0 0 4px #ff9f43; }
+
+        /* Crossbar / Interconnect */
+        .crossbar {
+            background: linear-gradient(90deg, rgba(0,210,255,0.05), rgba(123,47,247,0.05));
+            border: 1px dashed #00d2ff;
+            border-radius: 6px;
+            padding: 6px 15px;
+            text-align: center;
+            font-size: 0.7em;
+            color: #00d2ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .crossbar:hover, .crossbar.active {
+            background: rgba(0,210,255,0.1);
+            box-shadow: 0 0 12px rgba(0,210,255,0.3);
+        }
+
+        /* === SM ZOOM DIAGRAM === */
+        .sm-zoom {
+            max-width: 900px;
+            margin: 50px auto 0;
+            background: #0c0c18;
+            border: 2px solid #6bff6b;
+            border-radius: 16px;
+            padding: 25px;
+            position: relative;
+        }
+        .sm-zoom::before {
+            content: 'Streaming Multiprocessor (SM) 内部结构';
+            position: absolute;
+            top: -12px;
+            left: 25px;
+            background: #08080f;
+            padding: 0 10px;
+            font-size: 0.8em;
+            color: #6bff6b;
+        }
+        .sm-zoom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 700px) {
+            .sm-zoom-grid { grid-template-columns: 1fr; }
+            .gpu-die-layout { grid-template-columns: 1fr; }
+            .hbm-stack { flex-direction: row; }
+            .gpc-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+
+        .sm-zoom-part {
+            border: 1px solid #2a2a4a;
+            border-radius: 10px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .sm-zoom-part:hover {
+            border-color: currentColor;
+            box-shadow: 0 0 12px currentColor;
+        }
+        .sm-zoom-part .szp-title {
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 8px;
+        }
+        .sm-zoom-part .szp-desc {
+            font-size: 0.8em;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        .sm-zoom-part .szp-visual {
+            display: flex;
+            gap: 3px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .szp-box {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        #szp-tc { color: #c77dff; border-color: #c77dff; }
+        #szp-cuda { color: #ff9f43; border-color: #ff9f43; }
+        #szp-sram { color: #6bff6b; border-color: #6bff6b; }
+        #szp-reg { color: #6bb5ff; border-color: #6bb5ff; }
+        #szp-warp { color: #00d2ff; border-color: #00d2ff; }
+        #szp-ldst { color: #ffd93d; border-color: #ffd93d; }
+
+        /* === MEMORY HIERARCHY DIAGRAM === */
+        .mem-hierarchy {
+            max-width: 800px;
+            margin: 50px auto 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+        }
+        .mem-level {
+            width: 100%;
+            padding: 18px 24px;
+            border-radius: 10px;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mem-level:hover { transform: scale(1.02); }
+        .mem-level-name { font-weight: bold; font-size: 1em; }
+        .mem-level-stats {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            margin-top: 6px;
+            font-size: 0.8em;
+        }
+        .mem-level-stat { color: #aaa; }
+        .mem-level-stat strong { color: inherit; }
+        .mem-connector {
+            width: 4px;
+            height: 25px;
+            background: linear-gradient(to bottom, var(--from), var(--to));
+            position: relative;
+        }
+        .mem-connector-label {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7em;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        #mem-hbm { background: rgba(255,107,107,0.1); border: 1px solid #ff6b6b; color: #ff6b6b; }
+        #mem-l2 { background: rgba(255,165,0,0.1); border: 1px solid #ffa500; color: #ffa500; width: 75%; }
+        #mem-sram { background: rgba(107,255,107,0.1); border: 1px solid #6bff6b; color: #6bff6b; width: 55%; }
+        #mem-reg { background: rgba(107,181,255,0.1); border: 1px solid #6bb5ff; color: #6bb5ff; width: 40%; }
+        #mem-alu { background: rgba(199,125,255,0.1); border: 1px solid #c77dff; color: #c77dff; width: 30%; }
+
+        /* === DATA FLOW ANIMATION SECTION === */
+        .flow-gpu-wrapper {
+            max-width: 1100px;
+            margin: 0 auto;
+            position: relative;
+        }
+        .flow-gpu-simplified {
+            display: grid;
+            grid-template-columns: 100px 1fr 100px;
+            gap: 10px;
+            min-height: 450px;
+            background: #0c0c18;
+            border: 2px solid #1a1a3a;
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+        }
+        .flow-hbm-side {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            justify-content: center;
+        }
+        .flow-hbm-block {
+            background: rgba(255,107,107,0.08);
+            border: 1px solid #ff6b6b;
+            border-radius: 6px;
+            padding: 8px 4px;
+            font-size: 0.6em;
+            text-align: center;
+            color: #ff6b6b;
+            transition: all 0.5s;
+        }
+        .flow-hbm-block.active {
+            background: rgba(255,107,107,0.25);
+            box-shadow: 0 0 12px rgba(255,107,107,0.5);
+        }
+        .flow-center {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .flow-l2 {
+            background: rgba(255,165,0,0.06);
+            border: 1px solid rgba(255,165,0,0.4);
+            border-radius: 6px;
+            padding: 6px;
+            text-align: center;
+            font-size: 0.7em;
+            color: #ffa500;
+            transition: all 0.5s;
+        }
+        .flow-l2.active {
+            background: rgba(255,165,0,0.2);
+            box-shadow: 0 0 10px rgba(255,165,0,0.4);
+        }
+        .flow-sm-area {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 5px;
+            flex: 1;
+        }
+        .flow-sm {
+            background: #0f0f20;
+            border: 1px solid #2a2a4a;
+            border-radius: 5px;
+            padding: 5px;
+            font-size: 0.55em;
+            text-align: center;
+            transition: all 0.5s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .flow-sm.active {
+            border-color: #6bff6b;
+            background: rgba(107,255,107,0.1);
+            box-shadow: 0 0 8px rgba(107,255,107,0.3);
+        }
+        .flow-sm .fsm-tc {
+            width: 16px; height: 6px;
+            background: #2a2a4a;
+            border-radius: 2px;
+            transition: all 0.5s;
+        }
+        .flow-sm.active .fsm-tc {
+            background: #c77dff;
+            box-shadow: 0 0 5px #c77dff;
+        }
+        .flow-sm .fsm-sram {
+            width: 16px; height: 4px;
+            background: #1a1a2a;
+            border-radius: 2px;
+            transition: all 0.5s;
+        }
+        .flow-sm.active .fsm-sram {
+            background: #6bff6b;
+            box-shadow: 0 0 4px #6bff6b;
+        }
+
+        /* Data packets animation */
+        .data-packet {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            opacity: 0;
+            transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
+            pointer-events: none;
+        }
+        .data-packet.visible { opacity: 1; }
+        .data-packet.weight { background: #ff6b6b; box-shadow: 0 0 8px #ff6b6b; }
+        .data-packet.activation { background: #00d2ff; box-shadow: 0 0 8px #00d2ff; }
+        .data-packet.kv { background: #ffd93d; box-shadow: 0 0 8px #ffd93d; }
+
+        /* Flow step info */
+        .flow-info-panel {
+            margin-top: 20px;
+            background: #111122;
+            border-radius: 12px;
+            padding: 20px 24px;
+            border: 1px solid #2a2a4a;
+            min-height: 120px;
+        }
+        .flow-info-title {
+            font-size: 1.1em;
+            font-weight: bold;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .flow-info-desc {
+            font-size: 0.88em;
+            color: #bbb;
+            line-height: 1.6;
+        }
+        .flow-info-tags {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .flow-info-tag {
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+        .fit-hbm { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+        .fit-tc { background: rgba(199,125,255,0.2); color: #c77dff; }
+        .fit-cuda { background: rgba(255,159,67,0.2); color: #ff9f43; }
+        .fit-sram { background: rgba(107,255,107,0.2); color: #6bff6b; }
+        .fit-l2 { background: rgba(255,165,0,0.2); color: #ffa500; }
+        .fit-mem { background: rgba(255,107,107,0.15); color: #ff8888; border: 1px solid rgba(255,107,107,0.3); }
+        .fit-comp { background: rgba(107,255,107,0.15); color: #88ff88; border: 1px solid rgba(107,255,107,0.3); }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .ctrl-btn {
+            background: #00d2ff;
+            color: #000;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .ctrl-btn:hover { background: #33ddff; transform: translateY(-1px); }
+        .ctrl-btn.danger { background: #ff6b6b; }
+        .ctrl-btn.danger:hover { background: #ff8888; }
+        .ctrl-progress {
+            font-size: 0.85em;
+            color: #888;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        /* Explanation cards */
+        .explain-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 40px auto 0;
+        }
+        .explain-card {
+            background: #111122;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #2a2a4a;
+            transition: all 0.3s;
+        }
+        .explain-card:hover {
+            border-color: #3a3a6a;
+            transform: translateY(-2px);
+        }
+        .explain-card-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+        }
+        .explain-card-body {
+            font-size: 0.82em;
+            color: #aaa;
+            line-height: 1.6;
+        }
+
+        /* Section divider */
+        .section-divider {
+            border: none;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #2a2a4a, transparent);
+            margin: 0;
+        }
+
+        /* Nav dots */
+        .nav-dots {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 100;
+        }
+        .nav-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #2a2a4a;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .nav-dot:hover { background: #00d2ff; transform: scale(1.3); }
+        .nav-dot.active { background: #00d2ff; box-shadow: 0 0 8px #00d2ff; }
+    </style>
+</head>
+<body>
+
+<!-- Nav dots -->
+<div class="nav-dots">
+    <div class="nav-dot active" onclick="scrollToSection(0)" title="GPU 全貌"></div>
+    <div class="nav-dot" onclick="scrollToSection(1)" title="SM 内部"></div>
+    <div class="nav-dot" onclick="scrollToSection(2)" title="内存层级"></div>
+    <div class="nav-dot" onclick="scrollToSection(3)" title="数据流动"></div>
+</div>
+
+<!-- ============ SECTION 1: GPU Die Overview ============ -->
+<div class="page-section" id="sec-0">
+    <h1 class="section-title">Part 1: GPU 芯片全貌</h1>
+    <p class="section-subtitle">H100 SXM — 814mm², 132 个 SM, 80GB HBM3, 3.35 TB/s 带宽</p>
+
+    <div class="gpu-die">
+        <div class="gpu-die-layout">
+            <!-- Left HBM -->
+            <div class="hbm-stack">
+                <div class="hbm-chip" onclick="showExplain('hbm')">
+                    <div class="hbm-label">HBM3</div>
+                    <div class="hbm-spec">20GB</div>
+                </div>
+                <div class="hbm-chip" onclick="showExplain('hbm')">
+                    <div class="hbm-label">HBM3</div>
+                    <div class="hbm-spec">20GB</div>
+                </div>
+                <div class="hbm-chip" onclick="showExplain('hbm')">
+                    <div class="hbm-label">HBM3</div>
+                    <div class="hbm-spec">20GB</div>
+                </div>
+            </div>
+
+            <!-- Center: Compute -->
+            <div class="compute-area">
+                <div class="mem-ctrl-bar" onclick="showExplain('memctrl')">Memory Controller × 6 — 连接 HBM ↔ L2 — 总 BW: 3.35 TB/s</div>
+                <div class="l2-cache-bar" onclick="showExplain('l2')">L2 Cache — 50MB — 所有 SM 共享 — 带宽 ~12 TB/s</div>
+                <div class="crossbar" onclick="showExplain('crossbar')">Crossbar / NoC (片上网络) — SM ↔ L2 ↔ Memory Controller 互联</div>
+
+                <div class="gpc-grid" id="sm-grid">
+                    <!-- 32 SM units rendered here -->
+                </div>
+
+                <div class="crossbar" onclick="showExplain('nvlink')">NVLink 4.0 × 18 — 总 900 GB/s — 连接其他 GPU (Tensor Parallelism)</div>
+            </div>
+
+            <!-- Right HBM -->
+            <div class="hbm-stack">
+                <div class="hbm-chip" onclick="showExplain('hbm')">
+                    <div class="hbm-label">HBM3</div>
+                    <div class="hbm-spec">20GB</div>
+                </div>
+                <div class="hbm-chip" onclick="showExplain('hbm')">
+                    <div class="hbm-label">HBM3</div>
+                    <div class="hbm-spec">10GB</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Explain area -->
+    <div id="die-explain" style="max-width:1000px; margin:20px auto; min-height:80px; padding:16px 20px; background:#111122; border-radius:10px; border:1px solid #2a2a4a; font-size:0.88em; color:#bbb; transition: all 0.3s;">
+        <span style="color:#666;">点击上图任意组件查看详细说明</span>
+    </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ============ SECTION 2: SM Zoom ============ -->
+<div class="page-section" id="sec-1">
+    <h1 class="section-title">Part 2: SM (流处理器) 内部</h1>
+    <p class="section-subtitle">每个 SM 是 GPU 的基本计算单元 — 里面包含 Tensor Cores、CUDA Cores、SRAM 和调度器</p>
+
+    <div class="sm-zoom">
+        <div class="sm-zoom-grid">
+            <div class="sm-zoom-part" id="szp-warp">
+                <div class="szp-title">Warp Scheduler × 4</div>
+                <div class="szp-desc">
+                    每个 SM 有 4 个 Warp 调度器，每个管理多个 <strong>Warp</strong>（32 线程为一组）。<br>
+                    当一个 Warp 等待内存时，调度器立刻切换到另一个就绪的 Warp（<strong>延迟隐藏</strong>）。<br>
+                    每 SM 最多同时管理 64 个 Warp = 2048 个线程。
+                </div>
+                <div class="szp-visual">
+                    <div style="display:flex;gap:2px;"><div class="szp-box" style="background:#00d2ff;width:20px;"></div><span style="font-size:0.7em;color:#888;margin-left:4px;">= 1 Warp (32 threads)</span></div>
+                </div>
+            </div>
+
+            <div class="sm-zoom-part" id="szp-tc">
+                <div class="szp-title">Tensor Cores × 4 (4th Gen)</div>
+                <div class="szp-desc">
+                    专为矩阵乘法设计的硬件单元。每个 Tensor Core 每周期可算一个 <strong>4×4 矩阵 FMA</strong>。<br>
+                    支持 FP16、BF16、FP8、INT8 格式。<br>
+                    <strong>LLM 中几乎所有 Linear 层都在这里算。</strong><br>
+                    输入从 Register File 读取，结果写回 Register。
+                </div>
+                <div class="szp-visual">
+                    <div class="szp-box" style="background:#c77dff;"></div>
+                    <div class="szp-box" style="background:#c77dff;"></div>
+                    <div class="szp-box" style="background:#c77dff;"></div>
+                    <div class="szp-box" style="background:#c77dff;"></div>
+                </div>
+            </div>
+
+            <div class="sm-zoom-part" id="szp-cuda">
+                <div class="szp-title">CUDA Cores (FP32) × 128</div>
+                <div class="szp-desc">
+                    通用浮点运算单元（ALU）。处理<strong>逐元素操作</strong>：<br>
+                    加法、RMSNorm、GeLU/SiLU 激活、softmax、RoPE 位置编码等。<br>
+                    每周期 1 个 FP32 FMA / core。<br>
+                    比 Tensor Core 灵活但慢得多（做矩阵乘法效率极低）。
+                </div>
+                <div class="szp-visual">
+                    <script>document.write(Array(16).fill('<div class="szp-box" style="background:#ff9f43;"></div>').join(''))</script>
+                    <span style="font-size:0.6em;color:#888;margin-left:4px;">× 8 = 128</span>
+                </div>
+            </div>
+
+            <div class="sm-zoom-part" id="szp-sram">
+                <div class="szp-title">Shared Memory / L1 (SRAM) — 228KB</div>
+                <div class="szp-desc">
+                    SM 内的<strong>高速暂存区</strong>，程序员可显式管理。<br>
+                    Flash Attention 的核心：把 K、V 分块加载到这里，在 SRAM 中完成 QK<sup>T</sup> + softmax + ×V，
+                    避免写回 HBM。<br>
+                    带宽 ~30 TB/s（是 HBM 的 9×），延迟 ~30 cycle。<br>
+                    <strong>大小是主要限制</strong> — 只有 228KB，放不下整个 KV Cache。
+                </div>
+            </div>
+
+            <div class="sm-zoom-part" id="szp-reg">
+                <div class="szp-title">Register File — 256KB</div>
+                <div class="szp-desc">
+                    每个线程的<strong>私有超高速存储</strong>。Tensor Core 和 CUDA Core 直接从这里读/写操作数。<br>
+                    延迟 ~1 cycle，带宽 ~60 TB/s。<br>
+                    每线程最多 255 个 32-bit 寄存器。<br>
+                    <strong>寄存器压力</strong>：用太多 → 能同时跑的 Warp 数变少 → 延迟隐藏效果变差。
+                </div>
+            </div>
+
+            <div class="sm-zoom-part" id="szp-ldst">
+                <div class="szp-title">Load/Store Units × 32</div>
+                <div class="szp-desc">
+                    负责所有<strong>内存读写操作</strong>。每次 memory request 经过:<br>
+                    1. 先查 L1/Shared Memory<br>
+                    2. Miss → 查 L2 Cache<br>
+                    3. Miss → 去 HBM<br>
+                    32 个 LD/ST unit 意味着每周期可发起 32 个 memory transaction。<br>
+                    <strong>LLM decode 时，大部分时间都在等这些 unit 把权重从 HBM 搬进来。</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="explain-grid">
+        <div class="explain-card">
+            <div class="explain-card-title" style="color:#c77dff;">Tensor Core vs CUDA Core</div>
+            <div class="explain-card-body">
+                Tensor Core: 专做 <code>D = A×B + C</code> 的矩阵 FMA，一拍算 4×4 矩阵。<br>
+                CUDA Core: 一拍算 1 个标量乘加。<br><br>
+                <strong>做 4×4 矩阵乘法：</strong><br>
+                Tensor Core: 1 个周期<br>
+                CUDA Cores: 需要 64 次乘 + 48 次加 = 很多周期<br><br>
+                所以 LLM 的 Linear 层全用 Tensor Core，逐元素操作用 CUDA Core。
+            </div>
+        </div>
+        <div class="explain-card">
+            <div class="explain-card-title" style="color:#6bff6b;">为什么 SRAM 这么重要？</div>
+            <div class="explain-card-body">
+                HBM: 80GB 但 3.35TB/s<br>
+                SRAM: 每 SM 228KB 但 ~30TB/s<br><br>
+                <strong>Flash Attention 的秘密：</strong>把数据尽量留在 SRAM 中计算，避免来回读写 HBM。<br>
+                朴素 Attention: Q×K<sup>T</sup> 结果写回 HBM → 读回做 softmax → 写回 → 读回乘 V<br>
+                Flash: 分块全在 SRAM 中完成，HBM 只读一次 K、V。
+            </div>
+        </div>
+        <div class="explain-card">
+            <div class="explain-card-title" style="color:#00d2ff;">Warp 和延迟隐藏</div>
+            <div class="explain-card-body">
+                HBM 读取延迟 ~400ns ≈ 数百个时钟周期。<br>
+                如果只有 1 个线程组在跑，GPU 大部分时间在<strong>等内存</strong>。<br><br>
+                <strong>解决：</strong>每 SM 放 64 个 Warp，当一个 Warp 等内存时，调度器瞬间切换到另一个已经准备好的 Warp。<br>
+                结果：虽然每个 Warp 都要等，但 GPU 整体一直在忙。<br>
+                <strong>这就是 GPU 的核心设计哲学 — 用并发换延迟。</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ============ SECTION 3: Memory Hierarchy ============ -->
+<div class="page-section" id="sec-2">
+    <h1 class="section-title">Part 3: 内存层级</h1>
+    <p class="section-subtitle">从最远的 HBM 到最近的 Register — 越近越快但越小</p>
+
+    <div class="mem-hierarchy">
+        <div class="mem-level" id="mem-hbm">
+            <div class="mem-level-name">HBM3 (显存)</div>
+            <div class="mem-level-stats">
+                <div class="mem-level-stat"><strong>80 GB</strong> 容量</div>
+                <div class="mem-level-stat"><strong>3.35 TB/s</strong> 带宽</div>
+                <div class="mem-level-stat"><strong>~400 ns</strong> 延迟</div>
+            </div>
+            <div style="font-size:0.75em; color:#aa5555; margin-top:6px;">存放: 模型权重 + KV Cache + 激活值 + 优化器状态</div>
+        </div>
+        <div class="mem-connector" style="--from:#ff6b6b; --to:#ffa500;">
+            <div class="mem-connector-label">Memory Controller (6×) 3.35TB/s ↕</div>
+        </div>
+        <div class="mem-level" id="mem-l2">
+            <div class="mem-level-name">L2 Cache</div>
+            <div class="mem-level-stats">
+                <div class="mem-level-stat"><strong>50 MB</strong></div>
+                <div class="mem-level-stat"><strong>~12 TB/s</strong></div>
+                <div class="mem-level-stat"><strong>~150 ns</strong></div>
+            </div>
+            <div style="font-size:0.75em; color:#aa7700; margin-top:6px;">所有 SM 共享 | 缓存热数据: RoPE表、小权重、频繁访问的 KV</div>
+        </div>
+        <div class="mem-connector" style="--from:#ffa500; --to:#6bff6b;">
+            <div class="mem-connector-label">NoC Crossbar ~12TB/s ↕</div>
+        </div>
+        <div class="mem-level" id="mem-sram">
+            <div class="mem-level-name">Shared Memory / L1 (SRAM)</div>
+            <div class="mem-level-stats">
+                <div class="mem-level-stat"><strong>228 KB / SM</strong></div>
+                <div class="mem-level-stat"><strong>~30 TB/s</strong></div>
+                <div class="mem-level-stat"><strong>~30 ns</strong></div>
+            </div>
+            <div style="font-size:0.75em; color:#55aa55; margin-top:6px;">SM 私有 | 程序员管理 | Flash Attention 工作区 | Reduction 暂存</div>
+        </div>
+        <div class="mem-connector" style="--from:#6bff6b; --to:#6bb5ff;">
+            <div class="mem-connector-label">SM 内部互联 ↕</div>
+        </div>
+        <div class="mem-level" id="mem-reg">
+            <div class="mem-level-name">Register File</div>
+            <div class="mem-level-stats">
+                <div class="mem-level-stat"><strong>256 KB / SM</strong></div>
+                <div class="mem-level-stat"><strong>~60 TB/s</strong></div>
+                <div class="mem-level-stat"><strong>~1 ns</strong></div>
+            </div>
+            <div style="font-size:0.75em; color:#5588bb; margin-top:6px;">线程私有 | Tensor Core / CUDA Core 直接操作数来源</div>
+        </div>
+        <div class="mem-connector" style="--from:#6bb5ff; --to:#c77dff;">
+            <div class="mem-connector-label">直连 ↕</div>
+        </div>
+        <div class="mem-level" id="mem-alu">
+            <div class="mem-level-name">Tensor Cores + CUDA Cores (计算单元)</div>
+            <div class="mem-level-stats">
+                <div class="mem-level-stat"><strong>989 TFLOPS</strong> FP16</div>
+                <div class="mem-level-stat"><strong>~67 TFLOPS</strong> FP32</div>
+            </div>
+            <div style="font-size:0.75em; color:#9966cc; margin-top:6px;">从 Register 读操作数 → 计算 → 结果写回 Register</div>
+        </div>
+    </div>
+
+    <div style="max-width:700px; margin:30px auto; text-align:center; color:#888; font-size:0.85em; line-height:1.8;">
+        <strong style="color:#ff6b6b;">关键矛盾：</strong>Tensor Cores 需要 989 TFLOPS 的"喂数据"速度，
+        但 HBM 只能提供 3.35 TB/s。<br>
+        989 TFLOPS ÷ 3.35 TB/s = <strong style="color:#fff;">295 FLOPs/Byte</strong> — 这就是 H100 的<strong>算力带宽比（屋脊线）</strong>。<br>
+        LLM Decode 的 GEMV 只有 ~1-2 FLOPs/Byte — <strong style="color:#ff6b6b;">Tensor Cores 99% 的时间在空等 HBM！</strong>
+    </div>
+</div>
+
+<hr class="section-divider">
+
+<!-- ============ SECTION 4: Data Flow Animation ============ -->
+<div class="page-section" id="sec-3">
+    <h1 class="section-title">Part 4: Token 数据流动</h1>
+    <p class="section-subtitle">点击按钮，观察一个 token 从输入到输出在 GPU 硬件中的完整旅程 (LLaMA-70B Decode)</p>
+
+    <div class="flow-gpu-wrapper">
+        <div class="flow-gpu-simplified" id="flow-gpu">
+            <!-- Left HBM -->
+            <div class="flow-hbm-side">
+                <div class="flow-hbm-block" id="fhbm-emb">Embedding<br>250MB</div>
+                <div class="flow-hbm-block" id="fhbm-wqkv">W_qkv<br>384MB</div>
+                <div class="flow-hbm-block" id="fhbm-wo">W_o<br>128MB</div>
+                <div class="flow-hbm-block" id="fhbm-kv">KV Cache<br>~1.3GB</div>
+            </div>
+
+            <!-- Center -->
+            <div class="flow-center">
+                <div class="flow-l2" id="flow-l2">L2 Cache (50MB) — RoPE cos/sin 表 + 热数据</div>
+                <div class="flow-sm-area" id="flow-sm-area">
+                    <!-- 24 mini SMs -->
+                </div>
+                <div class="flow-l2" id="flow-l2-2">L2 Cache ↔ HBM 数据通路</div>
+            </div>
+
+            <!-- Right HBM -->
+            <div class="flow-hbm-side">
+                <div class="flow-hbm-block" id="fhbm-wg">W_gate<br>448MB</div>
+                <div class="flow-hbm-block" id="fhbm-wu">W_up<br>448MB</div>
+                <div class="flow-hbm-block" id="fhbm-wd">W_down<br>448MB</div>
+                <div class="flow-hbm-block" id="fhbm-lm">LM Head<br>500MB</div>
+            </div>
+        </div>
+
+        <div class="flow-info-panel" id="flow-info">
+            <div class="flow-info-title" id="flow-title">准备就绪</div>
+            <div class="flow-info-desc" id="flow-desc">
+                点击「下一步」观察 token 在 GPU 内部的数据流动。每一步会高亮活跃的 HBM 区域、SM 和缓存，
+                并说明数据从哪里来、到哪里去、经过什么计算单元。
+            </div>
+            <div class="flow-info-tags" id="flow-tags"></div>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" id="fl-play" onclick="flPlay()">▶ 播放</button>
+            <button class="ctrl-btn" onclick="flStep()">⏭ 下一步</button>
+            <button class="ctrl-btn" onclick="flBack()">⏮ 上一步</button>
+            <button class="ctrl-btn danger" onclick="flReset()">↺ 重置</button>
+            <div class="ctrl-progress" id="fl-progress">0 / 11</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// === Section 1: Die diagram ===
+(function() {
+    const grid = document.getElementById('sm-grid');
+    let html = '';
+    for (let i = 0; i < 32; i++) {
+        html += `<div class="sm-unit" onclick="showExplain('sm')">
+            <div class="sm-label">SM${i}</div>
+            <div class="sm-sub">
+                <div class="sm-sub-item tc"></div>
+                <div class="sm-sub-item tc"></div>
+                <div class="sm-sub-item cuda-c"></div>
+                <div class="sm-sub-item cuda-c"></div>
+                <div class="sm-sub-item sram-c"></div>
+            </div>
+        </div>`;
+    }
+    grid.innerHTML = html;
+})();
+
+const explains = {
+    hbm: '<strong style="color:#ff6b6b">HBM3 (High Bandwidth Memory)</strong> — GPU 的"主内存"。5 个 HBM3 堆栈通过硅中介层 (interposer) 连接到 GPU die。总容量 80GB，带宽 3.35TB/s。<br><br>LLM 的<strong>所有权重、KV Cache、激活值</strong>都存在这里。模型越大，HBM 越不够用 → 需要多卡/量化。<br>访问延迟约 400ns（约 600 个时钟周期），这就是为什么需要大量 Warp 来隐藏延迟。',
+    memctrl: '<strong style="color:#ffd93d">Memory Controller</strong> — HBM 和 GPU 内部之间的"翻译官"。把 SM 发出的 load/store 请求转换为 HBM 的读写命令。<br><br>6 个 Memory Controller 并行工作，合计提供 3.35TB/s 带宽。每个管理一个或多个 HBM stack 的通道。<br>它还负责合并相邻地址的请求（coalescing）以最大化 HBM 效率。',
+    l2: '<strong style="color:#ffa500">L2 Cache</strong> — 50MB 的全局共享缓存。当 SM 需要的数据不在自己的 L1/SRAM 中时，先查 L2。<br><br>命中 L2 → ~150ns（比 HBM 快 2.5×）<br>对 LLM：RoPE 的 cos/sin 表、layer norm 的 γ 参数等小型频繁访问数据会缓存在这里。<br>但 384MB 的 W_qkv 不可能放进 50MB 的 L2 → 必须流式从 HBM 读取。',
+    crossbar: '<strong style="color:#00d2ff">Crossbar / NoC (片上网络)</strong> — 连接所有 SM 和 L2 Cache 切片的高速互联。<br><br>任何 SM 都能访问任何 L2 切片。带宽约 12 TB/s。<br>AllReduce 操作时，SM 之间的部分结果就是通过 NoC 交换的。',
+    nvlink: '<strong style="color:#00d2ff">NVLink 4.0</strong> — GPU 间的高速互联。H100 有 18 条 NVLink，总双向带宽 900 GB/s。<br><br>Tensor Parallelism 的 AllReduce 通过 NVLink 完成。比走 PCIe (64GB/s) 快 14 倍。<br>8 卡 NVLink full-mesh 是 TP=8 的硬件基础。',
+    sm: '<strong style="color:#6bff6b">Streaming Multiprocessor (SM)</strong> — GPU 的基本计算单元。H100 有 132 个 SM。<br><br>每个 SM 内含：4 个 Tensor Core、128 个 CUDA Core、4 个 Warp Scheduler、228KB SRAM、256KB Register。<br>一个 CUDA kernel launch 后，Warp 被分配到可用的 SM 上执行。SM 之间互相独立（SIMT 模型）。',
+};
+
+window.showExplain = function(key) {
+    document.getElementById('die-explain').innerHTML = explains[key] || '';
+};
+
+// === Section 4: Data Flow Animation ===
+(function() {
+    // Build mini SMs
+    const smArea = document.getElementById('flow-sm-area');
+    let html = '';
+    for (let i = 0; i < 24; i++) {
+        html += `<div class="flow-sm" id="fsm-${i}">
+            <span style="color:#6bff6b;font-size:1.1em;">SM</span>
+            <div class="fsm-tc"></div>
+            <div class="fsm-sram"></div>
+        </div>`;
+    }
+    smArea.innerHTML = html;
+
+    const steps = [
+        {
+            title: 'Step 0: Embedding Lookup',
+            desc: 'token_id (一个整数) → 从 HBM 的 Embedding 表中查找对应的向量 [1, 8192]。<br><br><strong>数据路径:</strong> HBM (Embedding 权重) → Memory Controller → L2 → SM 的 Register<br><strong>操作:</strong> 纯内存读取（gather），无计算。1 个 SM 的少量线程即可完成。',
+            hbm: ['fhbm-emb'],
+            l2: true,
+            sms: [0,1],
+            tags: ['fit-hbm:HBM → Register', 'fit-mem:Memory Bound', 'fit-cuda:无计算(gather)'],
+        },
+        {
+            title: 'Step 1: RMSNorm',
+            desc: '对 embedding 向量归一化: x / RMS(x) × γ<br><br><strong>数据路径:</strong> 向量已在 SM Register 中 → CUDA Cores 做 reduction（求平方和）→ 算 1/√mean → 逐元素缩放<br><strong>硬件:</strong> Warp 内 shuffle reduction（线程间交换数据不走内存），然后 CUDA Cores 逐元素乘。<br><strong>γ 参数</strong>从 L2 Cache 读取（很小，会被缓存）。',
+            hbm: [],
+            l2: true,
+            sms: [0,1,2,3],
+            tags: ['fit-sram:SRAM/Register 就地', 'fit-cuda:CUDA Cores', 'fit-mem:Memory Bound(轻量)'],
+        },
+        {
+            title: 'Step 2: QKV Projection (GEMV)',
+            desc: 'x[1, 8192] × W_qkv[8192, 24576] → qkv[1, 24576]<br><br><strong>数据路径:</strong> W_qkv (384MB!) 从 HBM <strong>流式加载</strong>: HBM → Mem Ctrl → L2 → SM 的 SRAM → Register → <strong>Tensor Cores</strong> 计算<br><br><strong>关键:</strong> 权重只用一次就丢弃（batch=1 时）。384MB 的权重每 token 都要完整读一遍。<br>HBM 带宽 3.35TB/s → 光读权重就要 0.11ms。Tensor Cores 算力远远过剩。<br><strong>这就是 decode 阶段 memory-bound 的根源。</strong>',
+            hbm: ['fhbm-wqkv'],
+            l2: true,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 384MB 流式读取', 'fit-tc:Tensor Cores GEMV', 'fit-mem:严重 Memory Bound'],
+        },
+        {
+            title: 'Step 3: RoPE + KV Cache 写入',
+            desc: 'Q 和 K 向量应用旋转位置编码 (逐元素 cos/sin 旋转)，然后把 K、V 追加到 HBM 中的 KV Cache。<br><br><strong>RoPE:</strong> cos/sin 表从 L2 Cache 读取 → CUDA Cores 逐元素计算 → 结果留在 Register<br><strong>KV Cache 写入:</strong> 新的 K[1,8,128]、V[1,8,128] 从 SM → L2 → HBM 写入 KV Cache 表尾<br>写入量很小 (4KB)，但后面<strong>读取历史 KV</strong>时就大了。',
+            hbm: ['fhbm-kv'],
+            l2: true,
+            sms: [0,1,2,3,4,5],
+            tags: ['fit-l2:L2 Cache (RoPE表)', 'fit-cuda:CUDA Cores (RoPE)', 'fit-hbm:HBM Write (KV)'],
+        },
+        {
+            title: 'Step 4: Attention (Flash Decoding)',
+            desc: 'Q[1,64heads,128] 与所有历史 K、V 计算注意力。<br><br><strong>数据路径 (Flash Decoding):</strong><br>1. 从 HBM <strong>分块</strong>加载 K_cache 和 V_cache 到 SM 的 <strong>SRAM</strong> (每次一个 block)<br>2. 在 SRAM 中: Tensor Cores 算 Q×K<sup>T</sup> → CUDA Cores 做 online softmax (维护 running max)<br>3. Tensor Cores 算 softmax_score × V_block → 累加到 Register 中的 partial output<br>4. 加载下一个 block，重复直到处理完所有历史 token<br><br><strong>精髓:</strong> 全程 score 矩阵不写回 HBM！只读一次 KV，输出一个向量。<br>seq=4096 时，KV 读取 ~16MB/层 → 这也是 memory-bound 的。',
+            hbm: ['fhbm-kv'],
+            l2: true,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 读 KV Cache', 'fit-sram:SRAM 驻留计算!', 'fit-tc:Tensor Cores (QK,×V)', 'fit-cuda:CUDA (softmax)'],
+        },
+        {
+            title: 'Step 5: Output Projection (O_proj)',
+            desc: 'attn_output[1, 8192] × W_o[8192, 8192] → [1, 8192]<br><br><strong>数据路径:</strong> 又一次 GEMV。W_o (128MB) 从 HBM 流式读入 → Tensor Cores 计算。<br>模式和 Step 2 完全相同：权重远大于激活值 → memory-bound。',
+            hbm: ['fhbm-wo'],
+            l2: false,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 128MB Read', 'fit-tc:Tensor Cores GEMV', 'fit-mem:Memory Bound'],
+        },
+        {
+            title: 'Step 6: Residual + RMSNorm (Fused Kernel)',
+            desc: 'output = x + attn_out，然后 RMSNorm 归一化进入 FFN。<br><br><strong>数据路径:</strong> residual 从 HBM 读回 → 在 SM 中与 attn_out 相加 → 就地做 RMSNorm → 写回 HBM<br><strong>优化:</strong> 融合为 1 个 kernel (fused add+norm)，避免多次 HBM 读写。只需读 2 × 16KB，写 16KB。<br>计算量极小但仍是 memory-bound（受 kernel launch overhead 和带宽限制）。',
+            hbm: [],
+            l2: false,
+            sms: [0,1,2,3],
+            tags: ['fit-cuda:CUDA Cores (add+norm)', 'fit-hbm:HBM 读写 48KB', 'fit-mem:Memory Bound (轻量)'],
+        },
+        {
+            title: 'Step 7: FFN — Gate + Up Projection (SwiGLU)',
+            desc: 'gate = x × W_gate, up = x × W_up, hidden = SiLU(gate) ⊙ up<br><br><strong>数据路径:</strong> W_gate (448MB) + W_up (448MB) = <strong>896MB 从 HBM 流式读取</strong>!<br>→ Tensor Cores 并行算两个 GEMV<br>→ CUDA Cores 做 SiLU 激活 + 逐元素乘<br><br>这是<strong>整个推理过程中最大的一次权重读取</strong>。<br>中间结果 [1, 28672] 留在 Register/SRAM 中，不写回 HBM。',
+            hbm: ['fhbm-wg', 'fhbm-wu'],
+            l2: false,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 896MB!! 流式读取', 'fit-tc:Tensor Cores ×2 GEMV', 'fit-cuda:CUDA (SiLU+mul)', 'fit-mem:极端 Memory Bound'],
+        },
+        {
+            title: 'Step 8: FFN — Down Projection',
+            desc: 'output = hidden[1, 28672] × W_down[28672, 8192] → [1, 8192]<br><br><strong>数据路径:</strong> W_down (448MB) 从 HBM 流式读取 → Tensor Cores GEMV。<br>一层 FFN 的总权重读取: 896 + 448 = 1.34 GB!<br><br>加上 Attention 的权重 (384 + 128 = 512MB)，<strong>单层总计 ~1.86GB 权重读取</strong>。<br>70B 模型 80 层 → 每 token 需读 ~148GB 权重。',
+            hbm: ['fhbm-wd'],
+            l2: false,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 448MB Read', 'fit-tc:Tensor Cores GEMV', 'fit-mem:Memory Bound'],
+        },
+        {
+            title: 'Step 9: Residual + 重复 × 80 层',
+            desc: 'FFN 输出加回残差 → 进入下一层的 RMSNorm (回到 Step 1)。<br><br><strong>80 层循环:</strong> Step 1-9 重复 80 次。每次都要从 HBM 读取该层的权重和 KV Cache。<br><br><strong>总数据移动:</strong><br>• 权重: 1.86GB × 80 = <strong>148GB</strong><br>• KV Cache (seq=4096): ~16MB × 80 = 1.28GB<br>• 总计: ~150GB / token<br>• H100 理论耗时: 150GB ÷ 3.35TB/s ≈ <strong>45ms</strong><br>• 实际: ~55-70ms (有各种 overhead)',
+            hbm: [],
+            l2: false,
+            sms: [0,1,2,3],
+            tags: ['fit-cuda:CUDA (add)', 'fit-hbm:× 80 层循环!'],
+        },
+        {
+            title: 'Step 10: LM Head + Sampling → 输出 Token',
+            desc: '最后一层输出过 RMSNorm → LM Head (W_lm[8192, 32000], 500MB) → logits[32000]<br>→ temperature scaling → top-p/top-k → softmax → <strong>采样出 1 个 token ID</strong><br><br><strong>数据路径:</strong> W_lm 从 HBM 读取 → Tensor Cores GEMV → CUDA Cores softmax + sample<br>最终输出: <strong>1 个整数 (next_token_id)</strong> — 这就是你看到的"一个字一个字冒出来"。<br><br>然后这个 token 重新进入 Step 0 → 开始下一轮 decode。',
+            hbm: ['fhbm-lm'],
+            l2: false,
+            sms: 'all',
+            tags: ['fit-hbm:HBM 500MB Read', 'fit-tc:Tensor Cores', 'fit-cuda:CUDA (sample)', 'fit-comp:输出 1 个 int!'],
+        },
+    ];
+
+    let current = -1;
+    let running = false;
+    let timer = null;
+
+    function clearFlow() {
+        document.querySelectorAll('.flow-hbm-block').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.flow-sm').forEach(e => e.classList.remove('active'));
+        document.querySelectorAll('.flow-l2').forEach(e => e.classList.remove('active'));
+    }
+
+    function showStep(idx) {
+        clearFlow();
+        if (idx < 0 || idx >= steps.length) return;
+        const s = steps[idx];
+        // HBM
+        s.hbm.forEach(id => document.getElementById(id)?.classList.add('active'));
+        // L2
+        if (s.l2) {
+            document.getElementById('flow-l2')?.classList.add('active');
+            document.getElementById('flow-l2-2')?.classList.add('active');
+        }
+        // SMs
+        if (s.sms === 'all') {
+            document.querySelectorAll('.flow-sm').forEach(e => e.classList.add('active'));
+        } else {
+            s.sms.forEach(i => document.getElementById(`fsm-${i}`)?.classList.add('active'));
+        }
+        // Info
+        document.getElementById('flow-title').innerHTML = s.title;
+        document.getElementById('flow-desc').innerHTML = s.desc;
+        let tagsHtml = '';
+        s.tags.forEach(t => {
+            const [cls, label] = t.split(':');
+            tagsHtml += `<span class="flow-info-tag ${cls}">${label}</span>`;
+        });
+        document.getElementById('flow-tags').innerHTML = tagsHtml;
+        document.getElementById('fl-progress').textContent = `${idx + 1} / ${steps.length}`;
+    }
+
+    window.flStep = function() {
+        running = false; clearTimeout(timer);
+        if (current >= steps.length - 1) return;
+        current++;
+        showStep(current);
+    };
+    window.flBack = function() {
+        running = false; clearTimeout(timer);
+        if (current <= 0) return;
+        current--;
+        showStep(current);
+    };
+    window.flPlay = function() {
+        if (running) { running = false; clearTimeout(timer); document.getElementById('fl-play').textContent = '▶ 播放'; return; }
+        if (current >= steps.length - 1) { current = -1; }
+        running = true;
+        document.getElementById('fl-play').textContent = '⏸ 暂停';
+        function tick() {
+            if (!running) return;
+            current++;
+            if (current >= steps.length) { running = false; document.getElementById('fl-play').textContent = '▶ 播放'; return; }
+            showStep(current);
+            timer = setTimeout(tick, 3500);
+        }
+        tick();
+    };
+    window.flReset = function() {
+        running = false; clearTimeout(timer); current = -1;
+        clearFlow();
+        document.getElementById('fl-play').textContent = '▶ 播放';
+        document.getElementById('flow-title').innerHTML = '准备就绪';
+        document.getElementById('flow-desc').innerHTML = '点击「下一步」观察 token 在 GPU 内部的数据流动。';
+        document.getElementById('flow-tags').innerHTML = '';
+        document.getElementById('fl-progress').textContent = '0 / 11';
+    };
+})();
+
+// === Navigation ===
+const sections = document.querySelectorAll('.page-section');
+const dots = document.querySelectorAll('.nav-dot');
+window.scrollToSection = function(i) {
+    sections[i]?.scrollIntoView({ behavior: 'smooth' });
+};
+const navObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+        if (e.isIntersecting) {
+            const idx = Array.from(sections).indexOf(e.target);
+            dots.forEach((d,i) => d.classList.toggle('active', i === idx));
+        }
+    });
+}, { threshold: 0.3 });
+sections.forEach(s => navObserver.observe(s));
+</script>
+</body>
+</html>
