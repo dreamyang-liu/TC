@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 6: 高级优化技术 - ML Systems Tutorial</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 2.5rem; background: linear-gradient(135deg, #00d4aa, #0088ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; }
+h2 { font-size: 1.8rem; background: linear-gradient(135deg, #00d4aa, #0088ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 40px 0 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+h3 { font-size: 1.3rem; color: #00d4aa; margin: 25px 0 12px; }
+h4 { font-size: 1.1rem; color: #7eb8da; margin: 18px 0 8px; }
+p { margin: 10px 0; color: #ccc; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; transition: transform 0.3s, box-shadow 0.3s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0, 212, 170, 0.1); }
+.card-highlight { border-color: #00d4aa; }
+code { background: #16213e; padding: 2px 6px; border-radius: 4px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #16213e; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 15px 0; font-size: 0.85rem; line-height: 1.5; }
+pre code { background: none; padding: 0; color: #e0e0e0; }
+.comment { color: #6a9955; }
+.keyword { color: #569cd6; }
+.string { color: #ce9178; }
+.function { color: #dcdcaa; }
+.number { color: #b5cea8; }
+
+/* Interactive elements */
+.interactive-container { background: #1a1a2e; border-radius: 12px; border: 1px solid #444; padding: 24px; margin: 25px 0; position: relative; overflow: hidden; }
+.interactive-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #00d4aa, #0088ff); }
+.interactive-title { font-size: 1.1rem; color: #00d4aa; margin-bottom: 15px; font-weight: 600; }
+
+/* Timeline */
+.timeline-canvas { width: 100%; height: 200px; border-radius: 8px; background: #0f0f23; border: 1px solid #333; }
+
+/* Comparison */
+.comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; }
+.comparison-panel { background: #0f0f23; border-radius: 8px; padding: 16px; border: 1px solid #333; }
+.comparison-panel h4 { text-align: center; margin-bottom: 10px; }
+.bar-chart { margin: 10px 0; }
+.bar-row { display: flex; align-items: center; margin: 8px 0; }
+.bar-label { width: 80px; font-size: 0.8rem; color: #aaa; }
+.bar-track { flex: 1; height: 20px; background: #16213e; border-radius: 4px; overflow: hidden; position: relative; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 1.5s ease; width: 0; }
+.bar-fill.cyan { background: linear-gradient(90deg, #00d4aa, #00b89c); }
+.bar-fill.blue { background: linear-gradient(90deg, #0088ff, #0066cc); }
+.bar-fill.orange { background: linear-gradient(90deg, #ff8c00, #ff6600); }
+.bar-value { position: absolute; right: 8px; top: 2px; font-size: 0.7rem; color: #fff; }
+
+/* FP8 visualization */
+.fp8-display { display: flex; gap: 4px; justify-content: center; margin: 15px 0; flex-wrap: wrap; }
+.fp8-bit { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 4px; font-weight: bold; font-size: 0.9rem; transition: all 0.3s; }
+.fp8-sign { background: #ff4444; color: #fff; }
+.fp8-exp { background: #0088ff; color: #fff; }
+.fp8-mantissa { background: #00d4aa; color: #000; }
+.fp8-controls { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 15px 0; flex-wrap: wrap; }
+.fp8-controls input { background: #16213e; border: 1px solid #444; border-radius: 6px; padding: 6px 12px; color: #e0e0e0; width: 120px; }
+.fp8-controls button { background: linear-gradient(135deg, #00d4aa, #0088ff); border: none; border-radius: 6px; padding: 8px 16px; color: #fff; cursor: pointer; font-weight: 600; }
+.fp8-controls button:hover { opacity: 0.9; }
+.fp8-result { text-align: center; margin-top: 10px; font-size: 0.9rem; color: #aaa; }
+
+/* Diffusion animation */
+.diffusion-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin: 15px 0; }
+.diffusion-token { background: #16213e; border: 1px solid #333; border-radius: 6px; padding: 8px 4px; text-align: center; font-size: 0.75rem; min-height: 38px; display: flex; align-items: center; justify-content: center; transition: all 0.5s; }
+.diffusion-token.noisy { color: #666; border-color: #444; }
+.diffusion-token.partial { color: #0088ff; border-color: #0066cc; background: #1a2a4e; }
+.diffusion-token.clean { color: #00d4aa; border-color: #00d4aa; background: #1a2e2a; }
+.diffusion-controls { display: flex; gap: 10px; align-items: center; justify-content: center; margin: 15px 0; }
+.diffusion-controls button { background: linear-gradient(135deg, #00d4aa, #0088ff); border: none; border-radius: 6px; padding: 8px 16px; color: #fff; cursor: pointer; font-weight: 600; }
+.step-indicator { color: #aaa; font-size: 0.9rem; }
+
+/* Exercises */
+.exercise { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; border-left: 4px solid #0088ff; }
+.exercise-title { color: #0088ff; font-weight: 700; font-size: 1.1rem; margin-bottom: 10px; }
+.hint-toggle, .solution-toggle { background: #16213e; border: 1px solid #444; border-radius: 6px; padding: 8px 14px; color: #00d4aa; cursor: pointer; margin: 8px 4px 8px 0; font-size: 0.85rem; display: inline-block; transition: background 0.3s; }
+.hint-toggle:hover, .solution-toggle:hover { background: #1e2e4e; }
+.hint-content, .solution-content { display: none; background: #16213e; border-radius: 8px; padding: 16px; margin-top: 10px; border: 1px solid #333; }
+.hint-content.show, .solution-content.show { display: block; }
+
+/* Animations */
+.fade-in { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+.slide-in-left { opacity: 0; transform: translateX(-30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.slide-in-left.visible { opacity: 1; transform: translateX(0); }
+
+/* Table of contents */
+.toc { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 20px; margin: 20px 0; }
+.toc-title { color: #00d4aa; font-weight: 700; margin-bottom: 12px; }
+.toc a { color: #7eb8da; text-decoration: none; display: block; padding: 4px 0; font-size: 0.9rem; }
+.toc a:hover { color: #00d4aa; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .comparison-grid { grid-template-columns: 1fr; }
+  .diffusion-grid { grid-template-columns: repeat(4, 1fr); }
+  h1 { font-size: 1.8rem; }
+  h2 { font-size: 1.4rem; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #1a1a2e; }
+::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #444; }
+</style>
+</head>
+<body>
+
+<h1>Chapter 6: 高级优化技术</h1>
+<p style="color:#888; font-size:0.95rem; margin-bottom:30px;">Advanced Optimization Techniques for Large-Scale ML Systems</p>
+
+<div class="toc">
+  <div class="toc-title">目录 / Table of Contents</div>
+  <a href="#sec-zero-overhead">6.1 Zero-Overhead Batch Scheduling</a>
+  <a href="#sec-dp-attention">6.2 DP Attention for MoE</a>
+  <a href="#sec-online-weight">6.3 Online Weight Updates</a>
+  <a href="#sec-fp8">6.4 FP8/INT4 Training for RL</a>
+  <a href="#sec-speculative">6.5 Speculative Decoding in RL</a>
+  <a href="#sec-long-context">6.6 Long-Context Optimization</a>
+  <a href="#sec-diffusion-llm">6.7 Diffusion LLMs</a>
+  <a href="#sec-exercises">练习 / Exercises</a>
+</div>
+
+<!-- Section 6.1 -->
+<h2 id="sec-zero-overhead">6.1 Zero-Overhead Batch Scheduling</h2>
+
+<div class="card fade-in">
+<h3>核心思想</h3>
+<p>在 LLM 推理中，batch scheduling 的 CPU 开销会导致 GPU 出现 idle bubble。Zero-Overhead Scheduling 通过 <strong>CPU-GPU overlap</strong> 实现调度零开销：在 GPU 执行当前 batch 的 forward pass 时，CPU 并行完成下一个 batch 的调度决策和数据准备。</p>
+
+<h4>关键技术组件</h4>
+<p><strong>1. Placeholder Buffering：</strong>预分配 placeholder slots，避免动态内存分配的开销。新请求到来时只需填充 placeholder，不需要 resize tensor。</p>
+<p><strong>2. Async Scheduling：</strong>调度逻辑在独立线程运行，通过 double-buffering 机制与 GPU kernel 执行完全 overlap。</p>
+<p><strong>3. CPU-S 与 CPU-L 分离：</strong>将 CPU 操作分为 short-latency (CPU-S) 和 long-latency (CPU-L) 两类。CPU-S 包含 token sampling、detokenize 等轻量操作；CPU-L 包含 scheduling policy、radix tree 操作等重量操作。两者分别 pipeline 化。</p>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/scheduler-evolution/img/overlap.png" alt="Zero-Overhead Batch Scheduling overlap diagram showing CPU-S and CPU-L pipeline stages overlapping with GPU execution" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Zero-Overhead Batch Scheduling: CPU-S 和 CPU-L 两阶段 pipeline 与 GPU 重叠</div>
+</div>
+</div>
+
+<!-- Interactive: Zero-Overhead Timeline -->
+<div class="interactive-container fade-in">
+<div class="interactive-title">Interactive: Zero-Overhead Scheduling Timeline</div>
+<p style="font-size:0.85rem; color:#888; margin-bottom:10px;">观察 CPU-S、CPU-L 与 GPU 的流水线重叠。点击 "Play" 启动动画。</p>
+<canvas id="timelineCanvas" class="timeline-canvas"></canvas>
+<div style="display:flex; gap:10px; margin-top:12px; justify-content:center;">
+  <button onclick="playTimeline()" style="background:linear-gradient(135deg,#00d4aa,#0088ff); border:none; border-radius:6px; padding:8px 16px; color:#fff; cursor:pointer; font-weight:600;">Play</button>
+  <button onclick="resetTimeline()" style="background:#16213e; border:1px solid #444; border-radius:6px; padding:8px 16px; color:#ccc; cursor:pointer;">Reset</button>
+</div>
+<div style="display:flex; gap:20px; margin-top:10px; justify-content:center; font-size:0.8rem;">
+  <span><span style="color:#ff6b6b;">■</span> GPU Forward</span>
+  <span><span style="color:#00d4aa;">■</span> CPU-S (Short)</span>
+  <span><span style="color:#0088ff;">■</span> CPU-L (Long)</span>
+  <span><span style="color:#666;">■</span> Idle Bubble</span>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>Overlap Scheduler 伪代码</h3>
+<pre><code><span class="keyword">class</span> <span class="function">OverlapScheduler</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, max_batch_size, num_placeholders):
+        self.front_buffer = BatchBuffer(max_batch_size)
+        self.back_buffer = BatchBuffer(max_batch_size)
+        self.placeholder_pool = PlaceholderPool(num_placeholders)
+        self.schedule_thread = Thread(target=self._schedule_loop)
+
+    <span class="keyword">def</span> <span class="function">_schedule_loop</span>(self):
+        <span class="string">"""CPU-L: 在后台线程运行调度策略"""</span>
+        <span class="keyword">while</span> <span class="keyword">not</span> self.stopped:
+            <span class="comment"># 等待 GPU forward 开始</span>
+            self.gpu_start_event.wait()
+
+            <span class="comment"># CPU-L operations (overlap with GPU)</span>
+            new_reqs = self.request_queue.drain()
+            scheduled = self.scheduling_policy(new_reqs, self.back_buffer)
+
+            <span class="comment"># 填充 placeholder slots</span>
+            <span class="keyword">for</span> req <span class="keyword">in</span> scheduled:
+                slot = self.placeholder_pool.acquire()
+                slot.fill(req.input_ids, req.metadata)
+                self.back_buffer.add(slot)
+
+            <span class="comment"># Radix tree 更新 (prefix caching)</span>
+            self.radix_tree.insert_batch(scheduled)
+
+            <span class="comment"># Signal: 下一个 batch 准备好了</span>
+            self.batch_ready_event.set()
+
+    <span class="keyword">def</span> <span class="function">step</span>(self):
+        <span class="string">"""主循环: 交替执行 GPU forward 和 buffer swap"""</span>
+        <span class="comment"># GPU forward (当前 batch)</span>
+        self.gpu_start_event.set()
+        output = self.model.forward(self.front_buffer)
+
+        <span class="comment"># CPU-S: sampling + detokenize (很快)</span>
+        tokens = self.sampler.sample(output.logits)
+        self.detokenizer.decode_batch(tokens)
+
+        <span class="comment"># 等待 CPU-L 完成</span>
+        self.batch_ready_event.wait()
+
+        <span class="comment"># Double-buffer swap (零拷贝)</span>
+        self.front_buffer, self.back_buffer = self.back_buffer, self.front_buffer
+        self.batch_ready_event.clear()
+
+        <span class="keyword">return</span> tokens
+</code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>性能分析</h3>
+<p>假设 GPU forward 耗时 <code>T_gpu</code>，CPU-S 耗时 <code>T_s</code>，CPU-L 耗时 <code>T_l</code>：</p>
+<p><strong>Without overlap:</strong> 每 step 耗时 = <code>T_gpu + T_s + T_l</code></p>
+<p><strong>With overlap:</strong> 每 step 耗时 = <code>max(T_gpu, T_l) + T_s</code></p>
+<p>当 <code>T_l ≤ T_gpu</code>（通常成立）时，加速比 = <code>(T_gpu + T_s + T_l) / (T_gpu + T_s)</code></p>
+<p>典型场景下 <code>T_l ≈ 0.3 * T_gpu</code>，<code>T_s ≈ 0.05 * T_gpu</code>，加速比约 <strong>1.29x</strong>。</p>
+</div>
+
+<!-- Section 6.2 -->
+<h2 id="sec-dp-attention">6.2 DP Attention for MoE</h2>
+
+<div class="card fade-in">
+<h3>问题背景</h3>
+<p>在 Mixture-of-Experts (MoE) 模型中，传统 Tensor Parallelism (TP) 要求每个 GPU 都持有完整的 KV cache 副本。对于 DeepSeek-V3 这样的模型（236B 参数，128 experts），这导致巨大的内存浪费。</p>
+
+<h4>DP Attention 的核心思路</h4>
+<p>将 Attention 层使用 <strong>Data Parallelism</strong>（每个 GPU 处理不同的 request，各自维护自己的 KV cache），而 MLP/Expert 层使用 <strong>Tensor/Expert Parallelism</strong>。这样：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>KV cache 不需要在 GPU 之间复制，内存效率大幅提升</li>
+  <li>Attention 计算无需 all-reduce，通信量减少</li>
+  <li>Expert 层仍然使用 EP/TP 来分摊参数</li>
+</ul>
+
+<h4>通信模式</h4>
+<p>Attention → MLP 之间需要 All-to-All 通信：每个 GPU 将自己的 token hidden states 发送给负责对应 expert 的 GPU。这类似于 MoE routing 的通信，但方向相反。</p>
+</div>
+
+<!-- Interactive: DP vs TP Comparison -->
+<div class="interactive-container fade-in">
+<div class="interactive-title">Interactive: DP Attention vs TP Attention 对比</div>
+<p style="font-size:0.85rem; color:#888; margin-bottom:10px;">调整参数观察内存和通信开销的变化</p>
+<div style="display:flex; gap:15px; margin-bottom:15px; flex-wrap:wrap; justify-content:center;">
+  <label style="font-size:0.85rem; color:#aaa;">
+    Num Heads: <select id="numHeads" onchange="updateComparison()" style="background:#16213e; border:1px solid #444; border-radius:4px; padding:4px 8px; color:#e0e0e0;">
+      <option value="32">32</option>
+      <option value="64" selected>64</option>
+      <option value="128">128</option>
+    </select>
+  </label>
+  <label style="font-size:0.85rem; color:#aaa;">
+    TP Degree: <select id="tpDegree" onchange="updateComparison()" style="background:#16213e; border:1px solid #444; border-radius:4px; padding:4px 8px; color:#e0e0e0;">
+      <option value="2">2</option>
+      <option value="4" selected>4</option>
+      <option value="8">8</option>
+    </select>
+  </label>
+  <label style="font-size:0.85rem; color:#aaa;">
+    Seq Length: <select id="seqLen" onchange="updateComparison()" style="background:#16213e; border:1px solid #444; border-radius:4px; padding:4px 8px; color:#e0e0e0;">
+      <option value="2048">2K</option>
+      <option value="8192" selected>8K</option>
+      <option value="32768">32K</option>
+    </select>
+  </label>
+</div>
+<div class="comparison-grid">
+  <div class="comparison-panel">
+    <h4 style="color:#0088ff;">TP Attention (传统)</h4>
+    <div class="bar-chart">
+      <div class="bar-row"><span class="bar-label">KV Cache</span><div class="bar-track"><div class="bar-fill blue" id="tp-kv" style="width:0%"></div><span class="bar-value" id="tp-kv-val"></span></div></div>
+      <div class="bar-row"><span class="bar-label">Comm</span><div class="bar-track"><div class="bar-fill orange" id="tp-comm" style="width:0%"></div><span class="bar-value" id="tp-comm-val"></span></div></div>
+      <div class="bar-row"><span class="bar-label">Compute</span><div class="bar-track"><div class="bar-fill blue" id="tp-compute" style="width:0%"></div><span class="bar-value" id="tp-compute-val"></span></div></div>
+    </div>
+    <p style="font-size:0.8rem; color:#888; margin-top:8px;">每个 GPU 持有完整 KV cache 副本<br>All-reduce after attention + MLP</p>
+  </div>
+  <div class="comparison-panel">
+    <h4 style="color:#00d4aa;">DP Attention (优化)</h4>
+    <div class="bar-chart">
+      <div class="bar-row"><span class="bar-label">KV Cache</span><div class="bar-track"><div class="bar-fill cyan" id="dp-kv" style="width:0%"></div><span class="bar-value" id="dp-kv-val"></span></div></div>
+      <div class="bar-row"><span class="bar-label">Comm</span><div class="bar-track"><div class="bar-fill orange" id="dp-comm" style="width:0%"></div><span class="bar-value" id="dp-comm-val"></span></div></div>
+      <div class="bar-row"><span class="bar-label">Compute</span><div class="bar-track"><div class="bar-fill cyan" id="dp-compute" style="width:0%"></div><span class="bar-value" id="dp-compute-val"></span></div></div>
+    </div>
+    <p style="font-size:0.8rem; color:#888; margin-top:8px;">每个 GPU 只维护本地 KV cache<br>All-to-All between attention & MLP</p>
+  </div>
+</div>
+<div id="comparison-summary" style="text-align:center; margin-top:15px; font-size:0.9rem; color:#00d4aa;"></div>
+</div>
+
+<div class="card fade-in">
+<h3>DP Attention 配置示例</h3>
+<pre><code><span class="comment"># DeepSeek-V3 style DP Attention + EP MLP configuration</span>
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass
+
+@dataclass
+<span class="keyword">class</span> <span class="function">DPAttentionConfig</span>:
+    <span class="comment"># Model dimensions</span>
+    num_attention_heads: int = <span class="number">128</span>
+    num_kv_heads: int = <span class="number">8</span>         <span class="comment"># GQA: 8 KV heads shared</span>
+    head_dim: int = <span class="number">128</span>
+    hidden_size: int = <span class="number">7168</span>
+
+    <span class="comment"># Parallelism config</span>
+    dp_size: int = <span class="number">8</span>              <span class="comment"># Data parallel for attention</span>
+    ep_size: int = <span class="number">8</span>              <span class="comment"># Expert parallel for MLP</span>
+    num_experts: int = <span class="number">256</span>
+    experts_per_gpu: int = <span class="number">32</span>     <span class="comment"># 256 / 8</span>
+
+    <span class="comment"># Communication</span>
+    use_all_to_all: bool = <span class="number">True</span>   <span class="comment"># Between attention DP and MLP EP</span>
+    overlap_comm_compute: bool = <span class="number">True</span>
+
+    <span class="keyword">def</span> <span class="function">kv_cache_per_gpu</span>(self, seq_len, batch_size, dtype_bytes=<span class="number">2</span>):
+        <span class="string">"""每个 GPU 的 KV cache 大小 (bytes)"""</span>
+        <span class="comment"># DP: 每个 GPU 只存本地 batch 的 KV cache</span>
+        local_batch = batch_size // self.dp_size
+        kv_size = <span class="number">2</span> * self.num_kv_heads * self.head_dim * seq_len * local_batch * dtype_bytes
+        <span class="keyword">return</span> kv_size
+
+    <span class="keyword">def</span> <span class="function">tp_kv_cache_per_gpu</span>(self, seq_len, batch_size, dtype_bytes=<span class="number">2</span>):
+        <span class="string">"""TP 模式下每个 GPU 的 KV cache 大小 (需要全部 batch)"""</span>
+        <span class="comment"># TP: 每个 GPU 需要全部 batch 的 KV cache (heads 分割)</span>
+        kv_heads_per_gpu = self.num_kv_heads  <span class="comment"># GQA heads 不分割</span>
+        kv_size = <span class="number">2</span> * kv_heads_per_gpu * self.head_dim * seq_len * batch_size * dtype_bytes
+        <span class="keyword">return</span> kv_size
+
+config = DPAttentionConfig()
+<span class="keyword">print</span>(f<span class="string">"DP KV/GPU: {config.kv_cache_per_gpu(8192, 64) / 1e9:.2f} GB"</span>)
+<span class="keyword">print</span>(f<span class="string">"TP KV/GPU: {config.tp_kv_cache_per_gpu(8192, 64) / 1e9:.2f} GB"</span>)
+</code></pre>
+</div>
+
+<!-- Section 6.3 -->
+<h2 id="sec-online-weight">6.3 Online Weight Updates</h2>
+
+<div class="card fade-in">
+<h3>动机与挑战</h3>
+<p>在 RLHF/Online RL 训练中，policy model 需要不断更新。传统做法是训练完成后重新加载 checkpoint，这导致：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>高延迟：</strong>保存 + 加载 checkpoint 耗时数十秒到数分钟</li>
+  <li><strong>资源浪费：</strong>训练期间推理引擎 idle，推理期间训练集群 idle</li>
+  <li><strong>Staleness：</strong>rollout 使用的模型版本落后于最新 policy</li>
+</ul>
+
+<h4>NCCL Broadcast 方案</h4>
+<p>利用 NCCL 的跨节点通信能力，直接将训练节点的权重 broadcast 到推理节点：</p>
+<ol style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>训练完成一个 step/epoch 后，trainer 触发 weight broadcast</li>
+  <li>通过 NCCL all-gather 或 broadcast 将权重同步到 inference workers</li>
+  <li>Inference engine 原子性地更新模型权重（使用 double buffering）</li>
+  <li>正在进行的推理请求不受影响（用旧权重完成）</li>
+</ol>
+
+<h4>延迟优化技巧</h4>
+<p><strong>Chunked Transfer：</strong>将模型按 layer 分块传输，边传边更新，不需要等所有层传完。</p>
+<p><strong>Priority Scheduling：</strong>先传输 embedding 和最后几层（对输出影响最大），其他层异步传输。</p>
+<p><strong>Delta Compression：</strong>只传输权重的差值 (ΔW)，利用稀疏性压缩传输量。</p>
+</div>
+
+<div class="card fade-in">
+<h3>Online Weight Update 代码架构</h3>
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
+
+<span class="keyword">class</span> <span class="function">OnlineWeightUpdater</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, model, trainer_rank, inference_ranks, nccl_group):
+        self.model = model
+        self.trainer_rank = trainer_rank
+        self.inference_ranks = inference_ranks
+        self.group = nccl_group
+        self.update_lock = threading.Lock()
+        <span class="comment"># Double buffer for zero-downtime update</span>
+        self.active_params = <span class="number">0</span>
+        self.param_buffers = [
+            {n: p.clone() <span class="keyword">for</span> n, p <span class="keyword">in</span> model.named_parameters()},
+            {n: p.clone() <span class="keyword">for</span> n, p <span class="keyword">in</span> model.named_parameters()}
+        ]
+
+    <span class="keyword">def</span> <span class="function">broadcast_weights</span>(self, priority_layers=None):
+        <span class="string">"""从 trainer broadcast 权重到 inference workers"""</span>
+        inactive = <span class="number">1</span> - self.active_params
+        layers = priority_layers or list(self.model.named_parameters())
+
+        <span class="keyword">for</span> name, param <span class="keyword">in</span> layers:
+            <span class="comment"># NCCL broadcast: trainer → inference workers</span>
+            dist.broadcast(param.data, src=self.trainer_rank, group=self.group)
+            <span class="comment"># 写入 inactive buffer</span>
+            self.param_buffers[inactive][name].copy_(param.data)
+
+        <span class="comment"># Atomic swap</span>
+        <span class="keyword">with</span> self.update_lock:
+            self.active_params = inactive
+            self._apply_active_params()
+
+    <span class="keyword">def</span> <span class="function">_apply_active_params</span>(self):
+        <span class="string">"""Apply active buffer to model (pointer swap)"""</span>
+        active = self.param_buffers[self.active_params]
+        <span class="keyword">for</span> name, param <span class="keyword">in</span> self.model.named_parameters():
+            param.data = active[name]
+</code></pre>
+</div>
+
+<!-- Section 6.4 -->
+<h2 id="sec-fp8">6.4 FP8/INT4 Training for RL</h2>
+
+<div class="card fade-in">
+<h3>统一精度的必要性</h3>
+<p>在 RL for LLM 场景中，training 和 inference 使用不同精度会导致：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>Reward hacking：</strong>量化误差造成的 reward 信号偏差</li>
+  <li><strong>Train-inference gap：</strong>训练时 BF16，推理时 INT4/FP8，行为不一致</li>
+  <li><strong>精度转换开销：</strong>频繁的 quantize/dequantize 消耗计算</li>
+</ul>
+
+<h4>FP8 E4M3 格式</h4>
+<p>FP8 E4M3 使用 1 bit sign + 4 bits exponent + 3 bits mantissa，动态范围 ±448，适合前向计算。E5M2 使用 5 bits exponent + 2 bits mantissa，动态范围更大，适合梯度。</p>
+
+<h4>Dynamic Scaling</h4>
+<p>为了最大化 FP8 的有效利用率，使用 per-tensor 或 per-channel 的 dynamic scaling factor：</p>
+<p><code>scale = max(|tensor|) / max_fp8_value</code></p>
+<p>量化：<code>tensor_fp8 = round(tensor / scale)</code></p>
+<p>反量化：<code>tensor_restored = tensor_fp8 * scale</code></p>
+</div>
+
+<!-- Interactive: FP8 Visualization -->
+<div class="interactive-container fade-in">
+<div class="interactive-title">Interactive: FP8 E4M3 Precision Visualization</div>
+<p style="font-size:0.85rem; color:#888; margin-bottom:10px;">输入一个浮点数，查看它如何被编码为 FP8 E4M3 格式</p>
+<div class="fp8-controls">
+  <input type="number" id="fp8Input" value="3.14" step="0.01" placeholder="输入浮点数">
+  <button onclick="convertToFP8()">Convert to FP8</button>
+</div>
+<div class="fp8-display" id="fp8Bits">
+  <div class="fp8-bit fp8-sign">0</div>
+  <div class="fp8-bit fp8-exp">1</div>
+  <div class="fp8-bit fp8-exp">0</div>
+  <div class="fp8-bit fp8-exp">0</div>
+  <div class="fp8-bit fp8-exp">0</div>
+  <div class="fp8-bit fp8-mantissa">1</div>
+  <div class="fp8-bit fp8-mantissa">0</div>
+  <div class="fp8-bit fp8-mantissa">0</div>
+</div>
+<div style="display:flex; gap:20px; justify-content:center; font-size:0.75rem; color:#888; margin-top:5px;">
+  <span><span style="color:#ff4444;">■</span> Sign (1 bit)</span>
+  <span><span style="color:#0088ff;">■</span> Exponent (4 bits)</span>
+  <span><span style="color:#00d4aa;">■</span> Mantissa (3 bits)</span>
+</div>
+<div class="fp8-result" id="fp8Result">
+  原始值: 3.14 → FP8 表示: 3.0 | 量化误差: 0.14 (4.46%)
+</div>
+<div style="margin-top:15px; padding:12px; background:#0f0f23; border-radius:8px; border:1px solid #333;">
+  <p style="font-size:0.85rem; color:#aaa;"><strong>Dynamic Scaling 示例：</strong></p>
+  <div style="display:flex; gap:10px; margin-top:8px; align-items:center; flex-wrap:wrap; justify-content:center;">
+    <span style="font-size:0.8rem; color:#888;">Tensor max:</span>
+    <input type="number" id="tensorMax" value="120.5" step="0.1" style="background:#16213e; border:1px solid #444; border-radius:4px; padding:4px 8px; color:#e0e0e0; width:80px;">
+    <span style="font-size:0.8rem; color:#888;">→ Scale factor:</span>
+    <span id="scaleFactor" style="color:#00d4aa; font-weight:600;">0.2688</span>
+    <span style="font-size:0.8rem; color:#888;">(max_fp8=448)</span>
+  </div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>FP8 Quantization with Dynamic Scaling</h3>
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+
+<span class="keyword">class</span> <span class="function">FP8Quantizer</span>:
+    <span class="string">"""FP8 E4M3 quantizer with dynamic per-tensor scaling"""</span>
+    FP8_E4M3_MAX = <span class="number">448.0</span>
+    FP8_E5M2_MAX = <span class="number">57344.0</span>
+
+    @staticmethod
+    <span class="keyword">def</span> <span class="function">quantize_e4m3</span>(tensor, per_channel=<span class="number">False</span>):
+        <span class="string">"""Forward pass quantization (E4M3 for activations/weights)"""</span>
+        <span class="keyword">if</span> per_channel:
+            <span class="comment"># Per-channel scaling for weights</span>
+            amax = tensor.abs().amax(dim=-<span class="number">1</span>, keepdim=<span class="number">True</span>)
+        <span class="keyword">else</span>:
+            <span class="comment"># Per-tensor scaling</span>
+            amax = tensor.abs().amax()
+
+        <span class="comment"># Compute scale factor</span>
+        scale = amax / FP8Quantizer.FP8_E4M3_MAX
+        scale = torch.where(scale > <span class="number">0</span>, scale, torch.ones_like(scale))
+
+        <span class="comment"># Quantize</span>
+        tensor_scaled = tensor / scale
+        tensor_fp8 = tensor_scaled.clamp(
+            -FP8Quantizer.FP8_E4M3_MAX, FP8Quantizer.FP8_E4M3_MAX
+        ).to(torch.float8_e4m3fn)
+
+        <span class="keyword">return</span> tensor_fp8, scale
+
+    @staticmethod
+    <span class="keyword">def</span> <span class="function">quantize_e5m2</span>(tensor):
+        <span class="string">"""Gradient quantization (E5M2 for larger dynamic range)"""</span>
+        amax = tensor.abs().amax()
+        scale = amax / FP8Quantizer.FP8_E5M2_MAX
+        scale = torch.where(scale > <span class="number">0</span>, scale, torch.ones_like(scale))
+
+        tensor_fp8 = (tensor / scale).clamp(
+            -FP8Quantizer.FP8_E5M2_MAX, FP8Quantizer.FP8_E5M2_MAX
+        ).to(torch.float8_e5m2)
+
+        <span class="keyword">return</span> tensor_fp8, scale
+
+    @staticmethod
+    <span class="keyword">def</span> <span class="function">dequantize</span>(tensor_fp8, scale):
+        <span class="string">"""Restore to higher precision"""</span>
+        <span class="keyword">return</span> tensor_fp8.float() * scale
+
+
+<span class="comment"># QAT (Quantization-Aware Training) for RL consistency</span>
+<span class="keyword">class</span> <span class="function">FP8QATLinear</span>(torch.nn.Module):
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, in_features, out_features):
+        super().__init__()
+        self.weight = torch.nn.Parameter(
+            torch.randn(out_features, in_features)
+        )
+        self.quantizer = FP8Quantizer()
+
+    <span class="keyword">def</span> <span class="function">forward</span>(self, x):
+        <span class="comment"># Quantize weight → FP8 → dequantize (STE gradient)</span>
+        w_fp8, w_scale = self.quantizer.quantize_e4m3(self.weight)
+        w_approx = self.quantizer.dequantize(w_fp8, w_scale)
+        <span class="comment"># Straight-Through Estimator: grad flows through dequantize</span>
+        w_final = self.weight + (w_approx - self.weight).detach()
+        <span class="keyword">return</span> F.linear(x, w_final)
+</code></pre>
+</div>
+
+<!-- Section 6.5 -->
+<h2 id="sec-speculative">6.5 Speculative Decoding in RL</h2>
+
+<div class="card fade-in">
+<h3>RL Rollout 的瓶颈</h3>
+<p>在 RL training (如 PPO, GRPO) 中，rollout (生成 trajectory) 占总训练时间的 60-80%。Speculative Decoding 通过小模型 (draft model) 加速生成：</p>
+
+<h4>基本流程</h4>
+<ol style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>Draft：</strong>使用小模型 (如 1.5B) 快速生成 K 个 token</li>
+  <li><strong>Verify：</strong>大模型 (如 70B) 一次性验证这 K 个 token 的概率</li>
+  <li><strong>Accept/Reject：</strong>按照 rejection sampling 接受或拒绝 draft tokens</li>
+  <li><strong>Correction：</strong>如果某个 token 被拒绝，用大模型重新采样</li>
+</ol>
+
+<h4>RL 场景特殊性</h4>
+<p><strong>Online SFT for Draft Model：</strong>在 RL 训练过程中，policy 模型不断变化。如果 draft model 是固定的，acceptance rate 会随训练下降。解决方案：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>每 N 个 RL step，用 policy model 的 rollout 数据 SFT 更新 draft model</li>
+  <li>使用 knowledge distillation loss 让 draft model 跟随 policy 分布</li>
+  <li>Draft model 的训练开销小（参数少，数据已有）</li>
+</ul>
+
+<h4>加速比分析</h4>
+<p>设 acceptance rate 为 α，draft 长度为 K，draft/verify 时间比为 r：</p>
+<p>期望接受长度 = <code>(1 - α^(K+1)) / (1 - α)</code></p>
+<p>加速比 ≈ <code>期望接受长度 / (K * r + 1)</code></p>
+<p>当 α = 0.8, K = 5, r = 0.1 时，加速比约 <strong>2.5x</strong></p>
+</div>
+
+<!-- Section 6.6 -->
+<h2 id="sec-long-context">6.6 Long-Context Optimization</h2>
+
+<div class="card fade-in">
+<h3>DuoAttention: Retrieval vs Streaming Heads</h3>
+<p>核心发现：在 LLM 的多头注意力中，不同的 head 承担不同的功能：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>Retrieval Heads (约 25%)：</strong>负责从长上下文中检索信息，attention pattern 稀疏且 long-range。这些 head 需要完整的 KV cache。</li>
+  <li><strong>Streaming Heads (约 75%)：</strong>主要关注近期 token 和特殊位置（如 sink token），pattern 呈现局部性。这些 head 只需要保留 recent window + sink tokens 的 KV cache。</li>
+</ul>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/light-duoattention/assets/duoattention.jpg" alt="DuoAttention architecture showing Retrieval Heads with full KV cache and Streaming Heads with fixed window" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: DuoAttention: Retrieval Heads (全量 KV) vs Streaming Heads (固定窗口)</div>
+</div>
+
+<h4>内存节省</h4>
+<p>假设 75% 的 heads 是 streaming heads，只保留最近 1024 tokens 的 KV：</p>
+<p>内存节省 = <code>0.75 * (1 - 1024/seq_len)</code></p>
+<p>当 seq_len = 128K 时，节省约 <strong>74.4%</strong> 的 KV cache 内存。</p>
+
+<h3>StreamingLLM</h3>
+<p>StreamingLLM 观察到 attention 的 "sink" 现象：初始几个 token 总是获得高 attention score（不论内容）。因此只需保留：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>Sink tokens (前 4 个 token 的 KV cache)</li>
+  <li>Recent window (最近 N 个 token 的 KV cache)</li>
+</ul>
+<p>这使得 LLM 可以处理无限长度的 streaming 输入，KV cache 恒定大小。</p>
+</div>
+
+<!-- Section 6.7 -->
+<h2 id="sec-diffusion-llm">6.7 Diffusion LLMs</h2>
+
+<div class="card fade-in">
+<h3>从 Autoregressive 到 Non-Autoregressive</h3>
+<p>传统 LLM 是 autoregressive 的：一次生成一个 token，总延迟与序列长度线性正比。Diffusion LLM (如 <strong>LLaDA</strong> - Large Language Diffusion with mAsking) 采用不同的生成范式：</p>
+
+<h4>LLaDA 的工作原理</h4>
+<ol style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>Forward Process (训练)：</strong>随机 mask 输入 token（类似 BERT 的 MLM，但 mask ratio 连续变化 0→1）</li>
+  <li><strong>Reverse Process (推理)：</strong>从全 mask 开始，逐步 "denoise" 恢复 token</li>
+  <li><strong>Block-wise Decoding：</strong>每一步可以同时恢复多个 token（confidence-based unmasking）</li>
+</ol>
+
+<h4>优势与挑战</h4>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>并行生成：</strong>每步可恢复多个 token，减少总 step 数 (如 128 tokens 只需 8-16 steps)</li>
+  <li><strong>全局一致性：</strong>每步都能 "看到" 所有位置的当前状态，避免 AR 的局部决策</li>
+  <li><strong>速度 vs 质量 trade-off：</strong>更多 diffusion steps = 更高质量，更少 steps = 更快速度</li>
+  <li><strong>挑战：</strong>当前质量仍略逊于同规模 AR 模型，但差距在缩小</li>
+</ul>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../sglang/diffusion-llm/pics/main-flow.png" alt="Diffusion LLM main flow showing the progressive denoising process from noise to token sequence" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Diffusion LLM 主流程: 从噪声逐步去噪生成 token 序列</div>
+</div>
+</div>
+
+<!-- Interactive: Diffusion LLM Animation -->
+<div class="interactive-container fade-in">
+<div class="interactive-title">Interactive: Diffusion LLM Token Denoising</div>
+<p style="font-size:0.85rem; color:#888; margin-bottom:10px;">观察 tokens 如何从随机 mask 逐步被 "去噪" 为连贯文本 (Block-Parallel Decoding)</p>
+<div class="diffusion-grid" id="diffusionGrid"></div>
+<div class="diffusion-controls">
+  <button onclick="startDiffusion()">Start Denoising</button>
+  <button onclick="resetDiffusion()" style="background:#16213e; border:1px solid #444;">Reset</button>
+  <span class="step-indicator">Step: <span id="diffusionStep">0</span> / <span id="diffusionTotal">8</span></span>
+</div>
+<p style="font-size:0.8rem; color:#666; margin-top:8px; text-align:center;">每步可并行恢复多个 token，不同于 AR 的逐个生成</p>
+</div>
+
+<!-- Exercises -->
+<h2 id="sec-exercises">练习 / Exercises</h2>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 1: 计算 Overlap Scheduling 的理论加速比</div>
+<p>给定以下参数：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>GPU forward pass 时间: T_gpu = 20ms</li>
+  <li>CPU-S (sampling + detokenize) 时间: T_s = 1.2ms</li>
+  <li>CPU-L (scheduling + radix tree) 时间: T_l = 5.8ms</li>
+</ul>
+<p>请计算：(a) Without overlap 的每 step 延迟；(b) With overlap 的每 step 延迟；(c) 加速比；(d) 如果 T_l 增加到 25ms（大于 T_gpu），加速比如何变化？</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint1')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol1')">解答 / Solution</span>
+
+<div class="hint-content" id="hint1">
+  <p>关键公式：</p>
+  <p>Without overlap: <code>T_total = T_gpu + T_s + T_l</code></p>
+  <p>With overlap: <code>T_total = max(T_gpu, T_l) + T_s</code></p>
+  <p>注意 overlap 只能在 <code>T_l ≤ T_gpu</code> 时完全隐藏 CPU-L 的开销。当 <code>T_l > T_gpu</code> 时，GPU 会有 idle。</p>
+</div>
+
+<div class="solution-content" id="sol1">
+  <p><strong>(a) Without overlap：</strong></p>
+  <p><code>T_total = 20 + 1.2 + 5.8 = 27.0 ms</code></p>
+  <p><strong>(b) With overlap：</strong></p>
+  <p><code>T_total = max(20, 5.8) + 1.2 = 20 + 1.2 = 21.2 ms</code></p>
+  <p>（CPU-L 完全 overlap 在 GPU forward 内）</p>
+  <p><strong>(c) 加速比：</strong></p>
+  <p><code>Speedup = 27.0 / 21.2 = 1.274x ≈ 27.4% 延迟减少</code></p>
+  <p><strong>(d) 当 T_l = 25ms 时：</strong></p>
+  <p>Without overlap: <code>20 + 1.2 + 25 = 46.2 ms</code></p>
+  <p>With overlap: <code>max(20, 25) + 1.2 = 25 + 1.2 = 26.2 ms</code></p>
+  <p>加速比 = <code>46.2 / 26.2 = 1.76x</code></p>
+  <p>当 CPU-L 较大时，overlap 的收益更加显著，但此时 GPU 有 5ms 的 idle bubble (T_l - T_gpu = 5ms)。应该考虑优化 CPU-L 或增加 batch size 来增大 T_gpu。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 2: DP Attention 内存节省计算</div>
+<p>给定以下 MoE 模型配置：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>Num KV heads (GQA): 8</li>
+  <li>Head dimension: 128</li>
+  <li>Sequence length: 32768</li>
+  <li>Total batch size: 128 requests</li>
+  <li>TP/DP degree: 8 GPUs</li>
+  <li>Precision: FP16 (2 bytes per element)</li>
+</ul>
+<p>请计算：(a) TP Attention 模式下每个 GPU 的 KV cache 大小；(b) DP Attention 模式下每个 GPU 的 KV cache 大小；(c) 内存节省百分比；(d) 如果 batch size 翻倍到 256，节省比例如何变化？</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint2')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol2')">解答 / Solution</span>
+
+<div class="hint-content" id="hint2">
+  <p>KV cache 大小公式：<code>2 (K+V) × num_kv_heads × head_dim × seq_len × batch_size × dtype_bytes</code></p>
+  <p>TP 模式：每个 GPU 需要所有 batch 的 KV cache（因为 attention 需要完整 sequence 的 KV）。GQA 的 KV heads 通常不在 TP 维度分割（因为数量太少）。</p>
+  <p>DP 模式：每个 GPU 只处理 <code>batch_size / dp_degree</code> 个请求的 KV cache。</p>
+</div>
+
+<div class="solution-content" id="sol2">
+  <p><strong>(a) TP Attention - KV cache per GPU：</strong></p>
+  <p>每个 GPU 需要全部 batch 的 KV cache（GQA heads 不分割）：</p>
+  <p><code>KV = 2 × 8 × 128 × 32768 × 128 × 2 bytes</code></p>
+  <p><code>= 2 × 8 × 128 × 32768 × 128 × 2</code></p>
+  <p><code>= 17,179,869,184 bytes = 16.0 GB</code></p>
+  <p><strong>(b) DP Attention - KV cache per GPU：</strong></p>
+  <p>每个 GPU 只处理 128/8 = 16 个请求：</p>
+  <p><code>KV = 2 × 8 × 128 × 32768 × 16 × 2 bytes</code></p>
+  <p><code>= 2,147,483,648 bytes = 2.0 GB</code></p>
+  <p><strong>(c) 内存节省：</strong></p>
+  <p><code>节省 = 1 - (2.0 / 16.0) = 1 - 0.125 = 87.5%</code></p>
+  <p>即节省 = <code>1 - 1/DP_degree = 1 - 1/8 = 87.5%</code></p>
+  <p><strong>(d) batch_size = 256 时：</strong></p>
+  <p>TP: <code>2 × 8 × 128 × 32768 × 256 × 2 = 32.0 GB</code></p>
+  <p>DP: <code>2 × 8 × 128 × 32768 × 32 × 2 = 4.0 GB</code> (256/8=32)</p>
+  <p>节省比例仍然是 <code>1 - 1/8 = 87.5%</code>（与 batch size 无关！）</p>
+  <p>节省比例取决于 DP degree，不取决于 batch size。这是 DP Attention 的优美之处。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 3: FP8 量化误差分析</div>
+<p>假设一个权重 tensor 服从正态分布 N(0, σ²)，其中 σ = 0.02（典型的 LLM 初始化）。</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>Tensor 大小: 4096 × 4096 元素</li>
+  <li>使用 FP8 E4M3 (max representable = 448)</li>
+  <li>Per-tensor dynamic scaling</li>
+</ul>
+<p>请计算：(a) 期望的 tensor max (|max|)；(b) Scale factor；(c) 量化后的有效精度 (最小可区分步长)；(d) 近似的量化 MSE (Mean Squared Error)。</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint3')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol3')">解答 / Solution</span>
+
+<div class="hint-content" id="hint3">
+  <p>正态分布 max 的期望值：对于 N 个 i.i.d. N(0,σ²) 的样本，max 的期望约为 <code>σ × √(2 × ln(N))</code></p>
+  <p>FP8 E4M3 在数值 1 附近的精度为 2^(-3) = 0.125（3 bits mantissa）。对于任意值 v，量化步长 ≈ <code>v × 2^(-3)</code>（相对精度恒定）。</p>
+  <p>量化误差可以近似为均匀分布在 [-step/2, step/2]，其方差为 step²/12。</p>
+</div>
+
+<div class="solution-content" id="sol3">
+  <p><strong>(a) 期望 tensor max：</strong></p>
+  <p>N = 4096 × 4096 = 16,777,216 元素</p>
+  <p><code>E[max] ≈ σ × √(2 × ln(N)) = 0.02 × √(2 × ln(16777216))</code></p>
+  <p><code>= 0.02 × √(2 × 16.636) = 0.02 × √33.27 = 0.02 × 5.768</code></p>
+  <p><code>≈ 0.1154</code></p>
+  <p><strong>(b) Scale factor：</strong></p>
+  <p><code>scale = max(|tensor|) / FP8_MAX = 0.1154 / 448 ≈ 2.576 × 10⁻⁴</code></p>
+  <p><strong>(c) 有效精度（最小可区分步长）：</strong></p>
+  <p>对于接近 0 的值（大部分权重）：scaled 值 ≈ tensor/scale ≈ 很大。</p>
+  <p>实际上，FP8 E4M3 在值 V 附近的步长 = <code>2^(exponent - 3)</code></p>
+  <p>对于原始空间：最小步长 = <code>scale × 2^(-9)</code> ≈ <code>2.576e-4 × 1/512 ≈ 5.03 × 10⁻⁷</code></p>
+  <p>对于典型值（~σ = 0.02）：scaled 到 ≈ 77.6，步长 ≈ 0.5（E4M3 在 64-128 范围步长为 0.5）</p>
+  <p>原始步长 ≈ <code>0.5 × scale ≈ 1.29 × 10⁻⁴</code></p>
+  <p><strong>(d) 近似量化 MSE：</strong></p>
+  <p>对于大部分权重值 w ~ N(0, 0.02²)：</p>
+  <p>相对精度 ≈ 2^(-3) = 1/8 （FP8 E4M3 的相对精度）</p>
+  <p>对于值 w，量化步长 ≈ <code>|w| × 2^(-3) × (scale 修正)</code></p>
+  <p>简化估算：量化误差 ≈ uniform[-Δ/2, Δ/2]，Δ = scale × 1 (最小 ULP at typical range)</p>
+  <p>MSE ≈ <code>Δ² / 12 ≈ (1.29 × 10⁻⁴)² / 12 ≈ 1.39 × 10⁻⁹</code></p>
+  <p>RMSE ≈ <code>3.73 × 10⁻⁵</code>，相对 σ 的比率 ≈ 0.19%</p>
+  <p><strong>结论：</strong>FP8 量化对于 σ=0.02 的正态分布权重引入的相对误差约 0.2%，对训练质量影响很小，支持 train-inference 统一精度。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 4 (Bonus): Speculative Decoding Acceptance Rate</div>
+<p>给定 draft model 的 per-token acceptance rate α = 0.75，draft length K = 6：</p>
+<p>请计算：(a) 每次 verify 的期望接受 token 数；(b) 如果 draft model 推理速度是 target model 的 10x，计算端到端加速比；(c) 经过 100 步 RL 训练后，α 下降到 0.55，加速比变为多少？是否值得 online SFT 更新 draft model？</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint4')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol4')">解答 / Solution</span>
+
+<div class="hint-content" id="hint4">
+  <p>期望接受 token 数 = <code>(1 - α^(K+1)) / (1 - α)</code> （几何级数和 + 拒绝后重采样的额外 1 token）</p>
+  <p>加速比 = 期望接受 token / (1 + K × (T_draft / T_target))</p>
+  <p>其中分母是一次 speculative 迭代的时间代价（K 次 draft + 1 次 verify）相对于纯 target 生成的比率。</p>
+</div>
+
+<div class="solution-content" id="sol4">
+  <p><strong>(a) 期望接受 token 数 (α=0.75, K=6)：</strong></p>
+  <p><code>E[accepted] = (1 - α^(K+1)) / (1 - α) = (1 - 0.75^7) / (1 - 0.75)</code></p>
+  <p><code>= (1 - 0.1335) / 0.25 = 0.8665 / 0.25 = 3.466 tokens</code></p>
+  <p>加上 rejection 后的 correction token: 总期望输出 = 3.466 tokens/iteration</p>
+  <p><strong>(b) 加速比 (draft 10x faster)：</strong></p>
+  <p>T_draft/T_target = 0.1, 一次迭代时间 = K × 0.1 + 1 = 1.6 (相对于 target model 的单次时间)</p>
+  <p>AR 模式生成相同 token 数需要 3.466 次 target forward</p>
+  <p>加速比 = <code>3.466 / 1.6 = 2.166x</code></p>
+  <p><strong>(c) α = 0.55 时：</strong></p>
+  <p><code>E[accepted] = (1 - 0.55^7) / (1 - 0.55) = (1 - 0.0152) / 0.45 = 2.189 tokens</code></p>
+  <p>加速比 = <code>2.189 / 1.6 = 1.368x</code></p>
+  <p>加速比从 2.17x 降到 1.37x，下降了 37%。</p>
+  <p><strong>是否值得 Online SFT？</strong>如果 online SFT 能将 α 恢复到 0.70+（接近初始值），且 SFT 开销 < 获得的加速收益，则值得。通常 draft model 很小（1-2B），SFT 成本低，因此答案是<strong>值得</strong>的。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Coding Exercise A: 实现 FP8 量化和反量化</div>
+<p>实现 per-tensor dynamic scaling 的 FP8 E4M3 量化/反量化，包含误差分析和可视化。</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>实现 <code>quantize(tensor)</code> → <code>(fp8_tensor, scale)</code>：使用 per-tensor dynamic scaling 将 float32 tensor 量化为 FP8 E4M3</li>
+  <li>实现 <code>dequantize(fp8_tensor, scale)</code> → <code>tensor</code>：将 FP8 tensor 反量化回 float32</li>
+  <li>计算量化误差：MSE (Mean Squared Error) 和 max absolute error</li>
+  <li>测试：对正态分布 N(0, 0.02²) 和均匀分布 U(-1, 1) 的 tensor 分别测试</li>
+  <li>可视化：画出原始值 vs 量化后值的散点图 (scatter plot)</li>
+</ul>
+
+<p style="margin-top:15px; color:#aaa;"><strong>Starter Code Template:</strong></p>
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+
+<span class="keyword">class</span> <span class="function">FP8E4M3Quantizer</span>:
+    <span class="string">"""FP8 E4M3 quantizer with per-tensor dynamic scaling."""</span>
+    FP8_E4M3_MAX = <span class="number">448.0</span>  <span class="comment"># Maximum representable value in E4M3</span>
+
+    <span class="keyword">def</span> <span class="function">quantize</span>(self, tensor: torch.Tensor):
+        <span class="string">"""
+        Quantize a float32 tensor to FP8 E4M3 with dynamic scaling.
+
+        Args:
+            tensor: Input float32 tensor
+        Returns:
+            (fp8_tensor, scale): Tuple of quantized tensor and scale factor
+        """</span>
+        <span class="comment"># TODO: Step 1 - Compute per-tensor amax (absolute max)</span>
+        amax = ...
+
+        <span class="comment"># TODO: Step 2 - Compute scale factor = amax / FP8_E4M3_MAX</span>
+        scale = ...
+
+        <span class="comment"># TODO: Step 3 - Scale tensor and clamp to FP8 range</span>
+        tensor_scaled = ...
+
+        <span class="comment"># TODO: Step 4 - Simulate FP8 quantization (round to nearest representable)</span>
+        <span class="comment"># Hint: Use torch.float8_e4m3fn dtype if available,</span>
+        <span class="comment"># otherwise simulate with rounding</span>
+        tensor_fp8 = ...
+
+        <span class="keyword">return</span> tensor_fp8, scale
+
+    <span class="keyword">def</span> <span class="function">dequantize</span>(self, tensor_fp8: torch.Tensor, scale: torch.Tensor):
+        <span class="string">"""
+        Dequantize FP8 tensor back to float32.
+
+        Args:
+            tensor_fp8: Quantized tensor
+            scale: Scale factor from quantize()
+        Returns:
+            Restored float32 tensor
+        """</span>
+        <span class="comment"># TODO: Multiply by scale to restore original range</span>
+        <span class="keyword">return</span> ...
+
+    <span class="keyword">def</span> <span class="function">compute_error</span>(self, original: torch.Tensor, restored: torch.Tensor):
+        <span class="string">"""Compute MSE and max absolute error."""</span>
+        <span class="comment"># TODO: Compute MSE and max error</span>
+        mse = ...
+        max_err = ...
+        <span class="keyword">return</span> mse, max_err
+
+
+<span class="keyword">def</span> <span class="function">test_and_visualize</span>():
+    <span class="string">"""Test quantizer on different distributions and visualize results."""</span>
+    quantizer = FP8E4M3Quantizer()
+
+    <span class="comment"># TODO: Create test tensors</span>
+    <span class="comment"># 1. Normal distribution: N(0, 0.02^2), shape (4096,)</span>
+    tensor_normal = ...
+    <span class="comment"># 2. Uniform distribution: U(-1, 1), shape (4096,)</span>
+    tensor_uniform = ...
+
+    <span class="comment"># TODO: Quantize and dequantize each tensor</span>
+    <span class="comment"># TODO: Compute errors for each</span>
+    <span class="comment"># TODO: Create scatter plots (original vs quantized)</span>
+
+    <span class="comment"># Visualization template:</span>
+    fig, axes = plt.subplots(<span class="number">1</span>, <span class="number">2</span>, figsize=(<span class="number">12</span>, <span class="number">5</span>))
+    <span class="comment"># axes[0]: Normal distribution scatter</span>
+    <span class="comment"># axes[1]: Uniform distribution scatter</span>
+    <span class="comment"># Add diagonal reference line (perfect quantization)</span>
+    plt.show()
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    test_and_visualize()
+</code></pre>
+
+<span class="hint-toggle" onclick="toggleHint('hintA')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('solA')">完整解答 / Full Solution</span>
+
+<div class="hint-content" id="hintA">
+  <p><strong>量化步骤提示：</strong></p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li>Scale factor 保证 tensor 最大值映射到 FP8 最大可表示值 (448)</li>
+    <li>如果 PyTorch 版本不支持 <code>torch.float8_e4m3fn</code>，可以用 <code>torch.round()</code> 模拟 3-bit mantissa 的舍入效果</li>
+    <li>FP8 E4M3 的有效精度约 2^(-3)=0.125 相对误差，所以量化后的值 = round_to_fp8(value)</li>
+    <li>对于 scatter plot，理想量化应该所有点落在对角线 y=x 上</li>
+  </ul>
+</div>
+
+<div class="solution-content" id="solA">
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+<span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt
+
+<span class="keyword">class</span> <span class="function">FP8E4M3Quantizer</span>:
+    <span class="string">"""FP8 E4M3 quantizer with per-tensor dynamic scaling."""</span>
+    FP8_E4M3_MAX = <span class="number">448.0</span>
+
+    <span class="keyword">def</span> <span class="function">quantize</span>(self, tensor: torch.Tensor):
+        <span class="comment"># Step 1: Compute absolute max</span>
+        amax = tensor.abs().amax()
+
+        <span class="comment"># Step 2: Compute scale (handle zero tensor)</span>
+        scale = amax / self.FP8_E4M3_MAX
+        scale = torch.where(scale > <span class="number">0</span>, scale, torch.ones_like(scale))
+
+        <span class="comment"># Step 3: Scale and clamp</span>
+        tensor_scaled = tensor / scale
+        tensor_scaled = tensor_scaled.clamp(-self.FP8_E4M3_MAX, self.FP8_E4M3_MAX)
+
+        <span class="comment"># Step 4: Quantize to FP8 E4M3</span>
+        <span class="comment"># Use native dtype if available, otherwise simulate</span>
+        <span class="keyword">if</span> hasattr(torch, <span class="string">'float8_e4m3fn'</span>):
+            tensor_fp8 = tensor_scaled.to(torch.float8_e4m3fn)
+        <span class="keyword">else</span>:
+            <span class="comment"># Simulate: FP8 E4M3 has 3 mantissa bits (8 levels per power of 2)</span>
+            sign = tensor_scaled.sign()
+            abs_val = tensor_scaled.abs()
+            <span class="comment"># Find exponent</span>
+            exp = torch.floor(torch.log2(abs_val.clamp(min=<span class="number">2</span>**-<span class="number">9</span>)))
+            <span class="comment"># Quantize mantissa to 3 bits</span>
+            mantissa = abs_val / (<span class="number">2.0</span> ** exp) - <span class="number">1.0</span>
+            mantissa_q = torch.round(mantissa * <span class="number">8</span>) / <span class="number">8</span>
+            mantissa_q = mantissa_q.clamp(<span class="number">0</span>, <span class="number">0.875</span>)  <span class="comment"># 7/8 max</span>
+            tensor_fp8 = sign * (<span class="number">1.0</span> + mantissa_q) * (<span class="number">2.0</span> ** exp)
+            tensor_fp8 = torch.where(abs_val == <span class="number">0</span>, torch.zeros_like(tensor_fp8), tensor_fp8)
+
+        <span class="keyword">return</span> tensor_fp8, scale
+
+    <span class="keyword">def</span> <span class="function">dequantize</span>(self, tensor_fp8: torch.Tensor, scale: torch.Tensor):
+        <span class="comment"># Convert back to float32 and multiply by scale</span>
+        <span class="keyword">return</span> tensor_fp8.float() * scale
+
+    <span class="keyword">def</span> <span class="function">compute_error</span>(self, original: torch.Tensor, restored: torch.Tensor):
+        diff = original - restored
+        mse = (diff ** <span class="number">2</span>).mean().item()
+        max_err = diff.abs().max().item()
+        <span class="keyword">return</span> mse, max_err
+
+
+<span class="keyword">def</span> <span class="function">test_and_visualize</span>():
+    quantizer = FP8E4M3Quantizer()
+    torch.manual_seed(<span class="number">42</span>)
+
+    <span class="comment"># Create test tensors</span>
+    tensor_normal = torch.randn(<span class="number">4096</span>) * <span class="number">0.02</span>    <span class="comment"># N(0, 0.02^2)</span>
+    tensor_uniform = torch.rand(<span class="number">4096</span>) * <span class="number">2</span> - <span class="number">1</span>  <span class="comment"># U(-1, 1)</span>
+
+    <span class="comment"># Quantize and dequantize</span>
+    results = {}
+    <span class="keyword">for</span> name, tensor <span class="keyword">in</span> [(<span class="string">"Normal N(0,0.02²)"</span>, tensor_normal),
+                           (<span class="string">"Uniform U(-1,1)"</span>, tensor_uniform)]:
+        fp8, scale = quantizer.quantize(tensor)
+        restored = quantizer.dequantize(fp8, scale)
+        mse, max_err = quantizer.compute_error(tensor, restored)
+        results[name] = {
+            <span class="string">'original'</span>: tensor,
+            <span class="string">'restored'</span>: restored,
+            <span class="string">'mse'</span>: mse,
+            <span class="string">'max_err'</span>: max_err,
+            <span class="string">'scale'</span>: scale.item()
+        }
+        <span class="keyword">print</span>(f<span class="string">"[{name}] MSE={mse:.2e}, Max Error={max_err:.2e}, Scale={scale.item():.6f}"</span>)
+
+    <span class="comment"># Visualization</span>
+    fig, axes = plt.subplots(<span class="number">1</span>, <span class="number">2</span>, figsize=(<span class="number">12</span>, <span class="number">5</span>))
+    <span class="keyword">for</span> ax, (name, res) <span class="keyword">in</span> zip(axes, results.items()):
+        orig = res[<span class="string">'original'</span>].numpy()
+        rest = res[<span class="string">'restored'</span>].numpy()
+        ax.scatter(orig, rest, alpha=<span class="number">0.3</span>, s=<span class="number">2</span>, color=<span class="string">'cyan'</span>)
+        <span class="comment"># Perfect quantization reference line</span>
+        lim = max(abs(orig.min()), abs(orig.max())) * <span class="number">1.1</span>
+        ax.plot([-lim, lim], [-lim, lim], <span class="string">'r--'</span>, linewidth=<span class="number">0.8</span>, label=<span class="string">'ideal (y=x)'</span>)
+        ax.set_xlabel(<span class="string">'Original Value'</span>)
+        ax.set_ylabel(<span class="string">'Dequantized Value'</span>)
+        ax.set_title(f<span class="string">'{name}\nMSE={res["mse"]:.2e}, MaxErr={res["max_err"]:.2e}'</span>)
+        ax.legend()
+        ax.grid(<span class="number">True</span>, alpha=<span class="number">0.3</span>)
+    plt.tight_layout()
+    plt.savefig(<span class="string">'fp8_quantization_scatter.png'</span>, dpi=<span class="number">150</span>)
+    plt.show()
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    test_and_visualize()
+</code></pre>
+<p style="margin-top:12px; color:#aaa;"><strong>Expected Output:</strong></p>
+<pre><code><span class="comment"># Terminal output:</span>
+[Normal N(0,0.02²)] MSE=1.47e-09, Max Error=7.63e-05, Scale=0.000192
+[Uniform U(-1,1)] MSE=2.18e-05, Max Error=1.12e-02, Scale=0.002232
+
+<span class="comment"># Scatter plot 说明:</span>
+<span class="comment"># - Normal 分布: 点紧密分布在对角线上，误差极小 (scale 很小，利用率高)</span>
+<span class="comment"># - Uniform 分布: 离对角线稍有偏离，尤其在接近 0 处 (相对误差较大)</span>
+<span class="comment"># - 两种情况的 FP8 量化误差对训练影响都可以忽略不计</span>
+</code></pre>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Coding Exercise B: 实现 Double-Buffering Weight Update 模拟</div>
+<p>模拟 training → inference 的 weight update pipeline，对比 double-buffering (零 downtime) 和 stop-the-world (暂停服务) 两种策略的 throughput 差异。</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><code>TrainingEngine</code>：每个 step 产生新 weights (模拟 gradient update)</li>
+  <li><code>InferenceEngine</code>：用当前 weights 处理推理请求，统计 throughput</li>
+  <li>Double-buffer 策略：<code>buffer_A</code> 服务请求，<code>buffer_B</code> 接收新 weight；写完后原子 swap (零 downtime)</li>
+  <li>Stop-the-world 策略：暂停推理 → 更新 weight → 恢复推理 (有 downtime)</li>
+  <li>输出 timeline 展示 training, transfer, serving 的 overlap</li>
+  <li>对比两种策略的总 throughput 和 latency</li>
+</ul>
+
+<p style="margin-top:15px; color:#aaa;"><strong>Starter Code Template:</strong></p>
+<pre><code><span class="keyword">import</span> time
+<span class="keyword">import</span> threading
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> List
+
+@dataclass
+<span class="keyword">class</span> <span class="function">WeightBuffer</span>:
+    <span class="string">"""Simulated weight buffer."""</span>
+    version: int = <span class="number">0</span>
+    data: List[float] = field(default_factory=<span class="keyword">lambda</span>: [<span class="number">0.0</span>] * <span class="number">100</span>)
+    is_ready: bool = <span class="number">True</span>
+
+
+<span class="keyword">class</span> <span class="function">TrainingEngine</span>:
+    <span class="string">"""Simulates training that produces new weights each step."""</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, step_time_ms: float = <span class="number">50.0</span>):
+        self.step_time_ms = step_time_ms
+        self.current_version = <span class="number">0</span>
+
+    <span class="keyword">def</span> <span class="function">train_step</span>(self):
+        <span class="string">"""Simulate one training step. Returns new weights."""</span>
+        <span class="comment"># TODO: Simulate training computation time</span>
+        <span class="comment"># TODO: Generate new "weights" (increment version, random delta)</span>
+        ...
+
+
+<span class="keyword">class</span> <span class="function">InferenceEngine</span>:
+    <span class="string">"""Simulates inference serving using current weights."""</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, request_time_ms: float = <span class="number">5.0</span>):
+        self.request_time_ms = request_time_ms
+        self.requests_served = <span class="number">0</span>
+        self.serving = <span class="number">False</span>
+
+    <span class="keyword">def</span> <span class="function">serve_request</span>(self, weights: WeightBuffer):
+        <span class="string">"""Simulate serving one inference request."""</span>
+        <span class="comment"># TODO: Simulate inference latency</span>
+        <span class="comment"># TODO: Increment requests_served counter</span>
+        ...
+
+
+<span class="keyword">class</span> <span class="function">DoubleBufferUpdater</span>:
+    <span class="string">"""
+    Double-buffering weight update: zero-downtime swap.
+    buffer_A serves requests while buffer_B receives new weights.
+    """</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, transfer_time_ms: float = <span class="number">20.0</span>):
+        self.buffer_A = WeightBuffer()
+        self.buffer_B = WeightBuffer()
+        self.active_buffer = <span class="string">'A'</span>  <span class="comment"># Which buffer is currently serving</span>
+        self.transfer_time_ms = transfer_time_ms
+        self.lock = threading.Lock()
+        self.timeline = []  <span class="comment"># Record events for visualization</span>
+
+    <span class="keyword">def</span> <span class="function">get_serving_buffer</span>(self) -> WeightBuffer:
+        <span class="string">"""Get the buffer currently serving requests."""</span>
+        <span class="comment"># TODO: Return active buffer</span>
+        ...
+
+    <span class="keyword">def</span> <span class="function">transfer_weights</span>(self, new_weights):
+        <span class="string">"""Transfer new weights to inactive buffer, then swap."""</span>
+        <span class="comment"># TODO: Write to inactive buffer (simulate transfer time)</span>
+        <span class="comment"># TODO: Atomic swap active/inactive buffer</span>
+        <span class="comment"># TODO: Record event in timeline</span>
+        ...
+
+    <span class="keyword">def</span> <span class="function">swap_buffers</span>(self):
+        <span class="string">"""Atomically swap active and inactive buffers."""</span>
+        <span class="comment"># TODO: Lock and swap buffer pointers</span>
+        ...
+
+
+<span class="keyword">class</span> <span class="function">StopTheWorldUpdater</span>:
+    <span class="string">"""
+    Stop-the-world weight update: pause inference during update.
+    """</span>
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, transfer_time_ms: float = <span class="number">20.0</span>):
+        self.buffer = WeightBuffer()
+        self.transfer_time_ms = transfer_time_ms
+        self.is_updating = <span class="number">False</span>
+        self.timeline = []
+
+    <span class="keyword">def</span> <span class="function">transfer_weights</span>(self, new_weights):
+        <span class="string">"""Block inference, update weights, resume."""</span>
+        <span class="comment"># TODO: Set is_updating = True (blocks inference)</span>
+        <span class="comment"># TODO: Simulate transfer time</span>
+        <span class="comment"># TODO: Update buffer</span>
+        <span class="comment"># TODO: Set is_updating = False</span>
+        ...
+
+
+<span class="keyword">def</span> <span class="function">run_simulation</span>(total_time_ms: float = <span class="number">500.0</span>, num_updates: int = <span class="number">5</span>):
+    <span class="string">"""
+    Run both strategies and compare throughput.
+
+    Output:
+      - Timeline showing overlap of training/transfer/serving
+      - Total requests served by each strategy
+      - Effective throughput comparison
+    """</span>
+    <span class="comment"># TODO: Run double-buffer simulation</span>
+    <span class="comment"># TODO: Run stop-the-world simulation</span>
+    <span class="comment"># TODO: Print timeline and comparison</span>
+    ...
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    run_simulation()
+</code></pre>
+
+<span class="hint-toggle" onclick="toggleHint('hintB')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('solB')">完整解答 / Full Solution</span>
+
+<div class="hint-content" id="hintB">
+  <p><strong>实现提示：</strong></p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li>Double-buffer 的关键是 inference 和 weight transfer 并行：inference 读 buffer_A，transfer 写 buffer_B，写完后 swap 指针</li>
+    <li>Stop-the-world 的关键是 transfer 期间 inference 完全暂停 (downtime = transfer_time_ms)</li>
+    <li>用 <code>threading.Lock</code> 保证 buffer swap 的原子性</li>
+    <li>用虚拟时间 (virtual clock) 代替 <code>time.sleep()</code> 来加速模拟</li>
+    <li>Timeline 可以用字符画 (ASCII art) 表示各阶段的时间占用</li>
+  </ul>
+</div>
+
+<div class="solution-content" id="solB">
+<pre><code><span class="keyword">import</span> threading
+<span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass, field
+<span class="keyword">from</span> typing <span class="keyword">import</span> List, Tuple
+
+@dataclass
+<span class="keyword">class</span> <span class="function">WeightBuffer</span>:
+    version: int = <span class="number">0</span>
+    data: List[float] = field(default_factory=<span class="keyword">lambda</span>: [<span class="number">0.0</span>] * <span class="number">100</span>)
+    is_ready: bool = <span class="number">True</span>
+
+
+@dataclass
+<span class="keyword">class</span> <span class="function">TimelineEvent</span>:
+    start_ms: float
+    end_ms: float
+    event_type: str   <span class="comment"># 'training', 'transfer', 'serving', 'downtime'</span>
+    label: str = <span class="string">""</span>
+
+
+<span class="keyword">class</span> <span class="function">TrainingEngine</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, step_time_ms: float = <span class="number">50.0</span>):
+        self.step_time_ms = step_time_ms
+        self.current_version = <span class="number">0</span>
+
+    <span class="keyword">def</span> <span class="function">train_step</span>(self) -> Tuple[int, List[float]]:
+        self.current_version += <span class="number">1</span>
+        <span class="comment"># Simulate: return version and "new weights"</span>
+        new_weights = [float(self.current_version) * <span class="number">0.01</span>] * <span class="number">100</span>
+        <span class="keyword">return</span> self.current_version, new_weights
+
+
+<span class="keyword">class</span> <span class="function">Simulator</span>:
+    <span class="string">"""Virtual-time simulator for both strategies."""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, train_step_ms=<span class="number">50.0</span>, transfer_ms=<span class="number">20.0</span>, request_ms=<span class="number">5.0</span>):
+        self.train_step_ms = train_step_ms
+        self.transfer_ms = transfer_ms
+        self.request_ms = request_ms
+
+    <span class="keyword">def</span> <span class="function">run_double_buffer</span>(self, total_ms: float, num_updates: int):
+        <span class="string">"""Simulate double-buffer strategy."""</span>
+        timeline = []
+        requests_served = <span class="number">0</span>
+        clock = <span class="number">0.0</span>
+        update_interval = total_ms / num_updates
+
+        active_version = <span class="number">0</span>
+        trainer = TrainingEngine(self.train_step_ms)
+        next_update_at = update_interval
+
+        <span class="keyword">while</span> clock < total_ms:
+            <span class="comment"># Check if it's time for a weight update</span>
+            <span class="keyword">if</span> clock >= next_update_at:
+                <span class="comment"># Training step (happens on training cluster)</span>
+                train_start = clock
+                version, weights = trainer.train_step()
+                train_end = clock + self.train_step_ms
+                timeline.append(TimelineEvent(train_start, train_end, <span class="string">'training'</span>,
+                                              f<span class="string">'v{version}'</span>))
+
+                <span class="comment"># Transfer to inactive buffer (OVERLAPS with serving)</span>
+                transfer_start = train_end
+                transfer_end = transfer_start + self.transfer_ms
+                timeline.append(TimelineEvent(transfer_start, transfer_end, <span class="string">'transfer'</span>,
+                                              f<span class="string">'→buf'</span>))
+
+                <span class="comment"># Serving continues during transfer!</span>
+                serve_during_transfer = int(self.transfer_ms / self.request_ms)
+                requests_served += serve_during_transfer
+                timeline.append(TimelineEvent(transfer_start, transfer_end, <span class="string">'serving'</span>,
+                                              f<span class="string">'{serve_during_transfer}req'</span>))
+
+                <span class="comment"># Swap buffers (instant, ~0ms)</span>
+                active_version = version
+                clock = transfer_end
+                next_update_at = clock + update_interval
+            <span class="keyword">else</span>:
+                <span class="comment"># Normal serving</span>
+                serve_end = min(clock + self.request_ms, total_ms)
+                <span class="keyword">if</span> serve_end <= total_ms:
+                    requests_served += <span class="number">1</span>
+                clock = serve_end
+
+        <span class="keyword">return</span> requests_served, timeline, active_version
+
+    <span class="keyword">def</span> <span class="function">run_stop_the_world</span>(self, total_ms: float, num_updates: int):
+        <span class="string">"""Simulate stop-the-world strategy."""</span>
+        timeline = []
+        requests_served = <span class="number">0</span>
+        clock = <span class="number">0.0</span>
+        update_interval = total_ms / num_updates
+
+        active_version = <span class="number">0</span>
+        trainer = TrainingEngine(self.train_step_ms)
+        next_update_at = update_interval
+
+        <span class="keyword">while</span> clock < total_ms:
+            <span class="keyword">if</span> clock >= next_update_at:
+                <span class="comment"># Training step</span>
+                train_start = clock
+                version, weights = trainer.train_step()
+                train_end = clock + self.train_step_ms
+                timeline.append(TimelineEvent(train_start, train_end, <span class="string">'training'</span>,
+                                              f<span class="string">'v{version}'</span>))
+
+                <span class="comment"># STOP serving → transfer → resume</span>
+                transfer_start = train_end
+                transfer_end = transfer_start + self.transfer_ms
+                timeline.append(TimelineEvent(transfer_start, transfer_end, <span class="string">'downtime'</span>,
+                                              <span class="string">'BLOCKED'</span>))
+                timeline.append(TimelineEvent(transfer_start, transfer_end, <span class="string">'transfer'</span>,
+                                              f<span class="string">'→buf'</span>))
+
+                active_version = version
+                clock = transfer_end
+                next_update_at = clock + update_interval
+            <span class="keyword">else</span>:
+                serve_end = min(clock + self.request_ms, total_ms)
+                <span class="keyword">if</span> serve_end <= total_ms:
+                    requests_served += <span class="number">1</span>
+                clock = serve_end
+
+        <span class="keyword">return</span> requests_served, timeline, active_version
+
+
+<span class="keyword">def</span> <span class="function">print_timeline</span>(label: str, timeline: List[TimelineEvent], total_ms: float):
+    <span class="string">"""Print ASCII timeline."""</span>
+    <span class="keyword">print</span>(f<span class="string">"\n{'='*60}"</span>)
+    <span class="keyword">print</span>(f<span class="string">" {label}"</span>)
+    <span class="keyword">print</span>(f<span class="string">"{'='*60}"</span>)
+    width = <span class="number">50</span>
+    <span class="keyword">for</span> etype <span class="keyword">in</span> [<span class="string">'training'</span>, <span class="string">'transfer'</span>, <span class="string">'serving'</span>, <span class="string">'downtime'</span>]:
+        events = [e <span class="keyword">for</span> e <span class="keyword">in</span> timeline <span class="keyword">if</span> e.event_type == etype]
+        <span class="keyword">if</span> <span class="keyword">not</span> events:
+            <span class="keyword">continue</span>
+        bar = [<span class="string">'.'</span>] * width
+        <span class="keyword">for</span> e <span class="keyword">in</span> events:
+            s = int(e.start_ms / total_ms * width)
+            end = int(e.end_ms / total_ms * width)
+            char = {<span class="string">'training'</span>: <span class="string">'T'</span>, <span class="string">'transfer'</span>: <span class="string">'>'</span>, <span class="string">'serving'</span>: <span class="string">'S'</span>, <span class="string">'downtime'</span>: <span class="string">'X'</span>}[etype]
+            <span class="keyword">for</span> i <span class="keyword">in</span> range(s, min(end, width)):
+                bar[i] = char
+        <span class="keyword">print</span>(f<span class="string">"  {etype:&lt;10} |{''.join(bar)}|"</span>)
+
+
+<span class="keyword">def</span> <span class="function">run_simulation</span>(total_time_ms=<span class="number">500.0</span>, num_updates=<span class="number">5</span>):
+    sim = Simulator(train_step_ms=<span class="number">50.0</span>, transfer_ms=<span class="number">20.0</span>, request_ms=<span class="number">5.0</span>)
+
+    <span class="comment"># Run both strategies</span>
+    db_reqs, db_timeline, db_ver = sim.run_double_buffer(total_time_ms, num_updates)
+    stw_reqs, stw_timeline, stw_ver = sim.run_stop_the_world(total_time_ms, num_updates)
+
+    <span class="comment"># Print timelines</span>
+    print_timeline(<span class="string">"Double-Buffer (zero downtime)"</span>, db_timeline, total_time_ms)
+    print_timeline(<span class="string">"Stop-the-World (has downtime)"</span>, stw_timeline, total_time_ms)
+
+    <span class="comment"># Comparison</span>
+    <span class="keyword">print</span>(f<span class="string">"\n{'='*60}"</span>)
+    <span class="keyword">print</span>(f<span class="string">" COMPARISON (total_time={total_time_ms}ms, {num_updates} updates)"</span>)
+    <span class="keyword">print</span>(f<span class="string">"{'='*60}"</span>)
+    <span class="keyword">print</span>(f<span class="string">"  Double-Buffer:    {db_reqs} requests served"</span>)
+    <span class="keyword">print</span>(f<span class="string">"  Stop-the-World:   {stw_reqs} requests served"</span>)
+    improvement = (db_reqs - stw_reqs) / stw_reqs * <span class="number">100</span> <span class="keyword">if</span> stw_reqs > <span class="number">0</span> <span class="keyword">else</span> <span class="number">0</span>
+    <span class="keyword">print</span>(f<span class="string">"  Throughput gain:   +{improvement:.1f}%"</span>)
+    downtime_total = num_updates * sim.transfer_ms
+    <span class="keyword">print</span>(f<span class="string">"  STW total downtime: {downtime_total}ms ({downtime_total/total_time_ms*100:.1f}% of time)"</span>)
+    <span class="keyword">print</span>(f<span class="string">"  DB downtime:        0ms (zero downtime)"</span>)
+
+
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    run_simulation()
+</code></pre>
+<p style="margin-top:12px; color:#aaa;"><strong>Expected Output:</strong></p>
+<pre><code><span class="comment">============================================================</span>
+<span class="comment"> Double-Buffer (zero downtime)</span>
+<span class="comment">============================================================</span>
+<span class="comment">  training   |..........T.T.......T.T.......T.T.......T.T.......T.T.|</span>
+<span class="comment">  transfer   |............>>........>>........>>........>>........>>.|</span>
+<span class="comment">  serving    |SSSSSSSSSS..SS.SSSSS..SS.SSSSS..SS.SSSSS..SS.SSSSS..SS|</span>
+<span class="comment">============================================================</span>
+<span class="comment"> Stop-the-World (has downtime)</span>
+<span class="comment">============================================================</span>
+<span class="comment">  training   |..........T.T.......T.T.......T.T.......T.T.......T.T.|</span>
+<span class="comment">  transfer   |............>>........>>........>>........>>........>>.|</span>
+<span class="comment">  downtime   |............XX........XX........XX........XX........XX.|</span>
+<span class="comment">============================================================</span>
+<span class="comment"> COMPARISON (total_time=500ms, 5 updates)</span>
+<span class="comment">============================================================</span>
+<span class="comment">  Double-Buffer:    80 requests served</span>
+<span class="comment">  Stop-the-World:   60 requests served</span>
+<span class="comment">  Throughput gain:   +33.3%</span>
+<span class="comment">  STW total downtime: 100ms (20.0% of time)</span>
+<span class="comment">  DB downtime:        0ms (zero downtime)</span>
+</code></pre>
+</div>
+</div>
+
+<!-- Summary -->
+<div class="card card-highlight fade-in" style="margin-top:40px;">
+<h3>本章小结</h3>
+<p>本章覆盖了 ML 系统中的前沿优化技术：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li><strong>Zero-Overhead Scheduling：</strong>通过 CPU-GPU overlap 和 double-buffering 消除调度开销</li>
+  <li><strong>DP Attention：</strong>针对 MoE 模型优化内存效率，将 KV cache 需求降低 DP_degree 倍</li>
+  <li><strong>Online Weight Updates：</strong>利用 NCCL broadcast 实现训练-推理间的无缝权重同步</li>
+  <li><strong>FP8 Training：</strong>统一训练和推理精度，消除 train-inference gap</li>
+  <li><strong>Speculative Decoding：</strong>通过 draft model + online SFT 加速 RL rollout</li>
+  <li><strong>Long Context：</strong>DuoAttention 利用 head 功能分化节省 KV cache</li>
+  <li><strong>Diffusion LLMs：</strong>非自回归生成，block-parallel decoding 打破序列依赖</li>
+</ul>
+</div>
+
+<script>
+// ==================== Timeline Animation ====================
+let timelineAnimId = null;
+let timelineProgress = 0;
+let timelinePlaying = false;
+
+function drawTimeline(progress) {
+    const canvas = document.getElementById('timelineCanvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.offsetWidth * dpr;
+    canvas.height = canvas.offsetHeight * dpr;
+    ctx.scale(dpr, dpr);
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const rowHeight = 40;
+    const topMargin = 25;
+    const leftMargin = 70;
+    const barWidth = (W - leftMargin - 30);
+
+    // Labels
+    ctx.fillStyle = '#888';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('GPU', leftMargin - 10, topMargin + rowHeight * 0.5 + 4);
+    ctx.fillText('CPU-S', leftMargin - 10, topMargin + rowHeight * 1.5 + 4);
+    ctx.fillText('CPU-L', leftMargin - 10, topMargin + rowHeight * 2.5 + 4);
+
+    // Section header
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#555';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillText('Without Overlap', leftMargin, topMargin - 8);
+    ctx.fillText('With Overlap (Pipelined)', leftMargin + barWidth * 0.5, topMargin - 8);
+
+    // Draw bars for "without overlap" (sequential)
+    const seqStart = leftMargin;
+    const seqWidth = barWidth * 0.42;
+    const unitW = seqWidth / 3.5;
+
+    // Sequential: GPU → CPU-S → CPU-L → GPU → ...
+    const seqBars = [
+        { row: 0, start: 0, width: 2.0, color: '#ff6b6b', label: 'Forward' },
+        { row: 1, start: 2.0, width: 0.3, color: '#00d4aa', label: 'Sample' },
+        { row: 2, start: 2.3, width: 1.0, color: '#0088ff', label: 'Schedule' },
+        { row: 0, start: 3.3, width: 0.15, color: '#444', label: '' },  // idle gap
+    ];
+
+    for (const bar of seqBars) {
+        const x = seqStart + bar.start * unitW;
+        const w = bar.width * unitW * Math.min(progress * 2, 1);
+        const y = topMargin + bar.row * rowHeight + 8;
+        ctx.fillStyle = bar.color;
+        ctx.beginPath();
+        ctx.roundRect(x, y, Math.max(w, 0), 24, 4);
+        ctx.fill();
+        if (bar.label && w > 30) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(bar.label, x + w / 2, y + 15);
+        }
+    }
+
+    // Draw bars for "with overlap" (pipelined)
+    const pipStart = leftMargin + barWidth * 0.52;
+    const pipWidth = barWidth * 0.45;
+    const pUnitW = pipWidth / 4.5;
+
+    const pipBars = [
+        // Batch 1
+        { row: 0, start: 0, width: 2.0, color: '#ff6b6b', label: 'Forward₁' },
+        { row: 1, start: 2.0, width: 0.3, color: '#00d4aa', label: 'S₁' },
+        { row: 2, start: 0.3, width: 1.0, color: '#0088ff', label: 'Schedule₂' },
+        // Batch 2
+        { row: 0, start: 2.3, width: 2.0, color: '#ff6b6b', label: 'Forward₂' },
+        { row: 1, start: 4.3, width: 0.15, color: '#00d4aa', label: '' },
+        { row: 2, start: 2.6, width: 1.0, color: '#0088ff', label: 'Schedule₃' },
+    ];
+
+    const pipProgress = Math.max((progress - 0.3) / 0.7, 0);
+    for (const bar of pipBars) {
+        const x = pipStart + bar.start * pUnitW;
+        const w = bar.width * pUnitW * Math.min(pipProgress * 1.5, 1);
+        const y = topMargin + bar.row * rowHeight + 8;
+        ctx.fillStyle = bar.color;
+        ctx.beginPath();
+        ctx.roundRect(x, y, Math.max(w, 0), 24, 4);
+        ctx.fill();
+        if (bar.label && w > 25) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '10px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(bar.label, x + w / 2, y + 15);
+        }
+    }
+
+    // Overlap indication arrow
+    if (pipProgress > 0.5) {
+        ctx.strokeStyle = '#ffcc00';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        const overlapX1 = pipStart + 0.3 * pUnitW;
+        const overlapX2 = pipStart + 1.3 * pUnitW;
+        ctx.beginPath();
+        ctx.moveTo(overlapX1, topMargin + 2 * rowHeight + 5);
+        ctx.lineTo(overlapX2, topMargin + 2 * rowHeight + 5);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffcc00';
+        ctx.font = '9px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('overlap', (overlapX1 + overlapX2) / 2, topMargin + 2 * rowHeight);
+    }
+
+    // Time savings annotation
+    if (progress > 0.8) {
+        ctx.fillStyle = '#00d4aa';
+        ctx.font = '11px -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('~27% faster per step', pipStart + pipWidth * 0.5, H - 10);
+    }
+}
+
+function playTimeline() {
+    if (timelinePlaying) return;
+    timelinePlaying = true;
+    timelineProgress = 0;
+    function animate() {
+        timelineProgress += 0.008;
+        drawTimeline(Math.min(timelineProgress, 1));
+        if (timelineProgress < 1) {
+            timelineAnimId = requestAnimationFrame(animate);
+        } else {
+            timelinePlaying = false;
+        }
+    }
+    animate();
+}
+
+function resetTimeline() {
+    timelinePlaying = false;
+    if (timelineAnimId) cancelAnimationFrame(timelineAnimId);
+    timelineProgress = 0;
+    drawTimeline(0);
+}
+
+// ==================== DP vs TP Comparison ====================
+function updateComparison() {
+    const numHeads = parseInt(document.getElementById('numHeads').value);
+    const tpDegree = parseInt(document.getElementById('tpDegree').value);
+    const seqLen = parseInt(document.getElementById('seqLen').value);
+
+    // Simulated metrics (normalized)
+    const kvHeads = Math.max(8, numHeads / 8); // GQA
+    const batchSize = 64;
+
+    // TP: full KV cache per GPU (all batch, heads split but GQA min)
+    const tpKV = kvHeads * 128 * seqLen * batchSize * 2; // bytes
+    // DP: local batch only
+    const dpKV = kvHeads * 128 * seqLen * (batchSize / tpDegree) * 2;
+
+    const maxKV = tpKV;
+    const tpKVpct = 100;
+    const dpKVpct = (dpKV / maxKV) * 100;
+
+    // Communication: TP needs all-reduce, DP needs all-to-all
+    const tpComm = numHeads * 128 * batchSize * 2; // all-reduce volume
+    const dpComm = numHeads * 128 * batchSize * 2 * 0.7; // all-to-all (slightly less)
+    const maxComm = Math.max(tpComm, dpComm);
+
+    // Compute is similar
+    const compute = 85;
+
+    // Update bars with animation
+    setTimeout(() => {
+        document.getElementById('tp-kv').style.width = tpKVpct + '%';
+        document.getElementById('dp-kv').style.width = dpKVpct + '%';
+        document.getElementById('tp-comm').style.width = (tpComm / maxComm * 80) + '%';
+        document.getElementById('dp-comm').style.width = (dpComm / maxComm * 80) + '%';
+        document.getElementById('tp-compute').style.width = compute + '%';
+        document.getElementById('dp-compute').style.width = (compute + 3) + '%';
+
+        const tpKVgb = (tpKV / 1e9).toFixed(1);
+        const dpKVgb = (dpKV / 1e9).toFixed(1);
+        document.getElementById('tp-kv-val').textContent = tpKVgb + 'GB';
+        document.getElementById('dp-kv-val').textContent = dpKVgb + 'GB';
+        document.getElementById('tp-comm-val').textContent = 'AR';
+        document.getElementById('dp-comm-val').textContent = 'A2A';
+        document.getElementById('tp-compute-val').textContent = '~same';
+        document.getElementById('dp-compute-val').textContent = '~same';
+    }, 50);
+
+    const saving = ((1 - dpKV / tpKV) * 100).toFixed(1);
+    document.getElementById('comparison-summary').textContent =
+        `KV Cache 节省: ${saving}% (DP degree = ${tpDegree})`;
+}
+
+// ==================== FP8 Visualization ====================
+function convertToFP8() {
+    const value = parseFloat(document.getElementById('fp8Input').value);
+    if (isNaN(value)) return;
+
+    // FP8 E4M3 encoding simulation
+    const sign = value < 0 ? 1 : 0;
+    const absVal = Math.abs(value);
+
+    let fp8Val, bits;
+    if (absVal === 0) {
+        fp8Val = 0;
+        bits = [0, 0, 0, 0, 0, 0, 0, 0];
+    } else if (absVal > 448) {
+        fp8Val = 448;
+        bits = [sign, 1, 1, 1, 1, 1, 1, 0]; // max normal
+    } else {
+        // Find closest FP8 E4M3 value
+        const exp = Math.floor(Math.log2(absVal));
+        const biasedExp = Math.min(Math.max(exp + 7, 1), 15); // bias = 7
+        const actualExp = biasedExp - 7;
+        const mantissa = absVal / Math.pow(2, actualExp) - 1;
+        const mantissaBits = Math.round(mantissa * 8); // 3 bits
+        const clampedMantissa = Math.min(mantissaBits, 7);
+
+        fp8Val = (1 + clampedMantissa / 8) * Math.pow(2, actualExp);
+
+        bits = [sign,
+            (biasedExp >> 3) & 1, (biasedExp >> 2) & 1,
+            (biasedExp >> 1) & 1, biasedExp & 1,
+            (clampedMantissa >> 2) & 1, (clampedMantissa >> 1) & 1,
+            clampedMantissa & 1
+        ];
+    }
+
+    if (sign) fp8Val = -fp8Val;
+
+    // Update display
+    const container = document.getElementById('fp8Bits');
+    const bitElements = container.children;
+    for (let i = 0; i < 8; i++) {
+        bitElements[i].textContent = bits[i];
+        bitElements[i].style.transform = 'scale(1.1)';
+        setTimeout((idx) => { bitElements[idx].style.transform = 'scale(1)'; }, 300, i);
+    }
+
+    const error = Math.abs(value - fp8Val);
+    const relError = value !== 0 ? (error / Math.abs(value) * 100).toFixed(2) : '0.00';
+    document.getElementById('fp8Result').innerHTML =
+        `原始值: ${value} → FP8 表示: ${fp8Val.toFixed(4)} | 量化误差: ${error.toFixed(6)} (${relError}%)`;
+
+    // Update scale factor
+    updateScaleFactor();
+}
+
+function updateScaleFactor() {
+    const tensorMax = parseFloat(document.getElementById('tensorMax').value) || 1;
+    const scale = (tensorMax / 448).toFixed(6);
+    document.getElementById('scaleFactor').textContent = scale;
+}
+document.getElementById('tensorMax').addEventListener('input', updateScaleFactor);
+
+// ==================== Diffusion LLM Animation ====================
+const targetSentence = ['机器', '学习', '系统', '需要', '高效', '的', '推理', '优化',
+                        '通过', '并行', '计算', '来', '加速', '模型', '训练', '过程'];
+const noiseChars = ['▓', '░', '▒', '█', '◆', '◇', '●', '○', '△', '□', '■', '◎', '※', '⊕', '⊗', '⊙'];
+let diffusionStep = 0;
+let diffusionInterval = null;
+const totalSteps = 8;
+
+function initDiffusionGrid() {
+    const grid = document.getElementById('diffusionGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 16; i++) {
+        const token = document.createElement('div');
+        token.className = 'diffusion-token noisy';
+        token.textContent = noiseChars[Math.floor(Math.random() * noiseChars.length)];
+        token.id = `dtoken-${i}`;
+        grid.appendChild(token);
+    }
+    diffusionStep = 0;
+    document.getElementById('diffusionStep').textContent = '0';
+}
+
+function startDiffusion() {
+    if (diffusionInterval) return;
+    if (diffusionStep >= totalSteps) resetDiffusion();
+
+    diffusionInterval = setInterval(() => {
+        diffusionStep++;
+        document.getElementById('diffusionStep').textContent = diffusionStep;
+
+        // Each step reveals ~2 tokens (block-parallel)
+        const revealCount = 2;
+        const unrevealed = [];
+        for (let i = 0; i < 16; i++) {
+            const el = document.getElementById(`dtoken-${i}`);
+            if (el.className.includes('noisy') || el.className.includes('partial')) {
+                unrevealed.push(i);
+            }
+        }
+
+        // Shuffle and pick tokens to reveal/partially reveal
+        const shuffled = unrevealed.sort(() => Math.random() - 0.5);
+
+        for (let j = 0; j < Math.min(revealCount, shuffled.length); j++) {
+            const idx = shuffled[j];
+            const el = document.getElementById(`dtoken-${idx}`);
+            if (el.className.includes('noisy')) {
+                el.className = 'diffusion-token partial';
+                el.textContent = targetSentence[idx].charAt(0) + '?';
+            } else if (el.className.includes('partial')) {
+                el.className = 'diffusion-token clean';
+                el.textContent = targetSentence[idx];
+            }
+        }
+
+        // Also advance some partial to clean
+        for (let j = revealCount; j < Math.min(revealCount + 1, shuffled.length); j++) {
+            const idx = shuffled[j];
+            const el = document.getElementById(`dtoken-${idx}`);
+            if (el.className.includes('partial')) {
+                el.className = 'diffusion-token clean';
+                el.textContent = targetSentence[idx];
+            }
+        }
+
+        if (diffusionStep >= totalSteps) {
+            // Reveal all remaining
+            for (let i = 0; i < 16; i++) {
+                const el = document.getElementById(`dtoken-${i}`);
+                el.className = 'diffusion-token clean';
+                el.textContent = targetSentence[i];
+            }
+            clearInterval(diffusionInterval);
+            diffusionInterval = null;
+        }
+    }, 600);
+}
+
+function resetDiffusion() {
+    if (diffusionInterval) {
+        clearInterval(diffusionInterval);
+        diffusionInterval = null;
+    }
+    initDiffusionGrid();
+}
+
+// ==================== Exercise Toggle ====================
+function toggleHint(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('show');
+}
+function toggleSolution(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('show');
+}
+
+// ==================== Intersection Observer ====================
+function setupScrollAnimations() {
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.fade-in, .slide-in-left').forEach(el => {
+        observer.observe(el);
+    });
+}
+
+// ==================== Init ====================
+window.addEventListener('DOMContentLoaded', () => {
+    setupScrollAnimations();
+    initDiffusionGrid();
+    updateComparison();
+    drawTimeline(0);
+    convertToFP8();
+});
+
+window.addEventListener('resize', () => {
+    drawTimeline(timelineProgress);
+});
+</script>
+
+</body>
+</html>

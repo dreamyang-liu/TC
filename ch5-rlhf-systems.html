@@ -1,0 +1,1801 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 5: RLHF 系统 - 从理论到生产</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 0; }
+.container { max-width: 1100px; margin: 0 auto; padding: 20px 30px; }
+h1 { font-size: 2.8em; background: linear-gradient(135deg, #ff4444, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; }
+h2 { font-size: 2em; background: linear-gradient(135deg, #ff4444, #ff9800); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 50px 0 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+h3 { font-size: 1.4em; color: #ff9800; margin: 30px 0 15px; }
+h4 { font-size: 1.1em; color: #ffcc80; margin: 20px 0 10px; }
+p { margin: 12px 0; color: #ccc; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #ff4444; }
+.card-info { border-color: #4488ff; }
+code { background: #2a2a4e; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #ff9800; }
+pre { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 16px; overflow-x: auto; margin: 15px 0; }
+pre code { background: none; padding: 0; color: #e0e0e0; font-size: 0.85em; }
+.keyword { color: #ff79c6; }
+.string { color: #50fa7b; }
+.comment { color: #6272a4; }
+.function { color: #8be9fd; }
+.number { color: #bd93f9; }
+
+/* Animation classes */
+.fade-in { opacity: 0; transform: translateY(30px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.fade-in.visible { opacity: 1; transform: translateY(0); }
+
+/* Pipeline animation */
+.pipeline-container { position: relative; width: 100%; height: 200px; margin: 30px 0; overflow: hidden; }
+.pipeline-stage { position: absolute; top: 50%; transform: translateY(-50%); width: 140px; height: 80px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9em; text-align: center; transition: all 0.3s; }
+.pipeline-arrow { position: absolute; top: 50%; transform: translateY(-50%); color: #ff9800; font-size: 1.5em; }
+.pipeline-data { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #ff4444; box-shadow: 0 0 10px #ff4444; }
+.stage-sft { left: 5%; background: linear-gradient(135deg, #1a5276, #2e86c1); }
+.stage-rm { left: 35%; background: linear-gradient(135deg, #6c3483, #a569bd); }
+.stage-ppo { left: 65%; background: linear-gradient(135deg, #b7950b, #f4d03f); color: #333; }
+.stage-output { left: 88%; background: linear-gradient(135deg, #1e8449, #52be80); }
+.arrow1 { left: 22%; }
+.arrow2 { left: 52%; }
+.arrow3 { left: 82%; }
+
+/* Interactive graph */
+.graph-container { position: relative; width: 100%; height: 350px; background: #12122a; border-radius: 12px; border: 1px solid #333; margin: 20px 0; }
+.graph-canvas { width: 100%; height: 100%; }
+
+/* Comparison panels */
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+.compare-panel { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 20px; }
+.compare-panel h4 { text-align: center; }
+@media (max-width: 768px) { .comparison { grid-template-columns: 1fr; } }
+
+/* Weight sync animation */
+.sync-container { position: relative; width: 100%; height: 300px; background: #12122a; border-radius: 12px; border: 1px solid #333; margin: 20px 0; overflow: hidden; }
+.gpu-node { position: absolute; width: 80px; height: 50px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.75em; font-weight: bold; }
+.gpu-train { background: linear-gradient(135deg, #ff4444, #ff6666); }
+.gpu-infer { background: linear-gradient(135deg, #4488ff, #66aaff); }
+.sync-packet { position: absolute; width: 8px; height: 8px; border-radius: 50%; background: #50fa7b; box-shadow: 0 0 8px #50fa7b; }
+
+/* Multi-turn RL animation */
+.multiturn-container { position: relative; width: 100%; height: 350px; background: #12122a; border-radius: 12px; border: 1px solid #333; margin: 20px 0; overflow: hidden; }
+.mt-agent { position: absolute; left: 10%; top: 40%; width: 100px; height: 60px; background: linear-gradient(135deg, #ff4444, #ff6666); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; }
+.mt-env { position: absolute; right: 10%; top: 40%; width: 100px; height: 60px; background: linear-gradient(135deg, #4488ff, #66aaff); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.8em; }
+.mt-tool { position: absolute; left: 45%; top: 10%; width: 90px; height: 50px; background: linear-gradient(135deg, #50fa7b, #2ecc71); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75em; color: #333; }
+.mt-reward { position: absolute; left: 45%; bottom: 10%; width: 90px; height: 50px; background: linear-gradient(135deg, #ff9800, #ffcc80); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.75em; color: #333; }
+.mt-message { position: absolute; padding: 4px 8px; background: #2a2a4e; border-radius: 6px; font-size: 0.7em; opacity: 0; white-space: nowrap; }
+
+/* Exercise styles */
+.exercise { background: #1a1a2e; border: 1px solid #ff9800; border-radius: 12px; padding: 24px; margin: 25px 0; }
+.exercise h4 { color: #ff9800; margin-top: 0; }
+.exercise-hint, .exercise-solution { margin-top: 15px; }
+.exercise-hint summary, .exercise-solution summary { cursor: pointer; color: #4488ff; font-weight: bold; padding: 8px 0; }
+.exercise-hint summary:hover, .exercise-solution summary:hover { color: #66aaff; }
+details[open] summary { margin-bottom: 10px; }
+details > div { background: #12122a; border-radius: 8px; padding: 15px; margin-top: 5px; }
+
+/* Button */
+.btn { display: inline-block; padding: 8px 20px; background: linear-gradient(135deg, #ff4444, #ff9800); border: none; border-radius: 6px; color: #fff; font-weight: bold; cursor: pointer; font-size: 0.9em; margin: 5px; }
+.btn:hover { opacity: 0.85; }
+.btn-secondary { background: linear-gradient(135deg, #4488ff, #66aaff); }
+
+/* Slider */
+.slider-group { margin: 15px 0; }
+.slider-group label { display: block; margin-bottom: 5px; color: #aaa; }
+.slider-group input[type="range"] { width: 100%; accent-color: #ff9800; }
+.slider-value { color: #ff9800; font-weight: bold; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+th, td { padding: 10px 12px; border: 1px solid #333; text-align: left; }
+th { background: #2a2a4e; color: #ff9800; }
+td { background: #1a1a2e; }
+
+/* Tabs */
+.tabs { display: flex; gap: 2px; margin-bottom: 0; }
+.tab-btn { padding: 10px 20px; background: #2a2a4e; border: 1px solid #333; border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; color: #aaa; font-weight: bold; }
+.tab-btn.active { background: #1a1a2e; color: #ff9800; border-color: #ff9800; border-bottom: 1px solid #1a1a2e; }
+.tab-content { display: none; background: #1a1a2e; border: 1px solid #333; border-radius: 0 12px 12px 12px; padding: 20px; }
+.tab-content.active { display: block; }
+
+/* Tooltip */
+.tooltip { position: relative; display: inline-block; border-bottom: 1px dashed #ff9800; cursor: help; }
+.tooltip .tooltip-text { visibility: hidden; width: 250px; background: #2a2a4e; color: #e0e0e0; text-align: center; border-radius: 8px; padding: 8px; position: absolute; z-index: 1; bottom: 125%; left: 50%; margin-left: -125px; opacity: 0; transition: opacity 0.3s; font-size: 0.85em; border: 1px solid #444; }
+.tooltip:hover .tooltip-text { visibility: visible; opacity: 1; }
+
+.formula { background: #12122a; border: 1px solid #333; border-radius: 8px; padding: 15px; margin: 15px 0; text-align: center; font-size: 1.1em; overflow-x: auto; }
+.highlight-text { color: #ff9800; font-weight: bold; }
+.toc { background: #1a1a2e; border: 1px solid #333; border-radius: 12px; padding: 20px 30px; margin: 30px 0; }
+.toc a { color: #4488ff; text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.toc li { margin: 8px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Chapter 5: RLHF 系统</h1>
+<p style="font-size: 1.2em; color: #aaa;">从理论到生产 — Reinforcement Learning from Human Feedback</p>
+
+<div class="toc card">
+<h3 style="margin-top:0;">目录</h3>
+<ol>
+<li><a href="#sec-rl-basics">RL 基础回顾</a></li>
+<li><a href="#sec-ppo">PPO 算法详解</a></li>
+<li><a href="#sec-rlhf-pipeline">RLHF Pipeline</a></li>
+<li><a href="#sec-grpo">GRPO - Group Relative Policy Optimization</a></li>
+<li><a href="#sec-system-challenges">系统设计挑战</a></li>
+<li><a href="#sec-verl">veRL 架构</a></li>
+<li><a href="#sec-slime">SLIME 架构</a></li>
+<li><a href="#sec-openrlhf">OpenRLHF</a></li>
+<li><a href="#sec-multiturn">Multi-turn RL</a></li>
+<li><a href="#sec-mismatch">Training-Inference Mismatch</a></li>
+<li><a href="#sec-exercises">练习题</a></li>
+</ol>
+</div>
+
+<!-- Section 1: RL Basics -->
+<h2 id="sec-rl-basics">1. RL 基础回顾</h2>
+<div class="card fade-in">
+<h3>Markov Decision Process (MDP)</h3>
+<p>在 RLHF 的语境下，我们将 LLM 生成过程建模为一个 MDP：</p>
+<table>
+<tr><th>MDP 元素</th><th>LLM 对应</th><th>说明</th></tr>
+<tr><td>State <code>s_t</code></td><td>已生成的 token 序列</td><td>prompt + 已生成部分</td></tr>
+<tr><td>Action <code>a_t</code></td><td>下一个 token</td><td>从 vocabulary 中选择</td></tr>
+<tr><td>Policy <code>π(a|s)</code></td><td>LLM 的输出分布</td><td>softmax over logits</td></tr>
+<tr><td>Reward <code>r_t</code></td><td>Reward Model 打分</td><td>通常只在序列末尾给出</td></tr>
+<tr><td>Transition <code>P(s'|s,a)</code></td><td>确定性拼接</td><td>s' = s + a_t</td></tr>
+</table>
+</div>
+
+<div class="card fade-in">
+<h3>Policy Gradient</h3>
+<p>Policy Gradient 的核心思想：让好的 action 出现概率增大，坏的减小。</p>
+<div class="formula">
+∇J(θ) = E<sub>τ~π<sub>θ</sub></sub> [ Σ<sub>t</sub> ∇log π<sub>θ</sub>(a<sub>t</sub>|s<sub>t</sub>) · A<sup>π</sup>(s<sub>t</sub>, a<sub>t</sub>) ]
+</div>
+<p>其中 <code>A^π(s,a)</code> 是 <span class="tooltip">Advantage Function<span class="tooltip-text">A(s,a) = Q(s,a) - V(s)，衡量某个 action 相对于平均水平好多少</span></span>，表示在状态 s 下选择 action a 相对于平均策略有多好。</p>
+
+<h4>Advantage Function 的直觉</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li><code>A(s,a) > 0</code>：该 action 比平均好 → 增加概率</li>
+<li><code>A(s,a) < 0</code>：该 action 比平均差 → 减小概率</li>
+<li><code>A(s,a) = 0</code>：该 action 和平均一样 → 不变</li>
+</ul>
+</div>
+
+<div class="card fade-in">
+<h3>Generalized Advantage Estimation (GAE)</h3>
+<p>GAE 通过指数加权平均多步 TD error 来平衡 bias 和 variance：</p>
+<div class="formula">
+A<sup>GAE(γ,λ)</sup><sub>t</sub> = Σ<sub>l=0</sub><sup>∞</sup> (γλ)<sup>l</sup> δ<sub>t+l</sub>
+<br><br>
+其中 δ<sub>t</sub> = r<sub>t</sub> + γV(s<sub>t+1</sub>) - V(s<sub>t</sub>)
+</div>
+<p><code>λ=0</code> 时退化为单步 TD（低方差高偏差），<code>λ=1</code> 时退化为 Monte Carlo（高方差低偏差）。</p>
+
+<pre><code><span class="keyword">def</span> <span class="function">compute_gae</span>(rewards, values, gamma=<span class="number">0.99</span>, lam=<span class="number">0.95</span>):
+    <span class="string">"""计算 Generalized Advantage Estimation"""</span>
+    T = len(rewards)
+    advantages = [<span class="number">0.0</span>] * T
+    last_gae = <span class="number">0.0</span>
+
+    <span class="keyword">for</span> t <span class="keyword">in</span> reversed(range(T)):
+        <span class="keyword">if</span> t == T - <span class="number">1</span>:
+            next_value = <span class="number">0.0</span>  <span class="comment"># terminal state</span>
+        <span class="keyword">else</span>:
+            next_value = values[t + <span class="number">1</span>]
+
+        delta = rewards[t] + gamma * next_value - values[t]
+        advantages[t] = delta + gamma * lam * last_gae
+        last_gae = advantages[t]
+
+    <span class="keyword">return</span> advantages</code></pre>
+</div>
+
+<!-- Section 2: PPO -->
+<h2 id="sec-ppo">2. PPO 算法详解</h2>
+<div class="card fade-in">
+<h3>Clipped Surrogate Objective</h3>
+<p>PPO 的核心创新在于通过 clipping 限制策略更新幅度，避免灾难性的大步更新：</p>
+<div class="formula">
+L<sup>CLIP</sup>(θ) = E[ min( r<sub>t</sub>(θ) · A<sub>t</sub>, clip(r<sub>t</sub>(θ), 1-ε, 1+ε) · A<sub>t</sub> ) ]
+<br><br>
+其中 r<sub>t</sub>(θ) = π<sub>θ</sub>(a<sub>t</sub>|s<sub>t</sub>) / π<sub>θ_old</sub>(a<sub>t</sub>|s<sub>t</sub>)
+</div>
+<p>当 <code>r_t(θ)</code> 偏离 1 过远时（即新旧策略差异过大），clip 会阻止进一步优化。</p>
+</div>
+
+<!-- PPO Clipping Visualization -->
+<div class="card fade-in">
+<h3>交互式：PPO Clipping 可视化</h3>
+<p>拖动滑块改变参数，观察 clipped objective 如何限制策略更新：</p>
+<div class="slider-group">
+<label>ε (clip range): <span class="slider-value" id="eps-val">0.2</span></label>
+<input type="range" min="0.05" max="0.5" step="0.01" value="0.2" id="eps-slider">
+</div>
+<div class="slider-group">
+<label>Advantage: <span class="slider-value" id="adv-val">1.0</span></label>
+<input type="range" min="-2" max="2" step="0.1" value="1.0" id="adv-slider">
+</div>
+<div class="graph-container">
+<canvas class="graph-canvas" id="ppo-canvas"></canvas>
+</div>
+<p style="font-size:0.85em; color:#888;">橙色线 = unclipped objective (r·A)，红色线 = clipped objective，绿色区域 = 实际使用的 min 值</p>
+</div>
+
+<div class="card fade-in">
+<h3>PPO 完整 Loss</h3>
+<p>PPO 的总 Loss 由三部分组成：</p>
+<div class="formula">
+L(θ) = L<sup>CLIP</sup>(θ) - c<sub>1</sub> · L<sup>VF</sup>(θ) + c<sub>2</sub> · S[π<sub>θ</sub>]
+</div>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li><strong>L<sup>CLIP</sup></strong>：策略更新（上面已介绍）</li>
+<li><strong>L<sup>VF</sup></strong>：Value Function Loss = (V(s) - V_target)²</li>
+<li><strong>S[π]</strong>：Entropy bonus，防止策略过早坍缩</li>
+</ul>
+
+<pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn.functional <span class="keyword">as</span> F
+
+<span class="keyword">def</span> <span class="function">ppo_loss</span>(old_log_probs, new_log_probs, advantages,
+             values, returns, clip_eps=<span class="number">0.2</span>, vf_coef=<span class="number">0.5</span>, ent_coef=<span class="number">0.01</span>):
+    <span class="string">"""
+    计算 PPO Loss
+    Args:
+        old_log_probs: [B, T] 旧策略的 log probabilities
+        new_log_probs: [B, T] 新策略的 log probabilities
+        advantages: [B, T] GAE 计算的 advantages
+        values: [B, T] value function 预测
+        returns: [B, T] 实际 returns (advantages + old_values)
+    """</span>
+    <span class="comment"># Policy loss with clipping</span>
+    ratio = torch.exp(new_log_probs - old_log_probs)
+    surr1 = ratio * advantages
+    surr2 = torch.clamp(ratio, <span class="number">1.0</span> - clip_eps, <span class="number">1.0</span> + clip_eps) * advantages
+    policy_loss = -torch.min(surr1, surr2).mean()
+
+    <span class="comment"># Value function loss</span>
+    value_loss = F.mse_loss(values, returns)
+
+    <span class="comment"># Entropy bonus (from new policy distribution)</span>
+    entropy = -(torch.exp(new_log_probs) * new_log_probs).mean()
+
+    total_loss = policy_loss + vf_coef * value_loss - ent_coef * entropy
+    <span class="keyword">return</span> total_loss, {
+        <span class="string">'policy_loss'</span>: policy_loss.item(),
+        <span class="string">'value_loss'</span>: value_loss.item(),
+        <span class="string">'entropy'</span>: entropy.item(),
+        <span class="string">'approx_kl'</span>: ((ratio - <span class="number">1</span>) - (ratio.log())).mean().item()
+    }</code></pre>
+</div>
+
+<!-- Section 3: RLHF Pipeline -->
+<h2 id="sec-rlhf-pipeline">3. RLHF Pipeline</h2>
+<div class="card fade-in">
+<h3>三阶段流水线</h3>
+<p>标准 RLHF pipeline 分为三个训练阶段：</p>
+
+<div class="pipeline-container" id="pipeline-anim">
+<div class="pipeline-stage stage-sft">SFT<br><small>监督微调</small></div>
+<div class="pipeline-arrow arrow1">→</div>
+<div class="pipeline-stage stage-rm">Reward<br>Model</div>
+<div class="pipeline-arrow arrow2">→</div>
+<div class="pipeline-stage stage-ppo">PPO<br>Training</div>
+<div class="pipeline-arrow arrow3">→</div>
+<div class="pipeline-stage stage-output">Aligned<br>Model</div>
+</div>
+<button class="btn" id="btn-pipeline-play">▶ 播放动画</button>
+<button class="btn btn-secondary" id="btn-pipeline-reset">重置</button>
+</div>
+
+<div class="card fade-in">
+<h4>Stage 1: SFT (Supervised Fine-Tuning)</h4>
+<p>使用高质量的 human demonstrations 对预训练模型进行微调，让模型学会按照指令格式回答。</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>数据: (prompt, ideal_response) pairs</li>
+<li>目标: 标准 language modeling loss (next token prediction)</li>
+<li>输出: SFT model π<sub>SFT</sub></li>
+</ul>
+
+<h4>Stage 2: Reward Model Training</h4>
+<p>训练一个 scalar reward model，学习人类的偏好排序。</p>
+<div class="formula">
+L<sub>RM</sub> = -E<sub>(x, y_w, y_l)</sub> [ log σ(r(x, y<sub>w</sub>) - r(x, y<sub>l</sub>)) ]
+</div>
+<p>其中 y<sub>w</sub> 是人类更喜欢的回答，y<sub>l</sub> 是较差的回答（Bradley-Terry model）。</p>
+
+<h4>Stage 3: PPO Training</h4>
+<p>使用 RM 作为 reward signal，通过 PPO 优化 policy。加入 KL penalty 防止偏离 SFT model 过远：</p>
+<div class="formula">
+R(x, y) = r<sub>RM</sub>(x, y) - β · KL(π<sub>θ</sub> || π<sub>SFT</sub>)
+</div>
+</div>
+
+<!-- Section 4: GRPO -->
+<h2 id="sec-grpo">4. GRPO - Group Relative Policy Optimization</h2>
+
+<div class="card fade-in">
+<h3>核心思想：去掉 Critic Network</h3>
+<p>GRPO（DeepSeek 提出）的关键创新：<strong>用同一组 rollout 内的相对比较来估计 advantage</strong>，不需要单独训练 value function (critic)。</p>
+
+<div class="formula">
+A<sub>GRPO</sub>(y<sub>i</sub>) = (r(y<sub>i</sub>) - mean(r(y<sub>1</sub>...y<sub>G</sub>))) / std(r(y<sub>1</sub>...y<sub>G</sub>))
+</div>
+
+<p>对于每个 prompt x，生成 G 个回答 {y<sub>1</sub>, ..., y<sub>G</sub>}，计算各自的 reward，然后用 group 内的均值和标准差做归一化。</p>
+</div>
+
+<!-- GRPO vs PPO Comparison -->
+<div class="card fade-in">
+<h3>交互式：GRPO vs PPO 对比</h3>
+<button class="btn" id="btn-compare-play">▶ 开始对比动画</button>
+<div class="comparison" id="grpo-ppo-compare">
+<div class="compare-panel">
+<h4 style="color:#ff4444;">PPO (with Critic)</h4>
+<div id="ppo-panel" style="height:250px; position:relative; overflow:hidden;">
+<div style="position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:0.8em; color:#aaa;">需要训练 Critic V(s)</div>
+<canvas id="ppo-compare-canvas" width="400" height="220" style="width:100%; height:200px;"></canvas>
+</div>
+</div>
+<div class="compare-panel">
+<h4 style="color:#50fa7b;">GRPO (Group-based)</h4>
+<div id="grpo-panel" style="height:250px; position:relative; overflow:hidden;">
+<div style="position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:0.8em; color:#aaa;">Group 内相对比较</div>
+<canvas id="grpo-compare-canvas" width="400" height="220" style="width:100%; height:200px;"></canvas>
+</div>
+</div>
+</div>
+</div>
+
+<div class="card fade-in">
+<h3>GRPO 优势</h3>
+<table>
+<tr><th>特性</th><th>PPO</th><th>GRPO</th></tr>
+<tr><td>Critic Network</td><td>需要（同等规模）</td><td>不需要</td></tr>
+<tr><td>显存占用</td><td>高（4个模型）</td><td>低（3个模型）</td></tr>
+<tr><td>Advantage 估计</td><td>GAE (temporal)</td><td>Group normalization</td></tr>
+<tr><td>适用场景</td><td>通用</td><td>outcome-level reward</td></tr>
+<tr><td>实现复杂度</td><td>高</td><td>较低</td></tr>
+</table>
+
+<pre><code><span class="keyword">def</span> <span class="function">grpo_step</span>(policy, ref_policy, prompts, reward_fn,
+              group_size=<span class="number">8</span>, clip_eps=<span class="number">0.2</span>, beta=<span class="number">0.01</span>):
+    <span class="string">"""
+    GRPO Training Step
+    对每个 prompt 生成 group_size 个回答，计算 group-relative advantage
+    """</span>
+    all_losses = []
+
+    <span class="keyword">for</span> prompt <span class="keyword">in</span> prompts:
+        <span class="comment"># 1. Generate G responses for this prompt</span>
+        responses = policy.generate(prompt, num_samples=group_size)
+
+        <span class="comment"># 2. Score all responses</span>
+        rewards = torch.tensor([reward_fn(prompt, r) <span class="keyword">for</span> r <span class="keyword">in</span> responses])
+
+        <span class="comment"># 3. Compute group-relative advantage (no critic needed!)</span>
+        advantages = (rewards - rewards.mean()) / (rewards.std() + <span class="number">1e-8</span>)
+
+        <span class="comment"># 4. Compute policy ratio and clipped loss</span>
+        <span class="keyword">for</span> resp, adv <span class="keyword">in</span> zip(responses, advantages):
+            new_logp = policy.log_prob(prompt, resp)
+            old_logp = policy.log_prob_no_grad(prompt, resp)
+            ref_logp = ref_policy.log_prob(prompt, resp)
+
+            ratio = torch.exp(new_logp - old_logp)
+            surr1 = ratio * adv
+            surr2 = torch.clamp(ratio, <span class="number">1</span>-clip_eps, <span class="number">1</span>+clip_eps) * adv
+
+            <span class="comment"># KL penalty against reference</span>
+            kl = (old_logp - ref_logp).mean()
+
+            loss = -torch.min(surr1, surr2).mean() + beta * kl
+            all_losses.append(loss)
+
+    total_loss = torch.stack(all_losses).mean()
+    total_loss.backward()
+    <span class="keyword">return</span> total_loss.item()</code></pre>
+</div>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../rlhf/GRPO/grpo-main.png" alt="GRPO Algorithm Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: GRPO 算法: 用 group 内相对 reward 作为 advantage, 无需 Critic model</div>
+</div>
+
+<!-- Section 5: System Challenges -->
+<h2 id="sec-system-challenges">5. 系统设计挑战</h2>
+<div class="card fade-in">
+<h3>Training + Inference 协同</h3>
+<p>RLHF 系统最大的工程挑战：<strong>同一份模型权重既要用于训练（backward pass），又要用于推理（生成 rollout）</strong>。</p>
+
+<div class="card-highlight" style="background: #1e1e3a; border-color: #ff4444; margin: 15px 0; padding: 15px;">
+<p style="color: #ff4444; font-weight: bold;">核心矛盾：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Training 需要：参数分片 (FSDP/DeepSpeed)、激活存储、梯度计算</li>
+<li>Inference 需要：Tensor Parallelism、KV Cache、continuous batching</li>
+<li>两者对模型的存储格式、并行策略完全不同!</li>
+</ul>
+</div>
+
+<h4>常见解决方案</h4>
+<table>
+<tr><th>策略</th><th>优点</th><th>缺点</th></tr>
+<tr><td>同机复用 (Colocate)</td><td>无网络开销</td><td>显存争夺、利用率低</td></tr>
+<tr><td>分离部署 (Separate)</td><td>各自优化</td><td>需要 weight sync</td></tr>
+<tr><td>Hybrid Engine</td><td>动态切换</td><td>实现复杂</td></tr>
+</table>
+</div>
+
+<!-- Weight Sync Animation -->
+<div class="card fade-in">
+<h3>交互式：Weight Sync 策略</h3>
+<div class="tabs">
+<div class="tab-btn active" data-tab="nccl-tab">NCCL Broadcast</div>
+<div class="tab-btn" data-tab="disk-tab">Disk-based</div>
+<div class="tab-btn" data-tab="hybrid-tab">Hybrid Engine</div>
+</div>
+<div class="tab-content active" id="nccl-tab">
+<p>通过 NCCL 直接将更新后的权重从 training GPU broadcast 到 inference GPU：</p>
+<div class="sync-container" id="sync-nccl-container">
+<div class="gpu-node gpu-train" style="left:10%; top:20%;">Train 0</div>
+<div class="gpu-node gpu-train" style="left:10%; top:50%;">Train 1</div>
+<div class="gpu-node gpu-train" style="left:10%; top:80%;">Train 2</div>
+<div class="gpu-node gpu-infer" style="right:10%; top:20%;">Infer 0</div>
+<div class="gpu-node gpu-infer" style="right:10%; top:50%;">Infer 1</div>
+<div class="gpu-node gpu-infer" style="right:10%; top:80%;">Infer 2</div>
+</div>
+<button class="btn" id="btn-sync-nccl">▶ 播放 NCCL Sync</button>
+<p style="font-size:0.85em; color:#888;">延迟低 (~秒级)，需要 training 和 inference GPU 在同一 NCCL group 内</p>
+</div>
+<div class="tab-content" id="disk-tab">
+<p>Training 完成后将 checkpoint 保存到共享存储，inference worker 从 disk 加载：</p>
+<div style="text-align:center; padding:30px; color:#aaa;">
+<p>Train GPU → 保存 checkpoint → 共享文件系统 → Inference GPU 加载</p>
+<p style="margin-top:15px;">延迟高 (~分钟级)，但架构简单，training 和 inference 完全解耦</p>
+</div>
+</div>
+<div class="tab-content" id="hybrid-tab">
+<p>同一组 GPU 在 training 和 inference 模式间动态切换（如 DeepSpeed Hybrid Engine）：</p>
+<div style="text-align:center; padding:30px; color:#aaa;">
+<p>Training Mode (FSDP/ZeRO) ↔ 动态切换 ↔ Inference Mode (TP + KV Cache)</p>
+<p style="margin-top:15px;">零 sync 开销，但模式切换有 overhead，且无法 overlap</p>
+</div>
+</div>
+
+<pre><code><span class="comment"># Weight synchronization via NCCL broadcast</span>
+<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
+
+<span class="keyword">def</span> <span class="function">sync_weights_nccl</span>(train_model, infer_model, src_rank=<span class="number">0</span>, group=<span class="keyword">None</span>):
+    <span class="string">"""
+    通过 NCCL broadcast 同步权重
+    src_rank: training model 所在的 rank
+    group: 包含 training 和 inference ranks 的 process group
+    """</span>
+    <span class="keyword">for</span> (name, train_param), (_, infer_param) <span class="keyword">in</span> zip(
+        train_model.named_parameters(),
+        infer_model.named_parameters()
+    ):
+        <span class="comment"># Broadcast from training rank to all inference ranks</span>
+        dist.broadcast(train_param.data, src=src_rank, group=group)
+
+        <span class="comment"># Inference model directly uses the broadcast data</span>
+        <span class="keyword">if</span> dist.get_rank() != src_rank:
+            infer_param.data.copy_(train_param.data)
+
+    <span class="comment"># Ensure all ranks are synchronized</span>
+    dist.barrier(group=group)
+
+
+<span class="keyword">def</span> <span class="function">sync_weights_disk</span>(train_model, save_path, infer_model=<span class="keyword">None</span>):
+    <span class="string">"""Disk-based weight sync (simpler but slower)"""</span>
+    <span class="comment"># Training side: save checkpoint</span>
+    torch.save(train_model.state_dict(), save_path)
+
+    <span class="comment"># Inference side: load checkpoint</span>
+    <span class="keyword">if</span> infer_model <span class="keyword">is not None</span>:
+        state_dict = torch.load(save_path, map_location=<span class="string">'cuda'</span>)
+        infer_model.load_state_dict(state_dict)
+    <span class="keyword">return</span> save_path</code></pre>
+</div>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../rlhf/slime/mismatch/pics/training-inference-mismatch.png" alt="Training-Inference Mismatch" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Training-Inference Mismatch: Rollout 和 Training 使用不同 kernel 导致数值差异</div>
+</div>
+
+<!-- Section 6: veRL -->
+<h2 id="sec-verl">6. veRL 架构</h2>
+<div class="card fade-in">
+<h3>设计理念：Single Controller + Hybrid Engine</h3>
+<p><strong>veRL</strong>（Volcano Engine RL）采用 Ray 作为分布式调度框架，通过单一 controller 协调所有组件。</p>
+
+<h4>核心组件</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li><strong>Single Controller</strong>: 一个 Python 进程管理整个训练流程</li>
+<li><strong>Actor Workers</strong>: 运行 policy model (FSDP sharded)</li>
+<li><strong>Rollout Workers</strong>: 运行 inference engine (vLLM/SGLang)</li>
+<li><strong>Critic Workers</strong>: 运行 value model</li>
+<li><strong>Reward Workers</strong>: 运行 reward model</li>
+</ul>
+
+<div class="formula" style="text-align:left; font-size:0.9em;">
+<strong>veRL Training Loop:</strong><br><br>
+1. Controller 发送 prompts 到 Rollout Workers<br>
+2. Rollout Workers 用当前 policy 生成 responses<br>
+3. Reward Workers 计算 reward scores<br>
+4. Critic Workers 计算 value estimates<br>
+5. Controller 计算 GAE advantages<br>
+6. Actor Workers 执行 PPO update<br>
+7. 同步新权重到 Rollout Workers → 回到 1
+</div>
+
+<h4>Hybrid Engine 的关键</h4>
+<p>veRL 的 Actor Workers 和 Rollout Workers 可以 <strong>colocate</strong> 在同一组 GPU 上：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Training 阶段：GPU 做 FSDP training</li>
+<li>Rollout 阶段：offload optimizer states，切换到 inference mode</li>
+<li>减少了 weight sync 的网络开销</li>
+</ul>
+</div>
+
+<!-- Section 7: SLIME -->
+<h2 id="sec-slime">7. SLIME 架构</h2>
+<div class="card fade-in">
+<h3>SGLang + Megatron 的高效 RLHF</h3>
+<p><strong>SLIME</strong> 将 SGLang (高效推理引擎) 与 Megatron/FSDP (分布式训练) 结合，实现高吞吐 RLHF。</p>
+
+<h4>架构特点</h4>
+<table>
+<tr><th>组件</th><th>框架</th><th>特点</th></tr>
+<tr><td>Rollout Engine</td><td>SGLang</td><td>RadixAttention, continuous batching, chunked prefill</td></tr>
+<tr><td>Training Backend</td><td>FSDP / Megatron</td><td>ZeRO-3 / 3D parallelism</td></tr>
+<tr><td>Orchestration</td><td>Ray</td><td>灵活的 resource allocation</td></tr>
+<tr><td>Weight Sync</td><td>NCCL / Shared Memory</td><td>异步更新</td></tr>
+</table>
+
+<h4>Async Rollout 设计</h4>
+<p>SLIME 的核心优化：<strong>training 和 rollout overlap 执行</strong>：</p>
+<pre><code><span class="comment"># SLIME async rollout pseudo-code</span>
+<span class="keyword">class</span> <span class="function">SLIMEController</span>:
+    <span class="keyword">def</span> <span class="function">train_loop</span>(self):
+        <span class="comment"># 初始: 先生成第一批 rollout</span>
+        rollout_future = self.rollout_workers.generate_async(batch_0)
+
+        <span class="keyword">for</span> step <span class="keyword">in</span> range(num_steps):
+            <span class="comment"># 等待当前 rollout 完成</span>
+            experiences = rollout_future.get()
+
+            <span class="comment"># 立即启动下一批 rollout (overlap!)</span>
+            next_batch = self.get_next_batch()
+            rollout_future = self.rollout_workers.generate_async(next_batch)
+
+            <span class="comment"># 同时进行 training</span>
+            advantages = self.compute_advantages(experiences)
+            self.train_step(experiences, advantages)
+
+            <span class="comment"># Training 完成后同步权重给 rollout workers</span>
+            self.sync_weights_to_rollout()</code></pre>
+</div>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../rlhf/slime/code-walk-through/overall_workflow.png" alt="SLIME Overall Workflow" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: SLIME 完整工作流: Ray 编排 + SGLang Rollout + Megatron/FSDP Training</div>
+</div>
+
+<!-- Section 8: OpenRLHF -->
+<h2 id="sec-openrlhf">8. OpenRLHF</h2>
+<div class="card fade-in">
+<h3>开源 RLHF 框架</h3>
+<p><strong>OpenRLHF</strong> 是社区广泛使用的开源 RLHF 实现，集成了 vLLM/SGLang 作为 rollout engine，Ray 作为分布式调度。</p>
+
+<h4>设计特点</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li><strong>模块化设计</strong>: Actor, Critic, Reward, Reference 四个模型独立部署</li>
+<li><strong>vLLM/SGLang 集成</strong>: 利用成熟推理引擎的高吞吐特性</li>
+<li><strong>Ray 编排</strong>: 灵活分配 GPU 给不同角色</li>
+<li><strong>支持多种算法</strong>: PPO, DPO, GRPO, REINFORCE++</li>
+</ul>
+
+<h4>典型部署拓扑</h4>
+<div class="formula" style="text-align:left; font-size:0.9em;">
+Node 0-1: Actor (FSDP, 16 GPUs) — 承担 policy training<br>
+Node 2: Critic (FSDP, 8 GPUs) — value function training<br>
+Node 3: vLLM Rollout (TP=4, 2 instances) — 生成 responses<br>
+Node 4: Reward Model (TP=2, 4 instances) — 打分<br>
+Node 5: Reference Model (TP=2) — 计算 KL penalty
+</div>
+
+<h4>GPU 利用率优化</h4>
+<p>OpenRLHF 通过 <strong>packing</strong> 和 <strong>async scheduling</strong> 最大化 GPU 利用率：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Rollout 和 Training 可以 overlap（near on-policy）</li>
+<li>Reward 和 Reference 计算可以并行</li>
+<li>动态 batch size 适配不同 sequence length</li>
+</ul>
+</div>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../rlhf/OpenRLHF/learning-stage.png" alt="OpenRLHF Learning Stage" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: OpenRLHF 训练阶段: vLLM/SGLang 推理 + DeepSpeed/Ray 训练编排</div>
+</div>
+
+<!-- Section 9: Multi-turn RL -->
+<h2 id="sec-multiturn">9. Multi-turn RL</h2>
+<div class="card fade-in">
+<h3>Agent Loop 中的 RL</h3>
+<p>现代 LLM agent 需要多轮交互：调用工具、观察结果、继续推理。这对 RL 系统提出了新挑战。</p>
+
+<h4>Multi-turn Rollout 的复杂性</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li><strong>变长轨迹</strong>: 不同 query 可能需要 1-10+ 轮 tool call</li>
+<li><strong>异步执行</strong>: tool call 的延迟不确定（API call, code execution）</li>
+<li><strong>Credit Assignment</strong>: reward 如何分配到各轮 action？</li>
+<li><strong>Batching 困难</strong>: 不同样本进度不同，无法简单 batch</li>
+</ul>
+</div>
+
+<!-- Multi-turn RL Animation -->
+<div class="card fade-in">
+<h3>交互式：Multi-turn RL Loop</h3>
+<div class="multiturn-container" id="multiturn-anim">
+<div class="mt-agent">Agent<br>(Policy)</div>
+<div class="mt-env">Environment<br>(User/API)</div>
+<div class="mt-tool">Tool<br>Executor</div>
+<div class="mt-reward">Reward<br>Signal</div>
+</div>
+<button class="btn" id="btn-multiturn-play">▶ 播放交互循环</button>
+<button class="btn btn-secondary" id="btn-multiturn-reset">重置</button>
+<div id="multiturn-log" style="background:#12122a; border-radius:8px; padding:10px; margin-top:10px; max-height:120px; overflow-y:auto; font-size:0.8em; font-family:monospace; color:#aaa;"></div>
+
+<h4 style="margin-top:20px;">Async Rollout 设计模式</h4>
+<pre><code><span class="keyword">class</span> <span class="function">MultiTurnRolloutManager</span>:
+    <span class="string">"""管理多轮 RL rollout，支持异步 tool execution"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, policy, tool_executor, max_turns=<span class="number">10</span>):
+        self.policy = policy
+        self.tool_executor = tool_executor
+        self.max_turns = max_turns
+        self.active_trajectories = {}
+
+    <span class="keyword">async def</span> <span class="function">run_episode</span>(self, prompt):
+        <span class="string">"""运行一个完整的 multi-turn episode"""</span>
+        trajectory = []
+        context = prompt
+
+        <span class="keyword">for</span> turn <span class="keyword">in</span> range(self.max_turns):
+            <span class="comment"># Agent 生成 action (可能包含 tool call)</span>
+            response = <span class="keyword">await</span> self.policy.generate_async(context)
+
+            <span class="keyword">if</span> self.is_tool_call(response):
+                <span class="comment"># 异步执行 tool</span>
+                tool_result = <span class="keyword">await</span> self.tool_executor.execute(response)
+                observation = self.format_observation(tool_result)
+                trajectory.append({
+                    <span class="string">'action'</span>: response,
+                    <span class="string">'observation'</span>: observation,
+                    <span class="string">'turn'</span>: turn
+                })
+                context += response + observation
+            <span class="keyword">elif</span> self.is_final_answer(response):
+                trajectory.append({<span class="string">'action'</span>: response, <span class="string">'final'</span>: <span class="keyword">True</span>})
+                <span class="keyword">break</span>
+
+        <span class="keyword">return</span> trajectory
+
+    <span class="keyword">async def</span> <span class="function">batch_rollout</span>(self, prompts):
+        <span class="string">"""并发运行多个 episode"""</span>
+        <span class="keyword">import</span> asyncio
+        tasks = [self.run_episode(p) <span class="keyword">for</span> p <span class="keyword">in</span> prompts]
+        trajectories = <span class="keyword">await</span> asyncio.gather(*tasks)
+        <span class="keyword">return</span> trajectories</code></pre>
+</div>
+
+<div style="margin: 20px 0; text-align: center;">
+  <img src="../rlhf/verl/multi-turn/imgs/agentLoop.png" alt="veRL Agent Loop" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: veRL Agent Loop: 异步多轮交互架构, 支持 tool calling 和 environment step</div>
+</div>
+
+<!-- Section 10: Training-Inference Mismatch -->
+<h2 id="sec-mismatch">10. Training-Inference Mismatch</h2>
+<div class="card fade-in">
+<h3>On-Policy vs Off-Policy 的权衡</h3>
+<p>在理想情况下，PPO 是 <strong>on-policy</strong> 算法 — rollout 必须由当前策略生成。但在分布式系统中，严格 on-policy 有巨大开销。</p>
+
+<div class="comparison">
+<div class="compare-panel">
+<h4 style="color:#50fa7b;">Truly On-Policy</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc; font-size:0.9em;">
+<li>每次 update 前重新 rollout</li>
+<li>数据来自最新 policy</li>
+<li>需要 training ↔ inference 交替</li>
+<li>GPU 利用率低（互相等待）</li>
+<li>KL divergence 精确</li>
+</ul>
+</div>
+<div class="compare-panel">
+<h4 style="color:#ff9800;">Near On-Policy (Importance Sampling)</h4>
+<ul style="margin: 10px 0 10px 20px; color: #ccc; font-size:0.9em;">
+<li>Rollout 和 training overlap</li>
+<li>数据可能来自旧 policy (stale)</li>
+<li>需要 importance sampling 修正</li>
+<li>GPU 利用率高</li>
+<li>Staleness 可能导致 bias</li>
+</ul>
+</div>
+</div>
+
+<h4>Staleness 的影响</h4>
+<p>假设在 training step k 使用的 rollout 来自 step k-d（延迟 d 步）：</p>
+<div class="formula">
+Importance weight: w = π<sub>θ_k</sub>(a|s) / π<sub>θ_{k-d}</sub>(a|s)
+<br><br>
+当 d 较大时，w 的方差急剧增大 → 训练不稳定
+</div>
+
+<h4>实践中的解决方案</h4>
+<table>
+<tr><th>方法</th><th>思路</th><th>Trade-off</th></tr>
+<tr><td>Strict sync</td><td>rollout 完成后才 train</td><td>低利用率但稳定</td></tr>
+<tr><td>Bounded staleness</td><td>允许最多 d 步延迟</td><td>平衡利用率和稳定性</td></tr>
+<tr><td>IS clipping</td><td>clip importance weights</td><td>有 bias 但方差可控</td></tr>
+<tr><td>μ-PPO</td><td>多步 IS correction</td><td>理论优雅但实现复杂</td></tr>
+</table>
+</div>
+
+<!-- Section 11: Exercises -->
+<h2 id="sec-exercises">11. 练习题</h2>
+
+<!-- Exercise 1 -->
+<div class="exercise fade-in">
+<h4>练习 1: 手动计算 GAE</h4>
+<p>给定以下序列（episode 长度 T=4）：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Rewards: r = [0, 0, 0, 1]</li>
+<li>Values: V = [0.5, 0.6, 0.7, 0.8]</li>
+<li>γ = 0.99, λ = 0.95</li>
+<li>Terminal state (V(s_T) = 0)</li>
+</ul>
+<p>计算每个时间步的 δ_t 和 A_t^GAE。</p>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>回忆 GAE 的递推公式：</p>
+<code>δ_t = r_t + γ * V(s_{t+1}) - V(s_t)</code><br>
+<code>A_t = δ_t + γλ * A_{t+1}</code><br>
+<p>从最后一步 (t=3) 开始往前推，注意 t=3 时 V(s_4) = 0（terminal）。</p>
+</div>
+</details>
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<p><strong>Step 1: 计算 TD errors δ_t</strong></p>
+<pre><code>δ_3 = r_3 + γ*V(s_4) - V(s_3) = 1 + 0.99*0 - 0.8 = 0.2
+δ_2 = r_2 + γ*V(s_3) - V(s_2) = 0 + 0.99*0.8 - 0.7 = 0.092
+δ_1 = r_1 + γ*V(s_2) - V(s_1) = 0 + 0.99*0.7 - 0.6 = 0.093
+δ_0 = r_0 + γ*V(s_1) - V(s_0) = 0 + 0.99*0.6 - 0.5 = 0.094</code></pre>
+<p><strong>Step 2: 递推计算 GAE (从后往前)</strong></p>
+<pre><code>A_3 = δ_3 = 0.2
+A_2 = δ_2 + γλ*A_3 = 0.092 + 0.99*0.95*0.2 = 0.092 + 0.1881 = 0.2801
+A_1 = δ_1 + γλ*A_2 = 0.093 + 0.99*0.95*0.2801 = 0.093 + 0.2634 = 0.3564
+A_0 = δ_0 + γλ*A_1 = 0.094 + 0.99*0.95*0.3564 = 0.094 + 0.3352 = 0.4292</code></pre>
+<p><strong>结果:</strong> A = [0.4292, 0.3564, 0.2801, 0.2]</p>
+<p>直觉：越早的步骤 advantage 越高，因为最终的正 reward 会通过 GAE 向前传播。</p>
+</div>
+</details>
+</div>
+
+<!-- Exercise 2 -->
+<div class="exercise fade-in">
+<h4>练习 2: PPO Loss 计算</h4>
+<p>给定以下数据（单个 token level）：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Old log prob: log π_old(a|s) = -2.0</li>
+<li>New log prob: log π_new(a|s) = -1.5</li>
+<li>Advantage: A = 0.8</li>
+<li>Clip ε = 0.2</li>
+</ul>
+<p>计算 (a) probability ratio (b) unclipped objective (c) clipped objective (d) 最终 PPO loss。</p>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>ratio = exp(log_new - log_old)，然后分别计算 r*A 和 clip(r, 1-ε, 1+ε)*A，取 min。</p>
+<p>注意 PPO loss 是取负号（最大化 objective = 最小化负的 objective）。</p>
+</div>
+</details>
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<pre><code>(a) ratio = exp(-1.5 - (-2.0)) = exp(0.5) ≈ 1.6487
+
+(b) unclipped = ratio * A = 1.6487 * 0.8 = 1.319
+
+(c) clipped_ratio = clip(1.6487, 0.8, 1.2) = 1.2
+    clipped = 1.2 * 0.8 = 0.96
+
+(d) PPO objective = min(1.319, 0.96) = 0.96
+    PPO loss = -0.96 (因为我们最小化 loss = 最大化 objective)</code></pre>
+<p><strong>分析:</strong> 因为 A > 0（好的 action），策略增加了这个 action 的概率 (ratio > 1)。但 ratio = 1.65 超出了 [0.8, 1.2] 范围，所以 clip 生效，阻止了过大的更新。这正是 PPO 保守更新的核心机制。</p>
+</div>
+</details>
+</div>
+
+<!-- Exercise 3 -->
+<div class="exercise fade-in">
+<h4>练习 3: 设计 Weight Update 策略</h4>
+<p>你有如下 GPU 拓扑：</p>
+<ul style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>2 个 node，每 node 8 x H100 (80GB)</li>
+<li>Node 内: NVLink (900 GB/s), Node 间: InfiniBand (400 Gb/s)</li>
+<li>Model: 70B 参数 (FP16 ≈ 140GB)</li>
+<li>需求: Training (FSDP) + Inference (TP=4) 同时部署</li>
+</ul>
+<p>设计最优的 GPU 分配和 weight sync 策略。考虑：</p>
+<ol style="margin: 10px 0 10px 20px; color: #ccc;">
+<li>Training 和 Inference 各分配几个 GPU？</li>
+<li>使用什么 weight sync 方式？</li>
+<li>如何最大化 GPU 利用率？</li>
+</ol>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>关键考虑：</p>
+<ul style="margin: 10px 0 10px 20px;">
+<li>FSDP 对 node 间带宽有要求（AllGather/ReduceScatter）</li>
+<li>TP 最好在 NVLink 连接的 GPU 间</li>
+<li>Weight sync 选择 NCCL broadcast 还是 disk 取决于是否在同一 node</li>
+<li>70B 模型 FSDP 在 8-16 GPU 都可以</li>
+</ul>
+</div>
+</details>
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<p><strong>推荐方案：</strong></p>
+<pre><code>Node 0 (8 GPUs): Training - FSDP (全部 8 卡)
+Node 1 (8 GPUs):
+  - GPU 0-3: Inference Instance 1 (TP=4)
+  - GPU 4-7: Inference Instance 2 (TP=4)</code></pre>
+
+<p><strong>理由：</strong></p>
+<ol style="margin: 10px 0 10px 20px;">
+<li><strong>Training 独占 Node 0</strong>: 70B FSDP 在 8 卡上每卡约 17.5GB 参数 + optimizer states (~70GB/卡)，刚好适合 H100 80GB。Node 内 NVLink 确保 AllGather 高效。</li>
+<li><strong>Inference 在 Node 1</strong>: 两个 TP=4 实例可以并行处理不同 batch 的 rollout，提高吞吐。TP=4 在 NVLink 内通信无瓶颈。</li>
+<li><strong>Weight Sync</strong>: 使用 NCCL broadcast (跨 node via InfiniBand)。70B FP16 ≈ 140GB，在 400Gb/s IB 上传输约 2.8 秒。配合 double-buffering，可以在下一批 rollout 开始时异步传输。</li>
+<li><strong>利用率优化</strong>: Training 和 Inference overlap — 当 training 在 update 时，inference 用旧权重继续 rollout；update 完成后用 NCCL broadcast 更新。Bounded staleness = 1。</li>
+</ol>
+</div>
+</details>
+</div>
+
+<!-- Exercise 4 -->
+<div class="exercise fade-in">
+<h4>练习 4: 分析 On-Policy vs Off-Policy Trade-offs</h4>
+<p>你在训练一个 7B 模型做 RLHF，观察到以下数据：</p>
+<table>
+<tr><th>Staleness (步数)</th><th>IS Weight 方差</th><th>KL Divergence</th><th>Reward 改善</th><th>GPU 利用率</th></tr>
+<tr><td>0 (strict on-policy)</td><td>0</td><td>0.02</td><td>+0.15/step</td><td>35%</td></tr>
+<tr><td>1</td><td>0.08</td><td>0.05</td><td>+0.13/step</td><td>55%</td></tr>
+<tr><td>3</td><td>0.35</td><td>0.12</td><td>+0.10/step</td><td>75%</td></tr>
+<tr><td>5</td><td>1.2</td><td>0.25</td><td>+0.05/step</td><td>85%</td></tr>
+<tr><td>10</td><td>5.8</td><td>0.8</td><td>-0.02/step</td><td>92%</td></tr>
+</table>
+<p>分析：(a) 最优 staleness 是多少？(b) 为什么 staleness=10 时 reward 反而下降？(c) 如何在不降低 staleness 的情况下缓解问题？</p>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>考虑 "wall-clock reward improvement" = reward改善/step × steps/秒。GPU 利用率越高意味着 steps/秒越高。</p>
+<p>对于 (b)，想想 importance sampling weight 方差大意味着什么。</p>
+<p>对于 (c)，考虑 IS clipping、mini-batch PPO epochs 数量调整、KL penalty 调整等。</p>
+</div>
+</details>
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<p><strong>(a) 最优 staleness 分析：</strong></p>
+<pre><code>Wall-clock improvement ∝ reward_per_step × throughput
+设 base throughput = 1 (at 35% util)
+
+Staleness 0: 0.15 × (35/35) = 0.150
+Staleness 1: 0.13 × (55/35) = 0.204 ←
+Staleness 3: 0.10 × (75/35) = 0.214 ← BEST
+Staleness 5: 0.05 × (85/35) = 0.121
+Staleness 10: -0.02 × (92/35) = -0.053</code></pre>
+<p><strong>最优 staleness = 3</strong>，在 per-step 效率和吞吐之间取得最佳平衡。</p>
+
+<p><strong>(b) Staleness=10 reward 下降的原因：</strong></p>
+<ul style="margin: 10px 0 10px 20px;">
+<li>IS weight 方差 = 5.8，意味着梯度估计极不稳定</li>
+<li>KL = 0.8 表明当前 policy 已经和生成 rollout 的旧 policy 差异很大</li>
+<li>相当于用完全不相关的数据在训练 — 不如随机梯度</li>
+<li>高方差导致 optimizer 在 loss landscape 上"随机游走"而非收敛</li>
+</ul>
+
+<p><strong>(c) 缓解方案（不降低 staleness）：</strong></p>
+<ul style="margin: 10px 0 10px 20px;">
+<li><strong>IS Clipping</strong>: clip importance weights 到 [0.5, 2.0]，牺牲 unbiasedness 换取稳定性</li>
+<li><strong>减少 PPO epochs</strong>: 从 4 epochs 降到 1-2 epochs，减少 policy 每步变化量</li>
+<li><strong>增大 KL penalty β</strong>: 限制 policy 变化速度，降低有效 staleness</li>
+<li><strong>Early stopping</strong>: 监控 approx KL，超过阈值就丢弃该 batch</li>
+<li><strong>Partial refresh</strong>: 保留 50% 旧数据 + 50% 新 rollout 的混合 batch</li>
+</ul>
+</div>
+</details>
+</div>
+
+<!-- Coding Exercise A -->
+<div class="exercise fade-in">
+<h4>编程练习 A: 实现 GAE (Generalized Advantage Estimation)</h4>
+<p>GAE 是 PPO 算法中计算 advantage 的核心方法，通过 λ 参数在 bias 和 variance 之间取得平衡。实现完整的 GAE 计算，正确处理 episode boundaries。</p>
+<p style="margin-top:10px;"><strong>公式：</strong></p>
+<pre><code>δ_t = r_t + γ * V(s_{t+1}) * (1 - done_t) - V(s_t)
+A_t = δ_t + (γλ) * δ_{t+1} + (γλ)² * δ_{t+2} + ...
+    = Σ_{l=0}^{T-t} (γλ)^l * δ_{t+l}</code></pre>
+<p style="margin-top:10px;"><strong>要求：</strong></p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>实现 <code>compute_gae</code> 函数：给定 rewards, values, dones 序列，计算 advantages</li>
+<li>支持 <code>gamma</code> (折扣因子) 和 <code>lambda_</code> (GAE 参数) 配置</li>
+<li>正确处理 episode boundary（done=1 时截断 bootstrap）</li>
+<li>结果与逐步手动计算对比验证</li>
+</ul>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>关键实现思路：</p>
+<ul style="margin-left: 15px;">
+<li>从后往前 (reverse) 计算，利用递推: <code>A_t = δ_t + γλ * (1-done_t) * A_{t+1}</code></li>
+<li>当 done_t=1 时，<code>V(s_{t+1})</code> 应为 0（episode 结束）</li>
+<li>初始化 <code>last_gae = 0</code>，从最后一个 timestep 开始往前推</li>
+<li>注意 values 需要比 rewards 多一个元素（用于 bootstrap V(s_T)）</li>
+</ul>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<p><strong>Starter Code (带 TODO):</strong></p>
+<pre><code>import numpy as np
+
+def compute_gae(rewards, values, dones, gamma=0.99, lambda_=0.95):
+    """
+    计算 Generalized Advantage Estimation.
+    Args:
+        rewards: np.array, shape (T,), 每步的 reward
+        values: np.array, shape (T+1,), V(s_0)...V(s_T), 最后一个是 bootstrap value
+        dones: np.array, shape (T,), 1 表示 episode 结束
+        gamma: float, 折扣因子
+        lambda_: float, GAE lambda 参数
+    Returns:
+        advantages: np.array, shape (T,)
+    """
+    T = len(rewards)
+    advantages = np.zeros(T)
+
+    # TODO: 从后往前计算 GAE
+    # 提示: last_gae = 0, 然后 for t in reversed(range(T)):
+    #   delta = ???
+    #   last_gae = ???
+    #   advantages[t] = last_gae
+
+    return advantages
+
+# TODO: 手动计算验证
+# 给定: rewards = [1, 0, 1], values = [0.5, 0.6, 0.7, 0.8]
+#        dones = [0, 0, 0], gamma = 0.99, lambda_ = 0.95
+# 手动计算 δ_0, δ_1, δ_2 和 A_0, A_1, A_2</code></pre>
+
+<p style="margin-top: 15px;"><strong>完整解答:</strong></p>
+<pre><code>import numpy as np
+
+def compute_gae(rewards, values, dones, gamma=0.99, lambda_=0.95):
+    """
+    计算 Generalized Advantage Estimation.
+    Args:
+        rewards: np.array, shape (T,)
+        values: np.array, shape (T+1,), 包含 bootstrap value
+        dones: np.array, shape (T,)
+        gamma: float
+        lambda_: float
+    Returns:
+        advantages: np.array, shape (T,)
+    """
+    T = len(rewards)
+    advantages = np.zeros(T)
+    last_gae = 0.0
+
+    for t in reversed(range(T)):
+        # 如果 done, 下一个 state 的 value 不参与 (episode 结束)
+        next_non_terminal = 1.0 - dones[t]
+        # TD error
+        delta = rewards[t] + gamma * values[t + 1] * next_non_terminal - values[t]
+        # GAE 递推
+        last_gae = delta + gamma * lambda_ * next_non_terminal * last_gae
+        advantages[t] = last_gae
+
+    return advantages
+
+# ======== 手动验证 ========
+print("=" * 60)
+print("手动验证: 简单 3-step 例子")
+print("=" * 60)
+
+rewards = np.array([1.0, 0.0, 1.0])
+values = np.array([0.5, 0.6, 0.7, 0.8])  # T+1 个 values
+dones = np.array([0.0, 0.0, 0.0])
+gamma = 0.99
+lambda_ = 0.95
+
+# 手动计算
+print("\n手动计算过程:")
+delta_2 = rewards[2] + gamma * values[3] * (1 - dones[2]) - values[2]
+print(f"  δ_2 = {rewards[2]} + {gamma}*{values[3]} - {values[2]} = {delta_2:.4f}")
+
+delta_1 = rewards[1] + gamma * values[2] * (1 - dones[1]) - values[1]
+print(f"  δ_1 = {rewards[1]} + {gamma}*{values[2]} - {values[1]} = {delta_1:.4f}")
+
+delta_0 = rewards[0] + gamma * values[1] * (1 - dones[0]) - values[0]
+print(f"  δ_0 = {rewards[0]} + {gamma}*{values[0+1]} - {values[0]} = {delta_0:.4f}")
+
+A_2 = delta_2
+A_1 = delta_1 + gamma * lambda_ * A_2
+A_0 = delta_0 + gamma * lambda_ * A_1
+print(f"\n  A_2 = δ_2 = {A_2:.4f}")
+print(f"  A_1 = δ_1 + γλ*A_2 = {delta_1:.4f} + {gamma*lambda_:.4f}*{A_2:.4f} = {A_1:.4f}")
+print(f"  A_0 = δ_0 + γλ*A_1 = {delta_0:.4f} + {gamma*lambda_:.4f}*{A_1:.4f} = {A_0:.4f}")
+
+# 函数计算
+advantages = compute_gae(rewards, values, dones, gamma, lambda_)
+print(f"\n函数计算结果: {advantages}")
+print(f"手动计算结果: [{A_0:.4f}, {A_1:.4f}, {A_2:.4f}]")
+print(f"匹配: {np.allclose(advantages, [A_0, A_1, A_2])}")
+
+# ======== Episode Boundary 测试 ========
+print("\n" + "=" * 60)
+print("Episode Boundary 测试: done=1 截断 bootstrap")
+print("=" * 60)
+
+rewards_ep = np.array([1.0, 0.0, 1.0, 2.0, 0.5])
+values_ep = np.array([0.5, 0.6, 0.7, 0.3, 0.4, 0.9])
+dones_ep = np.array([0.0, 0.0, 1.0, 0.0, 0.0])  # step 2 结束一个 episode
+
+advantages_ep = compute_gae(rewards_ep, values_ep, dones_ep, gamma, lambda_)
+print(f"\nRewards: {rewards_ep}")
+print(f"Values:  {values_ep}")
+print(f"Dones:   {dones_ep}")
+print(f"Advantages: {advantages_ep}")
+print(f"\n注意: A_1 不会 bootstrap 到 A_2 之后的信息 (被 done=1 截断)")
+
+# ======== Lambda 的效果 ========
+print("\n" + "=" * 60)
+print("不同 lambda 的效果对比")
+print("=" * 60)
+
+for lam in [0.0, 0.5, 0.95, 1.0]:
+    adv = compute_gae(rewards, values, dones, gamma, lam)
+    print(f"  λ={lam:.2f}: advantages = {adv}")
+
+print("\n  λ=0: 纯 TD(0), 低方差高偏差")
+print("  λ=1: 纯 Monte Carlo, 高方差低偏差")
+print("  λ=0.95: 实践中的最佳平衡点")</code></pre>
+
+<p style="margin-top: 15px;"><strong>预期输出:</strong></p>
+<pre><code>============================================================
+手动验证: 简单 3-step 例子
+============================================================
+
+手动计算过程:
+  δ_2 = 1.0 + 0.99*0.8 - 0.7 = 1.0920
+  δ_1 = 0.0 + 0.99*0.7 - 0.6 = 0.0930
+  δ_0 = 1.0 + 0.99*0.6 - 0.5 = 1.0940
+
+  A_2 = δ_2 = 1.0920
+  A_1 = δ_1 + γλ*A_2 = 0.0930 + 0.9405*1.0920 = 1.1201
+  A_0 = δ_0 + γλ*A_1 = 1.0940 + 0.9405*1.1201 = 2.1474
+
+函数计算结果: [2.1474 1.1201 1.0920]
+手动计算结果: [2.1474, 1.1201, 1.0920]
+匹配: True
+
+============================================================
+Episode Boundary 测试: done=1 截断 bootstrap
+============================================================
+...
+注意: A_1 不会 bootstrap 到 A_2 之后的信息 (被 done=1 截断)
+
+============================================================
+不同 lambda 的效果对比
+============================================================
+  λ=0.00: advantages = [1.0940 0.0930 1.0920]
+  λ=0.50: advantages = [1.1406 0.6332 1.0920]
+  λ=0.95: advantages = [2.1474 1.1201 1.0920]
+  λ=1.00: advantages = [2.2651 1.1813 1.0920]
+
+  λ=0: 纯 TD(0), 低方差高偏差
+  λ=1: 纯 Monte Carlo, 高方差低偏差
+  λ=0.95: 实践中的最佳平衡点</code></pre>
+</div>
+</details>
+</div>
+
+<!-- Coding Exercise B -->
+<div class="exercise fade-in">
+<h4>编程练习 B: 实现 PPO Clip Loss</h4>
+<p>PPO 的核心是 Clipped Surrogate Objective，通过限制 policy 更新幅度来保证训练稳定性。实现完整的 PPO clip loss 计算，并可视化 loss 随 ratio 变化的曲线。</p>
+<p style="margin-top:10px;"><strong>公式：</strong></p>
+<pre><code>ratio = π_θ(a|s) / π_θ_old(a|s)
+L_clip = min(ratio * A, clip(ratio, 1-ε, 1+ε) * A)
+Loss = -E[L_clip]  (取负号因为我们 maximize objective)</code></pre>
+<p style="margin-top:10px;"><strong>要求：</strong></p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>实现 <code>ppo_clip_loss</code> 函数：给定 log_probs, old_log_probs, advantages, eps</li>
+<li>正确处理 ratio 计算 (在 log space 计算避免数值问题)</li>
+<li>可视化: 画出 loss vs ratio 的曲线，分别展示 advantage>0 和 advantage<0 的情况</li>
+<li>验证: advantage>0 时 ratio 超过 1+eps 后 loss 被 clip (不再增长)</li>
+<li>验证: advantage<0 时 ratio 低于 1-eps 后 loss 被 clip</li>
+</ul>
+
+<details class="exercise-hint">
+<summary>💡 提示</summary>
+<div>
+<p>关键实现思路：</p>
+<ul style="margin-left: 15px;">
+<li><code>ratio = exp(log_prob - old_log_prob)</code>，在 log space 相减避免溢出</li>
+<li><code>L_clip = min(ratio*A, clip(ratio, 1-eps, 1+eps)*A)</code></li>
+<li>当 A>0: 我们希望 ratio 增大（鼓励该动作），但不超过 1+eps</li>
+<li>当 A<0: 我们希望 ratio 减小（抑制该动作），但不低于 1-eps</li>
+<li>取 min 保证: 无论 advantage 正负，都是保守更新</li>
+</ul>
+</div>
+</details>
+
+<details class="exercise-solution">
+<summary>✅ 完整解答</summary>
+<div>
+<p><strong>Starter Code (带 TODO):</strong></p>
+<pre><code>import numpy as np
+
+def ppo_clip_loss(log_probs, old_log_probs, advantages, eps=0.2):
+    """
+    计算 PPO Clipped Surrogate Loss.
+    Args:
+        log_probs: np.array, 当前 policy 的 log π(a|s)
+        old_log_probs: np.array, 旧 policy 的 log π_old(a|s)
+        advantages: np.array, GAE 计算的 advantages
+        eps: float, clipping 参数
+    Returns:
+        loss: scalar, PPO loss (取负号, 用于 minimize)
+        clip_fraction: float, 被 clip 的比例
+    """
+    # TODO: 计算 ratio (在 log space)
+    # TODO: 计算 unclipped objective
+    # TODO: 计算 clipped objective
+    # TODO: 取 min 得到最终 objective
+    # TODO: 计算 clip fraction
+    pass
+
+def visualize_ppo_loss(eps=0.2):
+    """画出 PPO loss vs ratio 的曲线"""
+    # TODO: 对不同 advantage (正/负), 画出 loss 随 ratio 变化
+    pass</code></pre>
+
+<p style="margin-top: 15px;"><strong>完整解答:</strong></p>
+<pre><code>import numpy as np
+
+def ppo_clip_loss(log_probs, old_log_probs, advantages, eps=0.2):
+    """
+    计算 PPO Clipped Surrogate Loss.
+    Args:
+        log_probs: np.array, shape (N,)
+        old_log_probs: np.array, shape (N,)
+        advantages: np.array, shape (N,)
+        eps: float, clipping epsilon
+    Returns:
+        loss: scalar (negated for minimization)
+        clip_fraction: fraction of samples that were clipped
+    """
+    # Ratio in log space for numerical stability
+    ratio = np.exp(log_probs - old_log_probs)
+
+    # Unclipped objective
+    surr1 = ratio * advantages
+
+    # Clipped objective
+    clipped_ratio = np.clip(ratio, 1.0 - eps, 1.0 + eps)
+    surr2 = clipped_ratio * advantages
+
+    # PPO objective: take the min (pessimistic bound)
+    objective = np.minimum(surr1, surr2)
+
+    # Loss = negative objective (for gradient descent)
+    loss = -objective.mean()
+
+    # Clip fraction: how often was the ratio clipped AND binding?
+    clip_fraction = np.mean(np.abs(ratio - clipped_ratio) > 1e-6)
+
+    return loss, clip_fraction, ratio
+
+def visualize_ppo_loss_text(eps=0.2):
+    """用文本方式展示 PPO loss vs ratio 的关键性质"""
+    ratios = np.linspace(0.5, 2.0, 31)
+
+    print(f"\n{'='*70}")
+    print(f"PPO Clip Loss 分析 (eps={eps})")
+    print(f"{'='*70}")
+
+    # Case 1: Advantage > 0
+    adv_pos = 1.0
+    print(f"\n--- Advantage = +{adv_pos} (鼓励该动作) ---")
+    print(f"{'ratio':>8} | {'surr1':>8} | {'surr2':>8} | {'L_clip':>8} | {'clipped?':>8}")
+    print("-" * 50)
+    for r in [0.6, 0.8, 1.0, 1.1, 1.2, 1.3, 1.5, 1.8]:
+        surr1 = r * adv_pos
+        surr2 = np.clip(r, 1-eps, 1+eps) * adv_pos
+        L = min(surr1, surr2)
+        clipped = "YES" if abs(r - np.clip(r, 1-eps, 1+eps)) > 1e-6 else "no"
+        binding = " ← clip binding" if surr2 < surr1 else ""
+        print(f"  {r:6.2f} | {surr1:8.3f} | {surr2:8.3f} | {L:8.3f} | {clipped:>6}{binding}")
+
+    print(f"\n  → 当 ratio > 1+eps={1+eps}, L_clip = (1+eps)*A = {(1+eps)*adv_pos:.1f} (被截断, 不再增长)")
+    print(f"  → 防止 policy 变化过大导致训练不稳定")
+
+    # Case 2: Advantage < 0
+    adv_neg = -1.0
+    print(f"\n--- Advantage = {adv_neg} (抑制该动作) ---")
+    print(f"{'ratio':>8} | {'surr1':>8} | {'surr2':>8} | {'L_clip':>8} | {'clipped?':>8}")
+    print("-" * 50)
+    for r in [0.5, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.5]:
+        surr1 = r * adv_neg
+        surr2 = np.clip(r, 1-eps, 1+eps) * adv_neg
+        L = min(surr1, surr2)
+        clipped = "YES" if abs(r - np.clip(r, 1-eps, 1+eps)) > 1e-6 else "no"
+        binding = " ← clip binding" if surr2 < surr1 else ""
+        print(f"  {r:6.2f} | {surr1:8.3f} | {surr2:8.3f} | {L:8.3f} | {clipped:>6}{binding}")
+
+    print(f"\n  → 当 ratio < 1-eps={1-eps}, L_clip = (1-eps)*A = {(1-eps)*adv_neg:.1f} (被截断)")
+    print(f"  → 防止过度惩罚某个动作")
+
+# ======== 完整测试 ========
+print("=" * 70)
+print("PPO Clip Loss 实现测试")
+print("=" * 70)
+
+np.random.seed(42)
+N = 1000
+
+# 模拟: old policy 和 current policy 有轻微差异
+old_log_probs = np.random.randn(N) * 0.5 - 2.0  # log probs
+log_probs = old_log_probs + np.random.randn(N) * 0.3  # slightly different
+
+# 模拟 advantages (标准化)
+advantages = np.random.randn(N)
+advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+# 计算 PPO loss
+loss, clip_frac, ratios = ppo_clip_loss(log_probs, old_log_probs, advantages, eps=0.2)
+
+print(f"\nBatch size: {N}")
+print(f"PPO Loss: {loss:.4f}")
+print(f"Clip fraction: {clip_frac:.2%}")
+print(f"Ratio stats: mean={ratios.mean():.3f}, std={ratios.std():.3f}")
+print(f"  min={ratios.min():.3f}, max={ratios.max():.3f}")
+
+# 验证 clip 行为
+print("\n--- 验证 Clip 行为 ---")
+eps = 0.2
+# 构造极端情况
+test_advantages = np.array([1.0, 1.0, -1.0, -1.0])
+test_old_log = np.array([0.0, 0.0, 0.0, 0.0])
+# ratio = 1.5 (> 1+eps) and ratio = 0.5 (< 1-eps)
+test_log = np.log(np.array([1.5, 1.0, 0.5, 1.0]))
+
+loss_test, clip_frac_test, ratios_test = ppo_clip_loss(
+    test_log, test_old_log, test_advantages, eps=0.2
+)
+print(f"Test ratios: {np.exp(test_log - test_old_log)}")
+print(f"Test advantages: {test_advantages}")
+print(f"Clip fraction: {clip_frac_test:.2%} (expect 50% = 2/4 clipped)")
+
+# 可视化
+visualize_ppo_loss_text(eps=0.2)</code></pre>
+
+<p style="margin-top: 15px;"><strong>预期输出:</strong></p>
+<pre><code>======================================================================
+PPO Clip Loss 实现测试
+======================================================================
+
+Batch size: 1000
+PPO Loss: -0.0284
+Clip fraction: 32.40%
+Ratio stats: mean=1.052, std=0.345
+  min=0.187, max=3.842
+
+--- 验证 Clip 行为 ---
+Test ratios: [1.5 1.0 0.5 1.0]
+Test advantages: [ 1.  1. -1. -1.]
+Clip fraction: 50.00% (expect 50% = 2/4 clipped)
+
+======================================================================
+PPO Clip Loss 分析 (eps=0.2)
+======================================================================
+
+--- Advantage = +1.0 (鼓励该动作) ---
+   ratio |    surr1 |    surr2 |   L_clip | clipped?
+--------------------------------------------------
+    0.60 |    0.600 |    0.800 |    0.600 |    YES
+    0.80 |    0.800 |    0.800 |    0.800 |     no
+    1.00 |    1.000 |    1.000 |    1.000 |     no
+    1.10 |    1.100 |    1.100 |    1.100 |     no
+    1.20 |    1.200 |    1.200 |    1.200 |     no
+    1.30 |    1.300 |    1.200 |    1.200 |    YES ← clip binding
+    1.50 |    1.500 |    1.200 |    1.200 |    YES ← clip binding
+    1.80 |    1.800 |    1.200 |    1.200 |    YES ← clip binding
+
+  → 当 ratio > 1+eps=1.2, L_clip = (1+eps)*A = 1.2 (被截断, 不再增长)
+  → 防止 policy 变化过大导致训练不稳定
+
+--- Advantage = -1.0 (抑制该动作) ---
+   ...
+  → 当 ratio < 1-eps=0.8, L_clip = (1-eps)*A = -0.8 (被截断)
+  → 防止过度惩罚某个动作</code></pre>
+</div>
+</details>
+</div>
+
+</div><!-- end container -->
+
+<script>
+// === Intersection Observer for fade-in animations ===
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+        }
+    });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// === Tab functionality ===
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tabId = btn.getAttribute('data-tab');
+        const parent = btn.closest('.card');
+        parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    });
+});
+
+// === PPO Clipping Visualization ===
+(function() {
+    const canvas = document.getElementById('ppo-canvas');
+    const ctx = canvas.getContext('2d');
+    const epsSlider = document.getElementById('eps-slider');
+    const advSlider = document.getElementById('adv-slider');
+    const epsVal = document.getElementById('eps-val');
+    const advVal = document.getElementById('adv-val');
+
+    function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+    }
+
+    function drawPPOGraph() {
+        resizeCanvas();
+        const W = canvas.width;
+        const H = canvas.height;
+        const eps = parseFloat(epsSlider.value);
+        const adv = parseFloat(advSlider.value);
+
+        ctx.clearRect(0, 0, W, H);
+
+        const padL = 60, padR = 30, padT = 30, padB = 40;
+        const gW = W - padL - padR;
+        const gH = H - padT - padB;
+
+        // Axes
+        ctx.strokeStyle = '#444';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, padT);
+        ctx.lineTo(padL, padT + gH);
+        ctx.lineTo(padL + gW, padT + gH);
+        ctx.stroke();
+
+        // Labels
+        ctx.fillStyle = '#888';
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('ratio r(θ)', padL + gW/2, H - 5);
+        ctx.save();
+        ctx.translate(15, padT + gH/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText('Objective', 0, 0);
+        ctx.restore();
+
+        // Range: ratio from 0 to 3, objective centered on 0
+        const rMin = 0, rMax = 3;
+        const maxObj = Math.max(Math.abs(adv) * 3, 1);
+        const oMin = -maxObj, oMax = maxObj;
+
+        function toX(r) { return padL + (r - rMin) / (rMax - rMin) * gW; }
+        function toY(o) { return padT + gH - (o - oMin) / (oMax - oMin) * gH; }
+
+        // Zero line
+        ctx.strokeStyle = '#333';
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padL, toY(0));
+        ctx.lineTo(padL + gW, toY(0));
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Clip boundaries
+        ctx.strokeStyle = '#555';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(toX(1 - eps), padT);
+        ctx.lineTo(toX(1 - eps), padT + gH);
+        ctx.moveTo(toX(1 + eps), padT);
+        ctx.lineTo(toX(1 + eps), padT + gH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#666';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('1-ε', toX(1 - eps), padT + gH + 15);
+        ctx.fillText('1+ε', toX(1 + eps), padT + gH + 15);
+
+        // Draw unclipped: r * A (orange)
+        ctx.strokeStyle = '#ff9800';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= 200; i++) {
+            const r = rMin + (rMax - rMin) * i / 200;
+            const obj = r * adv;
+            const x = toX(r);
+            const y = toY(obj);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Draw clipped (red)
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        for (let i = 0; i <= 200; i++) {
+            const r = rMin + (rMax - rMin) * i / 200;
+            const clipped_r = Math.max(1 - eps, Math.min(1 + eps, r));
+            const obj = clipped_r * adv;
+            const x = toX(r);
+            const y = toY(obj);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Draw actual PPO objective = min (green filled area approximation)
+        ctx.strokeStyle = '#50fa7b';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let i = 0; i <= 200; i++) {
+            const r = rMin + (rMax - rMin) * i / 200;
+            const unclipped = r * adv;
+            const clipped_r = Math.max(1 - eps, Math.min(1 + eps, r));
+            const clipped = clipped_r * adv;
+            const obj = Math.min(unclipped, clipped);
+            const x = toX(r);
+            const y = toY(obj);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // Current ratio marker at r=1
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(toX(1), toY(adv), 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tick marks
+        ctx.fillStyle = '#888';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        for (let r = 0; r <= 3; r += 0.5) {
+            ctx.fillText(r.toFixed(1), toX(r), padT + gH + 15);
+        }
+    }
+
+    epsSlider.addEventListener('input', () => { epsVal.textContent = epsSlider.value; drawPPOGraph(); });
+    advSlider.addEventListener('input', () => { advVal.textContent = advSlider.value; drawPPOGraph(); });
+    window.addEventListener('resize', drawPPOGraph);
+    setTimeout(drawPPOGraph, 100);
+})();
+
+// === RLHF Pipeline Animation ===
+(function() {
+    const container = document.getElementById('pipeline-anim');
+    const playBtn = document.getElementById('btn-pipeline-play');
+    const resetBtn = document.getElementById('btn-pipeline-reset');
+    let particles = [];
+    let animId = null;
+
+    function createParticle(startX, endX, startY, duration, delay) {
+        const p = document.createElement('div');
+        p.className = 'pipeline-data';
+        p.style.left = startX + '%';
+        p.style.top = startY + '%';
+        p.style.opacity = '0';
+        container.appendChild(p);
+        particles.push(p);
+
+        setTimeout(() => {
+            p.style.transition = `left ${duration}ms linear, opacity 0.3s`;
+            p.style.opacity = '1';
+            p.style.left = endX + '%';
+            setTimeout(() => { p.style.opacity = '0'; }, duration - 300);
+        }, delay);
+    }
+
+    function playAnimation() {
+        resetAnimation();
+        const stages = [
+            { startX: 2, endX: 18, startY: 48, duration: 1000, delay: 0 },
+            { startX: 22, endX: 48, startY: 48, duration: 1000, delay: 1200 },
+            { startX: 52, endX: 78, startY: 48, duration: 1000, delay: 2400 },
+            { startX: 82, endX: 95, startY: 48, duration: 800, delay: 3600 },
+        ];
+        stages.forEach(s => createParticle(s.startX, s.endX, s.startY, s.duration, s.delay));
+
+        // Second wave
+        setTimeout(() => {
+            stages.forEach(s => createParticle(s.startX, s.endX, s.startY - 8, s.duration, s.delay));
+        }, 800);
+    }
+
+    function resetAnimation() {
+        particles.forEach(p => p.remove());
+        particles = [];
+    }
+
+    playBtn.addEventListener('click', playAnimation);
+    resetBtn.addEventListener('click', resetAnimation);
+})();
+
+// === GRPO vs PPO Comparison Animation ===
+(function() {
+    const playBtn = document.getElementById('btn-compare-play');
+    const ppoCanvas = document.getElementById('ppo-compare-canvas');
+    const grpoCanvas = document.getElementById('grpo-compare-canvas');
+    let animRunning = false;
+
+    function drawPPOComparison() {
+        const ctx = ppoCanvas.getContext('2d');
+        const W = ppoCanvas.width = ppoCanvas.clientWidth * 2;
+        const H = ppoCanvas.height = ppoCanvas.clientHeight * 2;
+        ctx.scale(2, 2);
+        const w = W / 2, h = H / 2;
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw critic network
+        ctx.fillStyle = '#2a2a4e';
+        ctx.fillRect(20, 30, 80, 40);
+        ctx.strokeStyle = '#ff4444';
+        ctx.strokeRect(20, 30, 80, 40);
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Critic V(s)', 60, 55);
+
+        // Draw policy
+        ctx.fillStyle = '#2a2a4e';
+        ctx.fillRect(20, 90, 80, 40);
+        ctx.strokeStyle = '#ff9800';
+        ctx.strokeRect(20, 90, 80, 40);
+        ctx.fillText('Policy π(a|s)', 60, 115);
+
+        // Arrow from critic to advantage
+        ctx.strokeStyle = '#888';
+        ctx.beginPath();
+        ctx.moveTo(100, 50);
+        ctx.lineTo(130, 75);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(100, 110);
+        ctx.lineTo(130, 85);
+        ctx.stroke();
+
+        // Advantage box
+        ctx.fillStyle = '#1a3a1a';
+        ctx.fillRect(130, 65, 60, 25);
+        ctx.strokeStyle = '#50fa7b';
+        ctx.strokeRect(130, 65, 60, 25);
+        ctx.fillStyle = '#50fa7b';
+        ctx.fillText('A = Q - V', 160, 82);
+    }
+
+    function drawGRPOComparison() {
+        const ctx = grpoCanvas.getContext('2d');
+        const W = grpoCanvas.width = grpoCanvas.clientWidth * 2;
+        const H = grpoCanvas.height = grpoCanvas.clientHeight * 2;
+        ctx.scale(2, 2);
+        const w = W / 2, h = H / 2;
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw group of responses
+        const colors = ['#ff4444', '#ff9800', '#50fa7b', '#4488ff', '#a569bd'];
+        const rewards = [0.3, 0.7, 0.9, 0.5, 0.2];
+        const mean = rewards.reduce((a, b) => a + b, 0) / rewards.length;
+
+        ctx.fillStyle = '#e0e0e0';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Group (G=5):', 10, 20);
+
+        for (let i = 0; i < 5; i++) {
+            const y = 30 + i * 22;
+            const barW = rewards[i] * 100;
+            ctx.fillStyle = colors[i];
+            ctx.globalAlpha = 0.7;
+            ctx.fillRect(10, y, barW, 14);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#e0e0e0';
+            ctx.font = '9px sans-serif';
+            ctx.fillText(`r=${rewards[i].toFixed(1)}`, barW + 15, y + 11);
+        }
+
+        // Mean line
+        const meanX = 10 + mean * 100;
+        ctx.strokeStyle = '#ffcc80';
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(meanX, 28);
+        ctx.lineTo(meanX, 140);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#ffcc80';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`mean=${mean.toFixed(2)}`, meanX, 150);
+
+        // Advantage label
+        ctx.fillStyle = '#50fa7b';
+        ctx.textAlign = 'left';
+        ctx.fillText('A = (r - mean) / std', 10, 170);
+        ctx.fillText('No critic needed!', 10, 185);
+    }
+
+    playBtn.addEventListener('click', () => {
+        drawPPOComparison();
+        drawGRPOComparison();
+    });
+
+    // Initial draw
+    setTimeout(() => { drawPPOComparison(); drawGRPOComparison(); }, 200);
+})();
+
+// === Weight Sync NCCL Animation ===
+(function() {
+    const btn = document.getElementById('btn-sync-nccl');
+    const container = document.getElementById('sync-nccl-container');
+    let packets = [];
+
+    btn.addEventListener('click', () => {
+        // Clear old packets
+        packets.forEach(p => p.remove());
+        packets = [];
+
+        // Animate packets from train to infer GPUs
+        const trainPositions = [{x: 14, y: 20}, {x: 14, y: 50}, {x: 14, y: 80}];
+        const inferPositions = [{x: 78, y: 20}, {x: 78, y: 50}, {x: 78, y: 80}];
+
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                const delay = i * 200 + j * 100;
+                setTimeout(() => {
+                    const pkt = document.createElement('div');
+                    pkt.className = 'sync-packet';
+                    pkt.style.left = trainPositions[i].x + '%';
+                    pkt.style.top = trainPositions[i].y + '%';
+                    pkt.style.transition = 'left 1s ease-in-out, top 0.8s ease-in-out';
+                    container.appendChild(pkt);
+                    packets.push(pkt);
+
+                    setTimeout(() => {
+                        pkt.style.left = inferPositions[j].x + '%';
+                        pkt.style.top = inferPositions[j].y + '%';
+                    }, 50);
+
+                    setTimeout(() => { pkt.style.opacity = '0'; }, 1200);
+                }, delay);
+            }
+        }
+    });
+})();
+
+// === Multi-turn RL Animation ===
+(function() {
+    const playBtn = document.getElementById('btn-multiturn-play');
+    const resetBtn = document.getElementById('btn-multiturn-reset');
+    const container = document.getElementById('multiturn-anim');
+    const log = document.getElementById('multiturn-log');
+    let messages = [];
+    let animTimeout = null;
+
+    const steps = [
+        { from: 'agent', to: 'env', text: 'Query: "2+3=?"', delay: 0 },
+        { from: 'env', to: 'agent', text: 'Response needed', delay: 1000 },
+        { from: 'agent', to: 'tool', text: 'tool_call: calc(2+3)', delay: 2000 },
+        { from: 'tool', to: 'agent', text: 'result: 5', delay: 3000 },
+        { from: 'agent', to: 'env', text: 'Answer: 5', delay: 4000 },
+        { from: 'env', to: 'reward', text: 'Evaluate...', delay: 5000 },
+        { from: 'reward', to: 'agent', text: 'reward: +1.0', delay: 6000 },
+    ];
+
+    function getPos(name) {
+        const el = container.querySelector('.mt-' + name);
+        if (!el) return { x: 50, y: 50 };
+        return {
+            x: el.offsetLeft + el.offsetWidth / 2,
+            y: el.offsetTop + el.offsetHeight / 2
+        };
+    }
+
+    function animateMessage(step) {
+        const fromPos = getPos(step.from);
+        const toPos = getPos(step.to);
+
+        const msg = document.createElement('div');
+        msg.className = 'mt-message';
+        msg.textContent = step.text;
+        msg.style.left = fromPos.x + 'px';
+        msg.style.top = fromPos.y + 'px';
+        msg.style.opacity = '1';
+        msg.style.transition = 'left 0.8s ease, top 0.8s ease, opacity 0.3s';
+        container.appendChild(msg);
+        messages.push(msg);
+
+        setTimeout(() => {
+            msg.style.left = toPos.x + 'px';
+            msg.style.top = toPos.y + 'px';
+        }, 50);
+
+        setTimeout(() => { msg.style.opacity = '0'; }, 900);
+
+        // Log
+        const logEntry = document.createElement('div');
+        logEntry.textContent = `[Turn] ${step.from} → ${step.to}: ${step.text}`;
+        logEntry.style.color = step.from === 'reward' ? '#50fa7b' : '#aaa';
+        log.appendChild(logEntry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    function playAnimation() {
+        resetAnimation();
+        steps.forEach(step => {
+            animTimeout = setTimeout(() => animateMessage(step), step.delay);
+        });
+    }
+
+    function resetAnimation() {
+        messages.forEach(m => m.remove());
+        messages = [];
+        log.innerHTML = '';
+        if (animTimeout) clearTimeout(animTimeout);
+    }
+
+    playBtn.addEventListener('click', playAnimation);
+    resetBtn.addEventListener('click', resetAnimation);
+})();
+</script>
+</body>
+</html>

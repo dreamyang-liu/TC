@@ -1,0 +1,2499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chapter 3: 分布式训练与通信</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  padding: 0;
+}
+.chapter-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 60px 40px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.chapter-header::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  animation: drift 20s linear infinite;
+}
+@keyframes drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(30px, 30px); }
+}
+.chapter-header h1 {
+  font-size: 2.8em;
+  color: #fff;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+.chapter-header .subtitle {
+  font-size: 1.2em;
+  color: rgba(255,255,255,0.85);
+  margin-top: 10px;
+  position: relative;
+  z-index: 1;
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+.card {
+  background: #1a1a2e;
+  border-radius: 12px;
+  border: 1px solid #333;
+  padding: 30px;
+  margin-bottom: 30px;
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.card.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card h2 {
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 1.8em;
+  margin-bottom: 20px;
+}
+.card h3 {
+  color: #667eea;
+  font-size: 1.3em;
+  margin: 20px 0 10px;
+}
+.card h4 {
+  color: #a78bfa;
+  margin: 15px 0 8px;
+}
+p { margin-bottom: 12px; }
+code {
+  background: #2d2d44;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+  color: #a78bfa;
+}
+pre {
+  background: #12121f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px;
+  overflow-x: auto;
+  margin: 15px 0;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+pre code {
+  background: none;
+  padding: 0;
+  color: #e0e0e0;
+}
+.keyword { color: #c792ea; }
+.string { color: #c3e88d; }
+.comment { color: #676e95; }
+.func { color: #82aaff; }
+.num { color: #f78c6c; }
+
+/* Tabs */
+.tab-container {
+  margin: 20px 0;
+}
+.tab-buttons {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #333;
+}
+.tab-btn {
+  padding: 12px 24px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 1em;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.3s;
+}
+.tab-btn:hover { color: #e0e0e0; }
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+.tab-content {
+  display: none;
+  padding: 20px 0;
+  animation: fadeIn 0.3s ease;
+}
+.tab-content.active { display: block; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Diagram styles */
+.diagram {
+  background: #12121f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 30px;
+  margin: 15px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.gpu-box {
+  display: inline-block;
+  background: linear-gradient(135deg, #667eea33, #764ba233);
+  border: 1px solid #667eea;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin: 8px;
+  font-weight: bold;
+  color: #667eea;
+  min-width: 100px;
+}
+.arrow {
+  color: #888;
+  font-size: 1.5em;
+  margin: 0 10px;
+}
+
+/* Ring animation */
+.ring-container {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  margin: 20px auto;
+}
+.ring-gpu {
+  position: absolute;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #fff;
+  font-size: 0.85em;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+.ring-gpu:nth-child(1) { top: 0; left: 50%; transform: translateX(-50%); }
+.ring-gpu:nth-child(2) { top: 50%; right: 0; transform: translateY(-50%); }
+.ring-gpu:nth-child(3) { bottom: 0; left: 50%; transform: translateX(-50%); }
+.ring-gpu:nth-child(4) { top: 50%; left: 0; transform: translateY(-50%); }
+.ring-path {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 240px;
+  height: 240px;
+  transform: translate(-50%, -50%);
+  border: 2px dashed #444;
+  border-radius: 50%;
+}
+.data-chunk {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transition: all 0.8s ease;
+  font-size: 0.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: bold;
+}
+.chunk-a { background: #f44336; }
+.chunk-b { background: #4caf50; }
+.chunk-c { background: #2196f3; }
+.chunk-d { background: #ff9800; }
+
+/* Animation controls */
+.anim-controls {
+  text-align: center;
+  margin: 15px 0;
+}
+.anim-btn {
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.95em;
+  margin: 0 5px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.anim-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+.anim-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+.step-indicator {
+  color: #888;
+  margin: 10px 0;
+  font-size: 0.95em;
+}
+
+/* FSDP Calculator */
+.calculator {
+  background: #12121f;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 25px;
+  margin: 20px 0;
+}
+.slider-group {
+  margin: 20px 0;
+}
+.slider-group label {
+  display: block;
+  color: #a78bfa;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.slider-group input[type="range"] {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #333;
+  border-radius: 3px;
+  outline: none;
+}
+.slider-group input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  cursor: pointer;
+}
+.slider-value {
+  color: #667eea;
+  font-weight: bold;
+  font-size: 1.1em;
+  margin-left: 10px;
+}
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+.result-card {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 15px;
+  text-align: center;
+}
+.result-card .stage-label {
+  color: #888;
+  font-size: 0.9em;
+  margin-bottom: 5px;
+}
+.result-card .mem-value {
+  font-size: 1.5em;
+  font-weight: bold;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.result-card .mem-detail {
+  color: #888;
+  font-size: 0.8em;
+  margin-top: 5px;
+}
+
+/* Bar chart */
+.bar-chart {
+  margin: 20px 0;
+}
+.bar-row {
+  display: flex;
+  align-items: center;
+  margin: 10px 0;
+}
+.bar-label {
+  width: 140px;
+  font-size: 0.9em;
+  color: #a78bfa;
+}
+.bar-track {
+  flex: 1;
+  height: 30px;
+  background: #2d2d44;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 1.5s ease;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 10px;
+  font-size: 0.8em;
+  font-weight: bold;
+  color: #fff;
+  width: 0%;
+}
+.bar-fill.animated { /* triggered by JS */ }
+.bar-fill.allreduce { background: linear-gradient(90deg, #667eea, #764ba2); }
+.bar-fill.allgather { background: linear-gradient(90deg, #4caf50, #66bb6a); }
+.bar-fill.reducescatter { background: linear-gradient(90deg, #f44336, #ef5350); }
+.bar-fill.broadcast { background: linear-gradient(90deg, #ff9800, #ffb74d); }
+
+/* Exercise styles */
+.exercise {
+  background: #1a1a2e;
+  border: 1px solid #667eea44;
+  border-left: 4px solid #667eea;
+  border-radius: 8px;
+  padding: 25px;
+  margin: 20px 0;
+}
+.exercise h4 {
+  color: #667eea;
+  margin-bottom: 10px;
+}
+.hint-toggle, .solution-toggle {
+  padding: 8px 16px;
+  background: #2d2d44;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #a78bfa;
+  cursor: pointer;
+  font-size: 0.9em;
+  margin: 8px 8px 8px 0;
+  transition: all 0.3s;
+}
+.hint-toggle:hover, .solution-toggle:hover {
+  background: #3d3d54;
+  border-color: #667eea;
+}
+.hint-content, .solution-content {
+  display: none;
+  margin-top: 12px;
+  padding: 15px;
+  background: #12121f;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+.hint-content.show, .solution-content.show { display: block; }
+
+/* Table */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+th, td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+}
+th {
+  background: #2d2d44;
+  color: #667eea;
+  font-weight: 600;
+}
+tr:hover { background: #1f1f38; }
+
+/* Concept list */
+.concept-list {
+  list-style: none;
+  padding: 0;
+}
+.concept-list li {
+  padding: 8px 0 8px 24px;
+  position: relative;
+}
+.concept-list li::before {
+  content: '>';
+  position: absolute;
+  left: 0;
+  color: #667eea;
+  font-weight: bold;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .chapter-header h1 { font-size: 1.8em; }
+  .card { padding: 20px; }
+  .tab-btn { padding: 8px 12px; font-size: 0.85em; }
+  .ring-container { width: 280px; height: 280px; }
+}
+
+/* Formula */
+.formula {
+  background: #2d2d44;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin: 15px 0;
+  text-align: center;
+  font-size: 1.1em;
+  color: #a78bfa;
+  font-family: 'SF Mono', monospace;
+}
+
+/* Info box */
+.info-box {
+  background: #1a2a3e;
+  border: 1px solid #2196f3;
+  border-radius: 8px;
+  padding: 15px 20px;
+  margin: 15px 0;
+}
+.info-box::before {
+  content: 'i';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background: #2196f3;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 20px;
+  color: #fff;
+  font-weight: bold;
+  font-size: 0.8em;
+  margin-right: 10px;
+}
+
+/* Scroll progress */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  z-index: 1000;
+  transition: width 0.1s;
+}
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scrollProgress"></div>
+
+<header class="chapter-header">
+  <h1>Chapter 3: 分布式训练与通信</h1>
+  <p class="subtitle">Distributed Training & Communication Primitives</p>
+</header>
+
+<div class="container">
+
+<!-- Section 1: Overview -->
+<div class="card">
+  <h2>3.0 为什么需要分布式训练?</h2>
+  <p>随着模型规模的指数增长 (GPT-3: 175B, PaLM: 540B, Llama 3: 405B), 单张 GPU 已经无法容纳整个模型的参数、梯度和优化器状态。分布式训练通过将计算和存储分摊到多个设备上, 使得训练超大模型成为可能。</p>
+
+  <div class="info-box">
+    <strong>核心挑战:</strong> 在保持训练等价性 (mathematical equivalence) 的前提下, 最小化通信开销、最大化 GPU 利用率。
+  </div>
+
+  <p>三种基本并行策略可以组合使用 (称为 3D Parallelism):</p>
+  <table>
+    <thead>
+      <tr><th>策略</th><th>切分对象</th><th>通信模式</th><th>适用场景</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Data Parallelism (DP)</td><td>数据 (batch)</td><td>AllReduce 梯度</td><td>模型能放入单卡</td></tr>
+      <tr><td>Tensor Parallelism (TP)</td><td>单层参数</td><td>AllReduce / AllGather</td><td>单层参数过大</td></tr>
+      <tr><td>Pipeline Parallelism (PP)</td><td>层间切分</td><td>点对点 Send/Recv</td><td>模型层数多</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- Section 2: Interactive Parallelism Comparison -->
+<div class="card">
+  <h2>3.1 并行策略对比 (Interactive)</h2>
+
+  <div class="tab-container">
+    <div class="tab-buttons">
+      <button class="tab-btn active" onclick="switchTab(event, 'tab-dp')">Data Parallelism</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-tp')">Tensor Parallelism</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-pp')">Pipeline Parallelism</button>
+      <button class="tab-btn" onclick="switchTab(event, 'tab-3d')">3D Parallelism</button>
+    </div>
+
+    <!-- Data Parallelism -->
+    <div class="tab-content active" id="tab-dp">
+      <h3>数据并行 (Data Parallelism)</h3>
+      <p><strong>核心思想:</strong> 每个 GPU 持有模型的完整副本, 将一个 mini-batch 均分为若干 micro-batch, 各 GPU 独立做前向和反向, 然后通过 <code>AllReduce</code> 同步梯度。</p>
+
+      <div class="diagram">
+        <div style="display: flex; justify-content: center; align-items: flex-start; flex-wrap: wrap; gap: 20px;">
+          <div style="text-align: center;">
+            <div style="color: #888; margin-bottom: 10px;">Mini-Batch (B=32)</div>
+            <div style="display: flex; gap: 5px; justify-content: center;">
+              <div style="width: 60px; height: 40px; background: #f4433655; border: 1px solid #f44336; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">B[0:8]</div>
+              <div style="width: 60px; height: 40px; background: #4caf5055; border: 1px solid #4caf50; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">B[8:16]</div>
+              <div style="width: 60px; height: 40px; background: #2196f355; border: 1px solid #2196f3; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">B[16:24]</div>
+              <div style="width: 60px; height: 40px; background: #ff980055; border: 1px solid #ff9800; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">B[24:32]</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin: 20px 0; color: #888;">↓ 分发到 4 个 GPU ↓</div>
+        <div style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+          <div class="gpu-box" style="border-color: #f44336; color: #f44336;">GPU 0<br><small>Full Model</small><br><small>B[0:8]</small></div>
+          <div class="gpu-box" style="border-color: #4caf50; color: #4caf50;">GPU 1<br><small>Full Model</small><br><small>B[8:16]</small></div>
+          <div class="gpu-box" style="border-color: #2196f3; color: #2196f3;">GPU 2<br><small>Full Model</small><br><small>B[16:24]</small></div>
+          <div class="gpu-box" style="border-color: #ff9800; color: #ff9800;">GPU 3<br><small>Full Model</small><br><small>B[24:32]</small></div>
+        </div>
+        <div style="margin: 15px 0; color: #888;">↓ AllReduce Gradients ↓</div>
+        <div style="color: #667eea; font-weight: bold;">同步后所有 GPU 持有相同的梯度 → 更新后参数一致</div>
+      </div>
+
+      <h4>优势与局限</h4>
+      <ul class="concept-list">
+        <li>实现简单, PyTorch 的 <code>DistributedDataParallel</code> 开箱即用</li>
+        <li>通信量: 每次迭代需要 AllReduce 全部梯度 (2M bytes, M 为参数量)</li>
+        <li>局限: 模型必须能放入单张 GPU 的显存</li>
+        <li>局限: GPU 数量增多时, 通信开销线性增长 (但 Ring AllReduce 可缓解)</li>
+      </ul>
+
+      <h4 style="margin-top: 25px;">交互动画: Data Parallelism 训练流程</h4>
+      <div id="dp-animation" style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+        <!-- DP timeline grid -->
+        <div id="dpGrid" style="overflow-x:auto; margin: 10px 0;"></div>
+
+        <!-- Legend -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin: 15px 0; font-size: 0.85em;">
+          <span><span style="display:inline-block;width:16px;height:16px;background:#2196f3;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Split Data</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#4caf50;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Forward</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#ff9800;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Backward</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#9c27b0;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> AllReduce</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#667eea;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Update</span>
+        </div>
+
+        <!-- Step annotation -->
+        <div id="dpStepText" style="color:#a78bfa; font-size:0.95em; min-height:40px; margin:10px 0; padding:10px; background:#1a1a2e; border-radius:6px;"></div>
+
+        <!-- Controls -->
+        <div class="anim-controls">
+          <button class="anim-btn" id="dpPrev" onclick="dpStep(-1)" disabled>&larr; 上一步</button>
+          <button class="anim-btn" id="dpNext" onclick="dpStep(1)">下一步 &rarr;</button>
+          <button class="anim-btn" onclick="dpReset()">重置</button>
+        </div>
+        <div class="step-indicator" id="dpStepCounter">Step 0 / 4</div>
+      </div>
+    </div>
+
+    <!-- Tensor Parallelism -->
+    <div class="tab-content" id="tab-tp">
+      <h3>张量并行 (Tensor Parallelism)</h3>
+      <p><strong>核心思想:</strong> 将单个层的权重矩阵切分到多个 GPU 上, 每个 GPU 只计算部分结果, 通过通信合并。Megatron-LM 首次系统性地提出了这种方法。</p>
+
+      <div class="diagram">
+        <div style="margin-bottom: 20px; color: #a78bfa; font-weight: bold;">Column Parallel (列切分)</div>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
+          <div style="border: 2px solid #888; border-radius: 4px; padding: 10px; text-align: center;">
+            <div style="font-size: 0.8em; color: #888;">Input X</div>
+            <div>[B, H]</div>
+          </div>
+          <span class="arrow">×</span>
+          <div style="display: flex; gap: 3px;">
+            <div style="border: 2px solid #f44336; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">W₁<br>GPU0</div>
+            <div style="border: 2px solid #4caf50; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">W₂<br>GPU1</div>
+          </div>
+          <span class="arrow">=</span>
+          <div style="display: flex; gap: 3px;">
+            <div style="border: 2px solid #f44336; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">Y₁<br>GPU0</div>
+            <div style="border: 2px solid #4caf50; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">Y₂<br>GPU1</div>
+          </div>
+        </div>
+        <div style="margin: 20px 0; color: #888;">Y = [Y₁, Y₂] (concat) → 无需通信! (forward)</div>
+
+        <div style="margin-top: 30px; margin-bottom: 20px; color: #a78bfa; font-weight: bold;">Row Parallel (行切分)</div>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; gap: 3px;">
+            <div style="border: 2px solid #f44336; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">X₁<br>GPU0</div>
+            <div style="border: 2px solid #4caf50; border-radius: 4px; padding: 10px; width: 50px; text-align: center; font-size: 0.8em;">X₂<br>GPU1</div>
+          </div>
+          <span class="arrow">×</span>
+          <div style="display: flex; flex-direction: column; gap: 3px;">
+            <div style="border: 2px solid #f44336; border-radius: 4px; padding: 5px 10px; text-align: center; font-size: 0.8em;">W_top (GPU0)</div>
+            <div style="border: 2px solid #4caf50; border-radius: 4px; padding: 5px 10px; text-align: center; font-size: 0.8em;">W_bot (GPU1)</div>
+          </div>
+          <span class="arrow">=</span>
+          <div style="border: 2px solid #667eea; border-radius: 4px; padding: 10px; text-align: center; font-size: 0.8em;">
+            AllReduce<br>Y = Y₁ + Y₂
+          </div>
+        </div>
+        <div style="margin: 20px 0; color: #888;">行切分需要 AllReduce 来合并部分和</div>
+      </div>
+
+      <h4>Megatron-LM 的 MLP 切分策略</h4>
+      <p>在 Transformer 的 MLP 中, 将第一个线性层做列切分, 第二个线性层做行切分, 这样 forward 只需一次 AllReduce, backward 也只需一次 AllReduce:</p>
+      <div class="formula">
+        MLP: X → [Column‖] → GeLU → [Row‖] → AllReduce → Output
+      </div>
+
+      <div style="margin: 20px 0; text-align: center;">
+        <img src="../rlhf/sys-design/pics/tp.png" alt="Tensor Parallelism Column Parallel and Row Parallel diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+        <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Tensor Parallelism: Column Parallel 和 Row Parallel 示意图 (来源: RLHF Sys Design)</div>
+      </div>
+
+      <h4 style="margin-top: 25px;">交互动画: Tensor Parallel MLP 计算流</h4>
+      <div id="tp-animation" style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+        <!-- TP step display -->
+        <div id="tpGrid" style="overflow-x:auto; margin: 10px 0;"></div>
+
+        <!-- Legend -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin: 15px 0; font-size: 0.85em;">
+          <span><span style="display:inline-block;width:16px;height:16px;background:#2196f3;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Input (Replicated)</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#4caf50;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Compute (No Comm)</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#ff9800;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Partial Result</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#f44336;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> AllReduce (Communication)</span>
+        </div>
+
+        <!-- Step annotation -->
+        <div id="tpStepText" style="color:#a78bfa; font-size:0.95em; min-height:40px; margin:10px 0; padding:10px; background:#1a1a2e; border-radius:6px;"></div>
+
+        <!-- Controls -->
+        <div class="anim-controls">
+          <button class="anim-btn" id="tpPrev" onclick="tpStep(-1)" disabled>&larr; 上一步</button>
+          <button class="anim-btn" id="tpNext" onclick="tpStep(1)">下一步 &rarr;</button>
+          <button class="anim-btn" onclick="tpReset()">重置</button>
+        </div>
+        <div class="step-indicator" id="tpStepCounter">Step 0 / 5</div>
+      </div>
+    </div>
+
+    <!-- Pipeline Parallelism -->
+    <div class="tab-content" id="tab-pp">
+      <h3>流水线并行 (Pipeline Parallelism)</h3>
+      <p><strong>核心思想:</strong> 将模型按层切分成若干 stage, 每个 stage 放在不同的 GPU 上。数据以 micro-batch 的形式在各 stage 之间流动。</p>
+
+      <div class="diagram">
+        <div style="display: flex; justify-content: center; align-items: center; gap: 5px; flex-wrap: wrap;">
+          <div class="gpu-box" style="border-color: #f44336; color: #f44336;">Stage 0<br><small>Layer 0-5</small><br><small>GPU 0</small></div>
+          <span class="arrow">→</span>
+          <div class="gpu-box" style="border-color: #4caf50; color: #4caf50;">Stage 1<br><small>Layer 6-11</small><br><small>GPU 1</small></div>
+          <span class="arrow">→</span>
+          <div class="gpu-box" style="border-color: #2196f3; color: #2196f3;">Stage 2<br><small>Layer 12-17</small><br><small>GPU 2</small></div>
+          <span class="arrow">→</span>
+          <div class="gpu-box" style="border-color: #ff9800; color: #ff9800;">Stage 3<br><small>Layer 18-23</small><br><small>GPU 3</small></div>
+        </div>
+
+        <div style="margin-top: 25px; text-align: left; padding: 0 20px;">
+          <div style="color: #a78bfa; font-weight: bold; margin-bottom: 10px;">GPipe Schedule (4 micro-batches, 4 stages):</div>
+          <div style="font-family: monospace; font-size: 0.85em; line-height: 1.8;">
+            <div>GPU 0: |<span style="color:#f44336">F1</span>|<span style="color:#f44336">F2</span>|<span style="color:#f44336">F3</span>|<span style="color:#f44336">F4</span>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<span style="color:#f44336">B4</span>|<span style="color:#f44336">B3</span>|<span style="color:#f44336">B2</span>|<span style="color:#f44336">B1</span>|</div>
+            <div>GPU 1: |&nbsp;&nbsp;|<span style="color:#4caf50">F1</span>|<span style="color:#4caf50">F2</span>|<span style="color:#4caf50">F3</span>|<span style="color:#4caf50">F4</span>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<span style="color:#4caf50">B4</span>|<span style="color:#4caf50">B3</span>|<span style="color:#4caf50">B2</span>|<span style="color:#4caf50">B1</span>|&nbsp;&nbsp;|</div>
+            <div>GPU 2: |&nbsp;&nbsp;&nbsp;&nbsp;|<span style="color:#2196f3">F1</span>|<span style="color:#2196f3">F2</span>|<span style="color:#2196f3">F3</span>|<span style="color:#2196f3">F4</span>|&nbsp;&nbsp;&nbsp;&nbsp;|<span style="color:#2196f3">B4</span>|<span style="color:#2196f3">B3</span>|<span style="color:#2196f3">B2</span>|<span style="color:#2196f3">B1</span>|&nbsp;&nbsp;&nbsp;&nbsp;|</div>
+            <div>GPU 3: |&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|<span style="color:#ff9800">F1</span>|<span style="color:#ff9800">F2</span>|<span style="color:#ff9800">F3</span>|<span style="color:#ff9800">F4</span>|<span style="color:#ff9800">B4</span>|<span style="color:#ff9800">B3</span>|<span style="color:#ff9800">B2</span>|<span style="color:#ff9800">B1</span>|&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|</div>
+          </div>
+        </div>
+      </div>
+
+      <h4>Bubble Ratio (气泡比)</h4>
+      <p>Pipeline parallelism 的核心问题是 <strong>pipeline bubble</strong> —— GPU 空闲等待的时间。</p>
+      <div class="formula">
+        Bubble ratio = (p - 1) / (p - 1 + m) ≈ (p - 1) / m &nbsp;&nbsp;(当 m >> p)
+      </div>
+      <p>其中 p = pipeline stages 数, m = micro-batches 数。增加 micro-batch 数可以降低 bubble ratio。</p>
+
+      <div style="margin: 20px 0; text-align: center;">
+        <img src="../rlhf/sys-design/pics/1f1b.png" alt="1F1B Pipeline Schedule diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+        <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: 1F1B Pipeline Schedule: 交替执行 forward/backward 减少内存占用</div>
+      </div>
+
+      <h4>常见调度策略</h4>
+      <ul class="concept-list">
+        <li><strong>GPipe:</strong> 先做完所有 forward micro-batches, 再做所有 backward</li>
+        <li><strong>1F1B:</strong> 交替执行 forward 和 backward, 减少峰值内存</li>
+        <li><strong>Interleaved 1F1B:</strong> 每个 GPU 持有多个非连续 stage, 进一步减少 bubble</li>
+      </ul>
+
+      <h4 style="margin-top: 25px;">交互动画: Pipeline Forward/Backward 数据流</h4>
+      <div id="pp-animation" style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+        <div style="margin-bottom: 15px;">
+          <button class="anim-btn" id="ppScheduleGPipe" onclick="ppSwitchSchedule('gpipe')" style="opacity:1;">GPipe Schedule</button>
+          <button class="anim-btn" id="ppSchedule1F1B" onclick="ppSwitchSchedule('1f1b')" style="opacity:0.5;">1F1B Schedule</button>
+        </div>
+
+        <!-- Pipeline grid display -->
+        <div id="ppGrid" style="overflow-x:auto; margin: 10px 0;"></div>
+
+        <!-- Legend -->
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; margin: 15px 0; font-size: 0.85em;">
+          <span><span style="display:inline-block;width:16px;height:16px;background:#4caf50;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Forward</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#f44336;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Backward</span>
+          <span><span style="display:inline-block;width:16px;height:16px;background:#333;border:1px solid #555;border-radius:3px;vertical-align:middle;margin-right:4px;"></span> Idle (Bubble)</span>
+        </div>
+
+        <!-- Step annotation -->
+        <div id="ppStepText" style="color:#a78bfa; font-size:0.95em; min-height:40px; margin:10px 0; padding:10px; background:#1a1a2e; border-radius:6px;"></div>
+
+        <!-- Controls -->
+        <div class="anim-controls">
+          <button class="anim-btn" id="ppPrev" onclick="ppStep(-1)" disabled>&larr; 上一步</button>
+          <button class="anim-btn" id="ppNext" onclick="ppStep(1)">下一步 &rarr;</button>
+          <button class="anim-btn" onclick="ppReset()">重置</button>
+        </div>
+        <div class="step-indicator" id="ppStepCounter">Step 0 / --</div>
+
+        <!-- 1F1B explanation -->
+        <div id="pp1f1bInfo" style="display:none; margin-top:15px; padding:15px; background:#1a2a3e; border:1px solid #2196f3; border-radius:8px;">
+          <div style="color:#2196f3; font-weight:bold; margin-bottom:8px;">1F1B 优势解析:</div>
+          <ul style="color:#ccc; font-size:0.9em; padding-left:20px;">
+            <li>每个 GPU 完成一次 Forward 后立即可以开始 Backward (不需等所有 Forward 完成)</li>
+            <li><strong>稳态阶段:</strong> 每个 GPU 交替执行 F 和 B, 流水线保持满载</li>
+            <li><strong>内存优势:</strong> 同一时刻每个 stage 只需保存 1 个 micro-batch 的 activation (而非 GPipe 的 m 个)</li>
+            <li>Bubble ratio 相同, 但峰值内存从 O(m) 降低到 O(1)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3D Parallelism -->
+    <div class="tab-content" id="tab-3d">
+      <h3>3D Parallelism (混合并行)</h3>
+      <p>实际训练超大模型时, 通常同时使用 DP + TP + PP 三种策略。例如 Megatron-Turing NLG (530B) 使用:</p>
+
+      <div class="diagram">
+        <div style="text-align: left; padding: 10px;">
+          <div style="margin-bottom: 15px; color: #a78bfa; font-weight: bold;">典型配置 (2048 GPUs 训练 530B 模型):</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="border: 1px solid #667eea; border-radius: 8px; padding: 15px;">
+              <div style="color: #667eea; font-weight: bold;">Tensor Parallelism = 8</div>
+              <div style="color: #888; font-size: 0.9em;">同一节点内 8 张 GPU (NVLink 高带宽)</div>
+            </div>
+            <div style="border: 1px solid #4caf50; border-radius: 8px; padding: 15px;">
+              <div style="color: #4caf50; font-weight: bold;">Pipeline Parallelism = 8</div>
+              <div style="color: #888; font-size: 0.9em;">跨节点, 通信量小 (仅传 activation)</div>
+            </div>
+            <div style="border: 1px solid #ff9800; border-radius: 8px; padding: 15px;">
+              <div style="color: #ff9800; font-weight: bold;">Data Parallelism = 32</div>
+              <div style="color: #888; font-size: 0.9em;">2048 / (8×8) = 32 路数据并行</div>
+            </div>
+            <div style="border: 1px solid #888; border-radius: 8px; padding: 15px;">
+              <div style="color: #888; font-weight: bold;">总 GPU 数</div>
+              <div style="color: #fff; font-size: 1.2em;">8 × 8 × 32 = 2048</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4>设计原则</h4>
+      <ul class="concept-list">
+        <li><strong>TP</strong> 放在节点内 (intra-node): 利用 NVLink/NVSwitch 高带宽 (900 GB/s on H100)</li>
+        <li><strong>PP</strong> 跨节点: 点对点通信量小, 对带宽要求低</li>
+        <li><strong>DP</strong> 在剩余维度上扩展: 配合梯度累积进一步隐藏通信</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: NCCL Collective Communication -->
+<div class="card">
+  <h2>3.2 NCCL 集合通信原语</h2>
+  <p>NVIDIA Collective Communications Library (NCCL) 提供了分布式训练所需的底层通信操作。理解这些原语是理解分布式训练的基础。</p>
+
+  <table>
+    <thead>
+      <tr><th>操作</th><th>描述</th><th>输入 → 输出</th><th>通信量 (N GPUs, M bytes)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>Broadcast</code></td><td>一个 GPU 的数据发送到所有 GPU</td><td>1 份 → N 份相同</td><td>M × (N-1)/N</td></tr>
+      <tr><td><code>Reduce</code></td><td>所有 GPU 的数据规约到一个 GPU</td><td>N 份 → 1 份聚合</td><td>M × (N-1)/N</td></tr>
+      <tr><td><code>AllReduce</code></td><td>所有 GPU 的数据规约, 结果发到所有 GPU</td><td>N 份 → N 份相同聚合</td><td>2M × (N-1)/N</td></tr>
+      <tr><td><code>AllGather</code></td><td>收集所有 GPU 的数据到所有 GPU</td><td>N × (M/N) → N × M</td><td>M × (N-1)/N</td></tr>
+      <tr><td><code>ReduceScatter</code></td><td>规约后将结果分片发到各 GPU</td><td>N × M → N × (M/N)</td><td>M × (N-1)/N</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box">
+    <strong>关键洞察:</strong> AllReduce = ReduceScatter + AllGather。这是 Ring AllReduce 算法的核心分解。
+  </div>
+
+  <h3>交互动画: NCCL 通信原语可视化</h3>
+  <p>选择不同原语，观察 4 个 GPU 之间数据如何流动。每个 GPU 初始持有不同颜色的数据块。</p>
+
+  <div style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+    <!-- Primitive selector -->
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:15px;">
+      <button class="anim-btn" onclick="ncclDemo.show('broadcast')" id="nccl-btn-broadcast">Broadcast</button>
+      <button class="anim-btn" onclick="ncclDemo.show('reduce')" id="nccl-btn-reduce">Reduce</button>
+      <button class="anim-btn" onclick="ncclDemo.show('allreduce')" id="nccl-btn-allreduce">AllReduce</button>
+      <button class="anim-btn" onclick="ncclDemo.show('allgather')" id="nccl-btn-allgather">AllGather</button>
+      <button class="anim-btn" onclick="ncclDemo.show('reducescatter')" id="nccl-btn-reducescatter">ReduceScatter</button>
+    </div>
+
+    <!-- GPU visualization -->
+    <div style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap; margin: 20px 0;">
+      <div style="text-align:center;">
+        <div style="font-size:0.8rem; color:#888; margin-bottom:8px; font-weight:bold;">Before (输入)</div>
+        <div id="nccl-before" style="display:flex; gap:12px;"></div>
+      </div>
+      <div style="display:flex; align-items:center; font-size:2rem; color:#667eea; padding-top:20px;">→</div>
+      <div style="text-align:center;">
+        <div style="font-size:0.8rem; color:#888; margin-bottom:8px; font-weight:bold;">After (输出)</div>
+        <div id="nccl-after" style="display:flex; gap:12px;"></div>
+      </div>
+    </div>
+
+    <!-- Explanation -->
+    <div id="nccl-explanation" style="background:#1a1a2e; border-radius:8px; padding:15px; margin-top:15px; font-size:0.85rem; color:#ccc; min-height:60px;"></div>
+  </div>
+
+  <h3>通信量对比 (Interactive)</h3>
+  <p>下图展示了 4 个 GPU、参数量 1GB 时各原语的通信量:</p>
+
+  <div class="bar-chart" id="commBarChart">
+    <div class="bar-row">
+      <div class="bar-label">AllReduce</div>
+      <div class="bar-track">
+        <div class="bar-fill allreduce" data-width="100" style="width: 0%;">1.5 GB</div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">AllGather</div>
+      <div class="bar-track">
+        <div class="bar-fill allgather" data-width="50" style="width: 0%;">0.75 GB</div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">ReduceScatter</div>
+      <div class="bar-track">
+        <div class="bar-fill reducescatter" data-width="50" style="width: 0%;">0.75 GB</div>
+      </div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label">Broadcast</div>
+      <div class="bar-track">
+        <div class="bar-fill broadcast" data-width="50" style="width: 0%;">0.75 GB</div>
+      </div>
+    </div>
+  </div>
+  <p style="color: #888; font-size: 0.85em; text-align: center;">* AllReduce 通信量 = 2M(N-1)/N; 其他 = M(N-1)/N。N=4, M=1GB。</p>
+</div>
+
+<!-- Section 4: Ring AllReduce -->
+<div class="card">
+  <h2>3.3 Ring AllReduce 算法详解</h2>
+  <p>Ring AllReduce 是最经典的 AllReduce 实现之一, 由百度在 2017 年引入深度学习训练中。其核心优势是通信量与 GPU 数量无关 (per-GPU 带宽利用恒定)。</p>
+
+  <h3>算法步骤</h3>
+  <p>Ring AllReduce 分为两个阶段, 每个阶段有 <code>N-1</code> 步 (N = GPU 数):</p>
+  <ul class="concept-list">
+    <li><strong>Phase 1: Reduce-Scatter</strong> - 经过 N-1 步后, 每个 GPU 持有最终结果的 1/N</li>
+    <li><strong>Phase 2: AllGather</strong> - 再经过 N-1 步后, 每个 GPU 持有完整的最终结果</li>
+  </ul>
+
+  <div class="formula">
+    总通信量 (per GPU) = 2 × (N-1)/N × M ≈ 2M &nbsp;&nbsp;(当 N 很大时)
+  </div>
+
+  <h3>动画演示: 4 GPU Ring AllReduce (Reduce-Scatter + AllGather)</h3>
+  <p>每个 GPU 的数据被分为 4 个 chunk。观察每一步中 <strong>谁发送什么给谁</strong>，以及接收方如何累加。</p>
+
+  <div style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+
+    <!-- Ring topology diagram (small) -->
+    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:15px; font-size:0.8rem; color:#888;">
+      <span style="color:#f44336; font-weight:bold;">GPU0</span> →
+      <span style="color:#4caf50; font-weight:bold;">GPU1</span> →
+      <span style="color:#2196f3; font-weight:bold;">GPU2</span> →
+      <span style="color:#ff9800; font-weight:bold;">GPU3</span> →
+      <span style="color:#f44336; font-weight:bold;">GPU0</span>
+      <span style="margin-left:10px;">(环形拓扑: 每个 GPU 只和左右邻居通信)</span>
+    </div>
+
+    <!-- Main state table -->
+    <div id="ring-state-table" style="overflow-x:auto; margin:10px 0;"></div>
+
+    <!-- Transfer arrows -->
+    <div id="ring-transfer" style="background:#1a1a2e; border-radius:8px; padding:12px; margin:10px 0; font-size:0.85rem; color:#ccc; min-height:40px;"></div>
+
+    <!-- Step description -->
+    <div id="ringStepText" style="background:#1a1a2e; border-radius:8px; padding:12px; margin:10px 0; font-size:0.9rem; color:#a78bfa; min-height:50px;">Step 0/6: 初始状态 — 每个 GPU 持有自己的 4 个 chunk (未归约)</div>
+
+    <!-- Controls -->
+    <div class="anim-controls">
+      <button class="anim-btn" id="ringPrev" onclick="ringStep(-1)" disabled>← 上一步</button>
+      <button class="anim-btn" id="ringNext" onclick="ringStep(1)">下一步 →</button>
+      <button class="anim-btn" onclick="ringReset()">重置</button>
+    </div>
+
+    <!-- Legend -->
+    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:0.75rem; color:#888;">
+      <span><span style="display:inline-block;width:14px;height:14px;background:#f44336;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU0 的数据</span>
+      <span><span style="display:inline-block;width:14px;height:14px;background:#4caf50;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU1 的数据</span>
+      <span><span style="display:inline-block;width:14px;height:14px;background:#2196f3;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU2 的数据</span>
+      <span><span style="display:inline-block;width:14px;height:14px;background:#ff9800;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU3 的数据</span>
+      <span><span style="display:inline-block;width:14px;height:14px;background:linear-gradient(135deg,#f44336,#4caf50,#2196f3,#ff9800);border-radius:2px;vertical-align:middle;margin-right:3px;"></span> 完整归约 (sum of all)</span>
+      <span>⬆ = 正在发送的 chunk</span>
+    </div>
+  </div>
+
+  <h3>Ring AllReduce 伪代码</h3>
+  <pre><code><span class="comment"># Ring AllReduce 实现 (ReduceScatter + AllGather)</span>
+<span class="keyword">def</span> <span class="func">ring_allreduce</span>(data, rank, world_size):
+    <span class="comment"># 将数据分为 world_size 个 chunk</span>
+    chunks = split(data, world_size)
+
+    <span class="comment"># Phase 1: Reduce-Scatter</span>
+    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
+        send_idx = (rank - step) % world_size
+        recv_idx = (rank - step - <span class="num">1</span>) % world_size
+
+        <span class="comment"># 向下一个 GPU 发送, 从上一个 GPU 接收</span>
+        send(chunks[send_idx], dst=(rank + <span class="num">1</span>) % world_size)
+        recv_buf = recv(src=(rank - <span class="num">1</span>) % world_size)
+
+        <span class="comment"># 将接收到的数据累加到对应 chunk</span>
+        chunks[recv_idx] += recv_buf
+
+    <span class="comment"># 此时 chunks[(rank+1) % world_size] 包含该 chunk 的全局归约结果</span>
+
+    <span class="comment"># Phase 2: AllGather</span>
+    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
+        send_idx = (rank - step + <span class="num">1</span>) % world_size
+        recv_idx = (rank - step) % world_size
+
+        send(chunks[send_idx], dst=(rank + <span class="num">1</span>) % world_size)
+        chunks[recv_idx] = recv(src=(rank - <span class="num">1</span>) % world_size)
+
+    <span class="keyword">return</span> concat(chunks)</code></pre>
+
+  <div style="margin: 20px 0; text-align: center;">
+    <img src="../torch/torch-distributed/complete-allreduce.svg" alt="Ring AllReduce complete process diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+    <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Ring AllReduce 完整过程: Reduce-Scatter + AllGather</div>
+  </div>
+</div>
+
+<!-- Section 5: FSDP / ZeRO -->
+<div class="card">
+  <h2>3.4 FSDP (Fully Sharded Data Parallel) / ZeRO</h2>
+  <p>微软的 ZeRO (Zero Redundancy Optimizer) 和 PyTorch 的 FSDP 通过分片 (sharding) 优化器状态、梯度和参数来突破数据并行的内存限制。</p>
+
+  <h3>内存组成分析 (Mixed Precision Training)</h3>
+  <p>对于参数量为 Φ 的模型, 使用 Adam + Mixed Precision 训练时, 每个 GPU 的内存占用:</p>
+  <table>
+    <thead>
+      <tr><th>组件</th><th>精度</th><th>内存 (bytes)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>参数 (FP16)</td><td>FP16</td><td>2Φ</td></tr>
+      <tr><td>梯度 (FP16)</td><td>FP16</td><td>2Φ</td></tr>
+      <tr><td>参数 master copy (FP32)</td><td>FP32</td><td>4Φ</td></tr>
+      <tr><td>Adam momentum (FP32)</td><td>FP32</td><td>4Φ</td></tr>
+      <tr><td>Adam variance (FP32)</td><td>FP32</td><td>4Φ</td></tr>
+      <tr><td><strong>总计</strong></td><td></td><td><strong>16Φ</strong></td></tr>
+    </tbody>
+  </table>
+
+  <h3>ZeRO 三个阶段</h3>
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 20px 0;">
+    <div style="border: 1px solid #4caf50; border-radius: 8px; padding: 15px; background: #4caf5011;">
+      <div style="color: #4caf50; font-weight: bold; font-size: 1.1em;">Stage 1</div>
+      <div style="color: #888; margin: 5px 0;">分片 Optimizer States</div>
+      <div style="color: #e0e0e0;">内存: 4Φ + 12Φ/N</div>
+      <div style="color: #888; font-size: 0.85em; margin-top: 5px;">通信量不变 (= DP)</div>
+    </div>
+    <div style="border: 1px solid #2196f3; border-radius: 8px; padding: 15px; background: #2196f311;">
+      <div style="color: #2196f3; font-weight: bold; font-size: 1.1em;">Stage 2</div>
+      <div style="color: #888; margin: 5px 0;">分片 Optimizer + Gradients</div>
+      <div style="color: #e0e0e0;">内存: 2Φ + 14Φ/N</div>
+      <div style="color: #888; font-size: 0.85em; margin-top: 5px;">通信量不变 (= DP)</div>
+    </div>
+    <div style="border: 1px solid #ff9800; border-radius: 8px; padding: 15px; background: #ff980011;">
+      <div style="color: #ff9800; font-weight: bold; font-size: 1.1em;">Stage 3</div>
+      <div style="color: #888; margin: 5px 0;">分片 All (包括 Parameters)</div>
+      <div style="color: #e0e0e0;">内存: 16Φ/N</div>
+      <div style="color: #888; font-size: 0.85em; margin-top: 5px;">通信量增加 1.5x</div>
+    </div>
+  </div>
+
+  <h3>FSDP 内存计算器</h3>
+  <div class="calculator" id="fsdpCalc">
+    <div class="slider-group">
+      <label>模型参数量 (Billions): <span class="slider-value" id="paramDisplay">7</span>B</label>
+      <input type="range" id="paramSlider" min="1" max="175" value="7" oninput="updateFSDP()">
+    </div>
+    <div class="slider-group">
+      <label>GPU 数量: <span class="slider-value" id="gpuDisplay">8</span></label>
+      <input type="range" id="gpuSlider" min="1" max="128" value="8" oninput="updateFSDP()">
+    </div>
+    <div class="slider-group">
+      <label>单卡显存 (GB): <span class="slider-value" id="memDisplay">80</span> GB</label>
+      <input type="range" id="memSlider" min="16" max="80" value="80" step="8" oninput="updateFSDP()">
+    </div>
+
+    <div class="result-grid" id="fsdpResults">
+      <div class="result-card">
+        <div class="stage-label">无优化 (DDP)</div>
+        <div class="mem-value" id="memDDP">112.0 GB</div>
+        <div class="mem-detail" id="detailDDP">超出显存</div>
+      </div>
+      <div class="result-card">
+        <div class="stage-label">ZeRO Stage 1</div>
+        <div class="mem-value" id="memS1">40.5 GB</div>
+        <div class="mem-detail" id="detailS1">可放入</div>
+      </div>
+      <div class="result-card">
+        <div class="stage-label">ZeRO Stage 2</div>
+        <div class="mem-value" id="memS2">26.3 GB</div>
+        <div class="mem-detail" id="detailS2">可放入</div>
+      </div>
+      <div class="result-card">
+        <div class="stage-label">ZeRO Stage 3</div>
+        <div class="mem-value" id="memS3">14.0 GB</div>
+        <div class="mem-detail" id="detailS3">可放入</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>FSDP 运行流程 (Gather-Compute-Scatter)</h3>
+  <pre><code><span class="comment"># FSDP Forward Pass 伪代码</span>
+<span class="keyword">for</span> layer <span class="keyword">in</span> model.layers:
+    <span class="comment"># 1. AllGather: 从所有 GPU 收集完整参数</span>
+    full_params = all_gather(layer.sharded_params)
+
+    <span class="comment"># 2. Compute: 用完整参数做前向计算</span>
+    output = layer.forward(input, full_params)
+
+    <span class="comment"># 3. Free: 释放非本 shard 的参数, 节省内存</span>
+    free(full_params except my_shard)
+
+<span class="comment"># FSDP Backward Pass</span>
+<span class="keyword">for</span> layer <span class="keyword">in</span> reversed(model.layers):
+    <span class="comment"># 1. AllGather: 重新收集参数 (用于计算梯度)</span>
+    full_params = all_gather(layer.sharded_params)
+
+    <span class="comment"># 2. Compute: 计算梯度</span>
+    grad = layer.backward(output_grad, full_params)
+
+    <span class="comment"># 3. ReduceScatter: 梯度规约并分片</span>
+    sharded_grad = reduce_scatter(grad)
+
+    <span class="comment"># 4. Free: 释放完整参数</span>
+    free(full_params except my_shard)</code></pre>
+</div>
+
+<!-- Section 6: torch.distributed API -->
+<div class="card">
+  <h2>3.5 torch.distributed API 实战</h2>
+
+  <h3>初始化进程组</h3>
+  <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
+<span class="keyword">import</span> os
+
+<span class="keyword">def</span> <span class="func">setup</span>(rank, world_size):
+    <span class="string">"""初始化分布式训练环境"""</span>
+    os.environ[<span class="string">'MASTER_ADDR'</span>] = <span class="string">'localhost'</span>
+    os.environ[<span class="string">'MASTER_PORT'</span>] = <span class="string">'12355'</span>
+
+    <span class="comment"># 初始化进程组, 选择通信后端</span>
+    <span class="comment"># 'nccl' 用于 GPU, 'gloo' 用于 CPU</span>
+    dist.init_process_group(
+        backend=<span class="string">'nccl'</span>,
+        rank=rank,
+        world_size=world_size
+    )
+
+    <span class="comment"># 设置当前进程使用的 GPU</span>
+    torch.cuda.set_device(rank)
+
+<span class="keyword">def</span> <span class="func">cleanup</span>():
+    dist.destroy_process_group()</code></pre>
+
+  <h3>AllReduce 使用示例</h3>
+  <pre><code><span class="keyword">def</span> <span class="func">allreduce_example</span>(rank, world_size):
+    setup(rank, world_size)
+
+    <span class="comment"># 每个 GPU 创建自己的 tensor</span>
+    tensor = torch.tensor([rank + <span class="num">1.0</span>], device=f<span class="string">'cuda:{rank}'</span>)
+    print(f<span class="string">"Rank {rank} before AllReduce: {tensor}"</span>)
+
+    <span class="comment"># AllReduce: 对所有 GPU 的 tensor 求和</span>
+    dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+    print(f<span class="string">"Rank {rank} after AllReduce: {tensor}"</span>)
+    <span class="comment"># 所有 GPU 输出: tensor([10.0]) (1+2+3+4=10, 假设 4 GPUs)</span>
+
+    cleanup()
+
+<span class="comment"># 启动</span>
+<span class="keyword">import</span> torch.multiprocessing <span class="keyword">as</span> mp
+mp.spawn(allreduce_example, args=(world_size,), nprocs=world_size)</code></pre>
+
+  <h3>AllGather 使用示例</h3>
+  <pre><code><span class="keyword">def</span> <span class="func">allgather_example</span>(rank, world_size):
+    setup(rank, world_size)
+
+    <span class="comment"># 每个 GPU 的本地数据</span>
+    local_tensor = torch.tensor([rank * <span class="num">10</span>, rank * <span class="num">10</span> + <span class="num">1</span>],
+                                 device=f<span class="string">'cuda:{rank}'</span>)
+
+    <span class="comment"># 准备接收 buffer (world_size 个 tensor)</span>
+    gathered = [torch.zeros(<span class="num">2</span>, device=f<span class="string">'cuda:{rank}'</span>)
+                <span class="keyword">for</span> _ <span class="keyword">in</span> range(world_size)]
+
+    <span class="comment"># AllGather: 收集所有 GPU 的数据</span>
+    dist.all_gather(gathered, local_tensor)
+
+    print(f<span class="string">"Rank {rank}: gathered = {gathered}"</span>)
+    <span class="comment"># 每个 GPU 都有: [[0,1], [10,11], [20,21], [30,31]]</span>
+
+    cleanup()</code></pre>
+
+  <h3>ReduceScatter 使用示例</h3>
+  <pre><code><span class="keyword">def</span> <span class="func">reduce_scatter_example</span>(rank, world_size):
+    setup(rank, world_size)
+
+    <span class="comment"># 每个 GPU 有 world_size 个 chunk</span>
+    input_tensor = torch.ones(world_size, device=f<span class="string">'cuda:{rank}'</span>) * (rank + <span class="num">1</span>)
+    output_tensor = torch.zeros(<span class="num">1</span>, device=f<span class="string">'cuda:{rank}'</span>)
+
+    <span class="comment"># ReduceScatter: 规约后分片</span>
+    dist.reduce_scatter_tensor(output_tensor, input_tensor,
+                                op=dist.ReduceOp.SUM)
+
+    print(f<span class="string">"Rank {rank}: result = {output_tensor}"</span>)
+    <span class="comment"># Rank 0: 10.0, Rank 1: 10.0, ... (sum of all ranks' chunk_i)</span>
+
+    cleanup()</code></pre>
+
+  <h3>使用 Send/Recv 实现点对点通信</h3>
+  <pre><code><span class="keyword">def</span> <span class="func">point_to_point</span>(rank, world_size):
+    setup(rank, world_size)
+
+    tensor = torch.zeros(<span class="num">1</span>, device=f<span class="string">'cuda:{rank}'</span>)
+
+    <span class="keyword">if</span> rank == <span class="num">0</span>:
+        <span class="comment"># Rank 0 发送数据到 Rank 1</span>
+        tensor += <span class="num">42</span>
+        dist.send(tensor, dst=<span class="num">1</span>)
+        print(f<span class="string">"Rank 0 sent: {tensor}"</span>)
+    <span class="keyword">elif</span> rank == <span class="num">1</span>:
+        <span class="comment"># Rank 1 从 Rank 0 接收数据</span>
+        dist.recv(tensor, src=<span class="num">0</span>)
+        print(f<span class="string">"Rank 1 received: {tensor}"</span>)
+
+    cleanup()</code></pre>
+</div>
+
+<!-- Section 7: Communication Volume Comparison -->
+<div class="card">
+  <h2>3.6 通信策略开销对比</h2>
+  <p>不同并行策略的通信模式和开销差异巨大。下表对比了在不同配置下每次迭代的通信量:</p>
+
+  <table>
+    <thead>
+      <tr><th>策略</th><th>通信原语</th><th>每次迭代通信量 (per GPU)</th><th>通信频率</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>DDP</td><td>AllReduce</td><td>2M(N-1)/N</td><td>每个 backward step</td></tr>
+      <tr><td>FSDP (ZeRO-3)</td><td>AllGather + ReduceScatter</td><td>3M(N-1)/N</td><td>每层 forward + backward</td></tr>
+      <tr><td>Tensor Parallel</td><td>AllReduce</td><td>2 × activation_size × (N-1)/N per layer</td><td>每层 forward + backward</td></tr>
+      <tr><td>Pipeline Parallel</td><td>P2P Send/Recv</td><td>activation_size × micro_batches</td><td>每个 micro-batch</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin: 20px 0; text-align: center;">
+    <img src="../rlhf/sys-design/pics/ep.png" alt="Expert Parallelism All-to-All communication pattern" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+    <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Expert Parallelism: MoE 模型的 All-to-All 通信模式</div>
+  </div>
+
+  <div class="info-box">
+    <strong>Trade-off:</strong> FSDP Stage 3 的通信量比 DDP 多 50%, 但内存节省可以让你训练大 N 倍的模型或使用更大的 batch size。
+  </div>
+
+  <h3>通信与计算重叠 (Communication-Computation Overlap)</h3>
+  <p>现代框架通过以下技术隐藏通信延迟:</p>
+  <ul class="concept-list">
+    <li><strong>Gradient Bucketing:</strong> DDP 将梯度分组, 前面层的通信与后面层的计算重叠</li>
+    <li><strong>Prefetching:</strong> FSDP 预取下一层的参数 (AllGather)</li>
+    <li><strong>Async Communication:</strong> 使用 <code>dist.all_reduce(tensor, async_op=True)</code> 实现异步通信</li>
+  </ul>
+</div>
+
+<!-- Exercises -->
+<div class="card">
+  <h2>3.7 练习题</h2>
+
+  <!-- Exercise 1 -->
+  <div class="exercise">
+    <h4>练习 1: 计算 Ring AllReduce 的通信量</h4>
+    <p>假设有 N 个 GPU, 每个 GPU 上的梯度大小为 M bytes。请推导 Ring AllReduce 算法中每个 GPU 的总发送量和总接收量。</p>
+    <p><strong>具体问题:</strong> 当 N=8, M=2GB (一个 500M 参数模型的 FP32 梯度) 时, 每个 GPU 发送和接收多少数据?</p>
+
+    <button class="hint-toggle" onclick="toggleHint('hint1')">提示</button>
+    <button class="solution-toggle" onclick="toggleSolution('sol1')">查看答案</button>
+
+    <div class="hint-content" id="hint1">
+      <p>Ring AllReduce 分两个阶段, 每个阶段有 N-1 步。每步每个 GPU 发送 M/N 大小的数据。</p>
+    </div>
+
+    <div class="solution-content" id="sol1">
+      <p><strong>推导:</strong></p>
+      <p>1. 数据被分为 N 个 chunk, 每个 chunk 大小 = M/N</p>
+      <p>2. Reduce-Scatter 阶段: N-1 步, 每步发送 M/N bytes</p>
+      <p>3. AllGather 阶段: N-1 步, 每步发送 M/N bytes</p>
+      <p>4. 总发送量 = 2(N-1) × M/N = 2M(N-1)/N</p>
+      <p>5. 总接收量同样 = 2M(N-1)/N</p>
+
+      <div class="formula">
+        每 GPU 发送量 = 每 GPU 接收量 = 2M(N-1)/N
+      </div>
+
+      <p><strong>代入数值:</strong> N=8, M=2GB</p>
+      <p>每 GPU 通信量 = 2 × 2GB × 7/8 = <strong>3.5 GB</strong></p>
+      <p>注意: 相比 Naive AllReduce (每个 GPU 发送到一个 root 再广播) 的 2M(N-1) = 14 GB, Ring 方式大幅降低了单 GPU 的带宽需求。</p>
+    </div>
+  </div>
+
+  <!-- Exercise 2 -->
+  <div class="exercise">
+    <h4>练习 2: 设计并行策略</h4>
+    <p>你需要训练一个 70B 参数的模型, 拥有 64 张 A100 80GB GPU (8 节点, 每节点 8 卡, NVLink 互联)。</p>
+    <p>已知条件:</p>
+    <ul>
+      <li>模型训练内存需求 (含优化器): ~16 bytes/param = 1120 GB</li>
+      <li>NVLink 带宽: 600 GB/s (intra-node)</li>
+      <li>InfiniBand 带宽: 50 GB/s (inter-node)</li>
+    </ul>
+    <p><strong>问题:</strong> 设计 DP/TP/PP 的组合, 说明每种并行度的选择理由。</p>
+
+    <button class="hint-toggle" onclick="toggleHint('hint2')">提示</button>
+    <button class="solution-toggle" onclick="toggleSolution('sol2')">查看答案</button>
+
+    <div class="hint-content" id="hint2">
+      <p>考虑: (1) TP 需要高带宽, 应放在节点内; (2) 先确保模型能放入, 再考虑扩展; (3) PP 的通信量最小, 适合跨节点。</p>
+    </div>
+
+    <div class="solution-content" id="sol2">
+      <p><strong>推荐方案: TP=8, PP=2, DP=4</strong></p>
+      <p>验证: 8 × 2 × 4 = 64 GPU ✓</p>
+
+      <p><strong>设计理由:</strong></p>
+      <p>1. <strong>TP=8 (节点内):</strong></p>
+      <ul>
+        <li>70B / 8 TP = 每卡 ~8.75B 参数的存储, 加上 activation 约 ~35GB, 可放入 80GB</li>
+        <li>TP 通信频繁 (每层两次 AllReduce), 必须使用 NVLink 高带宽</li>
+      </ul>
+
+      <p>2. <strong>PP=2 (跨节点):</strong></p>
+      <ul>
+        <li>将模型分为 2 个 stage, 每个 stage ~35B 参数</li>
+        <li>PP 仅传递 activation (相对较小), 适合 InfiniBand 带宽</li>
+        <li>使用足够多的 micro-batch 来降低 bubble ratio</li>
+      </ul>
+
+      <p>3. <strong>DP=4:</strong></p>
+      <ul>
+        <li>64 / (8 × 2) = 4 路数据并行</li>
+        <li>可配合 ZeRO Stage 1 进一步降低优化器状态的内存占用</li>
+        <li>梯度 AllReduce 可与 backward 计算 overlap</li>
+      </ul>
+
+      <p><strong>替代方案:</strong> 如果使用 FSDP Stage 3 代替 TP+DP, 则可以 PP=8, FSDP=8, 但通信开销会更大。</p>
+    </div>
+  </div>
+
+  <!-- Coding Exercise A -->
+  <div class="exercise">
+    <h4>编程练习 A: 用 torch.distributed 实现 Ring AllReduce</h4>
+    <p>使用 <code>torch.distributed</code> 的 <code>send</code> 和 <code>recv</code> 原语 (不使用 <code>dist.all_reduce</code>), 从零实现完整的 Ring AllReduce 算法。</p>
+    <p><strong>要求:</strong></p>
+    <ul>
+      <li>实现 Reduce-Scatter phase + AllGather phase</li>
+      <li>支持任意 world_size 和任意大小的 tensor</li>
+      <li>测试: 4 进程, 验证结果与 <code>dist.all_reduce</code> 一致 (使用 <code>torch.allclose</code>)</li>
+    </ul>
+
+    <button class="hint-toggle" onclick="toggleHint('hintA')">提示</button>
+    <button class="solution-toggle" onclick="toggleSolution('solA')">查看答案</button>
+
+    <div class="hint-content" id="hintA">
+      <p>1. 将 tensor 分成 world_size 个 chunk</p>
+      <p>2. Reduce-Scatter: N-1 步, 每步发送一个 chunk 给右邻居, 从左邻居接收并累加</p>
+      <p>3. AllGather: N-1 步, 每步发送已归约的 chunk 给右邻居, 从左邻居接收覆盖</p>
+      <p>4. 使用 <code>isend/irecv</code> 避免死锁</p>
+    </div>
+
+    <div class="solution-content" id="solA">
+      <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
+<span class="keyword">import</span> torch.multiprocessing <span class="keyword">as</span> mp
+<span class="keyword">import</span> os
+
+<span class="keyword">def</span> <span class="func">ring_allreduce</span>(tensor, rank, world_size):
+    <span class="string">"""
+    从零实现 Ring AllReduce (不使用 dist.all_reduce)
+    Args:
+        tensor: 本地 tensor, shape 可被 world_size 整除
+        rank: 当前进程 rank
+        world_size: 总进程数
+    Returns:
+        全局归约后的 tensor (所有 rank 结果相同)
+    """</span>
+    <span class="comment"># 确保 tensor 可以被均匀切分</span>
+    assert tensor.numel() % world_size == <span class="num">0</span>
+    chunk_size = tensor.numel() // world_size
+
+    <span class="comment"># 将 tensor 视为 world_size 个 chunk</span>
+    chunks = list(tensor.view(world_size, chunk_size).unbind(dim=<span class="num">0</span>))
+    chunks = [c.contiguous().clone() <span class="keyword">for</span> c <span class="keyword">in</span> chunks]
+
+    left = (rank - <span class="num">1</span>) % world_size
+    right = (rank + <span class="num">1</span>) % world_size
+
+    send_buf = torch.zeros(chunk_size, device=tensor.device)
+    recv_buf = torch.zeros(chunk_size, device=tensor.device)
+
+    <span class="comment"># ===== Phase 1: Reduce-Scatter =====</span>
+    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
+        send_idx = (rank - step) % world_size
+        recv_idx = (rank - step - <span class="num">1</span>) % world_size
+
+        send_buf.copy_(chunks[send_idx])
+        req_s = dist.isend(send_buf, dst=right)
+        req_r = dist.irecv(recv_buf, src=left)
+        req_s.wait()
+        req_r.wait()
+
+        <span class="comment"># 累加接收到的数据</span>
+        chunks[recv_idx] += recv_buf
+
+    <span class="comment"># 此时 chunks[(rank+1)%world_size] 包含该 chunk 的全局和</span>
+
+    <span class="comment"># ===== Phase 2: AllGather =====</span>
+    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
+        send_idx = (rank - step + <span class="num">1</span>) % world_size
+        recv_idx = (rank - step) % world_size
+
+        send_buf.copy_(chunks[send_idx])
+        req_s = dist.isend(send_buf, dst=right)
+        req_r = dist.irecv(recv_buf, src=left)
+        req_s.wait()
+        req_r.wait()
+
+        chunks[recv_idx].copy_(recv_buf)
+
+    <span class="comment"># 重组 tensor</span>
+    result = torch.cat(chunks, dim=<span class="num">0</span>)
+    <span class="keyword">return</span> result
+
+<span class="keyword">def</span> <span class="func">worker</span>(rank, world_size):
+    os.environ[<span class="string">'MASTER_ADDR'</span>] = <span class="string">'localhost'</span>
+    os.environ[<span class="string">'MASTER_PORT'</span>] = <span class="string">'29500'</span>
+    dist.init_process_group(<span class="string">'nccl'</span>, rank=rank, world_size=world_size)
+    torch.cuda.set_device(rank)
+
+    <span class="comment"># 测试: 每个 rank 创建不同数据</span>
+    torch.manual_seed(rank)
+    tensor = torch.randn(<span class="num">16</span>, device=f<span class="string">'cuda:{rank}'</span>)
+
+    <span class="comment"># 方法1: 自己实现的 Ring AllReduce</span>
+    result_ring = ring_allreduce(tensor.clone(), rank, world_size)
+
+    <span class="comment"># 方法2: 官方 all_reduce 做对照</span>
+    result_official = tensor.clone()
+    dist.all_reduce(result_official, op=dist.ReduceOp.SUM)
+
+    <span class="comment"># 验证一致性</span>
+    <span class="keyword">assert</span> torch.allclose(result_ring, result_official, atol=<span class="num">1e-5</span>), \
+        f<span class="string">"Rank {rank}: mismatch!"</span>
+    print(f<span class="string">"Rank {rank}: PASSED! Ring AllReduce matches official."</span>)
+
+    dist.destroy_process_group()
+
+<span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:
+    world_size = <span class="num">4</span>
+    mp.spawn(worker, args=(world_size,), nprocs=world_size)</code></pre>
+    </div>
+  </div>
+
+  <!-- Coding Exercise B -->
+  <div class="exercise">
+    <h4>编程练习 B: 模拟 Pipeline Parallelism 的调度</h4>
+    <p>实现 GPipe 和 1F1B 两种调度策略的模拟器, 对比它们的 bubble ratio 和峰值内存。</p>
+    <p><strong>要求:</strong></p>
+    <ul>
+      <li>输入: num_stages (p), num_micro_batches (m)</li>
+      <li>输出: 每个 GPU 每个 time slot 在做什么 (F/B/idle)</li>
+      <li>计算: bubble ratio = idle_slots / total_slots</li>
+      <li>对比: 两种策略的 bubble ratio 和峰值内存 (以 "存储的 activation 数" 衡量)</li>
+    </ul>
+
+    <button class="hint-toggle" onclick="toggleHint('hintB')">提示</button>
+    <button class="solution-toggle" onclick="toggleSolution('solB')">查看答案</button>
+
+    <div class="hint-content" id="hintB">
+      <p>1. GPipe: 先安排所有 m 个 forward (考虑 stage 间依赖), 再安排所有 backward</p>
+      <p>2. 1F1B: warmup 阶段做 forward 填满 pipeline, 然后交替 1F1B, 最后 cooldown 做剩余 backward</p>
+      <p>3. 峰值内存: 某时刻某 stage 同时 "存着" 的 activation 数量最大值 (forward 产生 activation, 对应的 backward 释放它)</p>
+    </div>
+
+    <div class="solution-content" id="solB">
+      <pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="keyword">def</span> <span class="func">simulate_gpipe</span>(p, m):
+    <span class="string">"""
+    模拟 GPipe 调度
+    p: pipeline stages 数
+    m: micro-batches 数
+    """</span>
+    <span class="comment"># 总时间槽: forward 阶段 + backward 阶段</span>
+    <span class="comment"># Forward: m + (p-1) 个 slot (第一个 microbatch 经过 p 个 stage 花 p 个 slot,</span>
+    <span class="comment">#          之后每个额外 microbatch +1 slot)</span>
+    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)
+    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
+
+    <span class="comment"># Forward pass: stage s 在 time (s + mb) 执行 F_mb</span>
+    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
+        <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
+            t = s + mb
+            schedule[s][t] = f<span class="string">'F{mb}'</span>
+
+    <span class="comment"># Backward pass: 从最后一个 stage 开始, 紧接 forward 结束后</span>
+    <span class="comment"># backward 开始时间 = forward 结束时间 = m + p - 1</span>
+    b_start = m + p - <span class="num">1</span>
+    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
+        <span class="keyword">for</span> s <span class="keyword">in</span> range(p - <span class="num">1</span>, -<span class="num">1</span>, -<span class="num">1</span>):
+            t = b_start + mb + (p - <span class="num">1</span> - s)
+            schedule[s][t] = f<span class="string">'B{mb}'</span>
+
+    <span class="comment"># 计算 bubble ratio</span>
+    total_slots = p * total_time
+    busy_slots = <span class="num">2</span> * p * m  <span class="comment"># 每个 stage 做 m 次 F + m 次 B</span>
+    bubble_ratio = <span class="num">1.0</span> - busy_slots / total_slots
+
+    <span class="comment"># 计算峰值内存 (每个 stage 同时存储的 activation 数)</span>
+    <span class="comment"># 在 GPipe 中, stage s 在 forward 完成后存储 m 个 activation</span>
+    peak_memory = m  <span class="comment"># 所有 forward 做完才开始 backward</span>
+
+    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory, total_time
+
+<span class="keyword">def</span> <span class="func">simulate_1f1b</span>(p, m):
+    <span class="string">"""
+    模拟 1F1B 调度
+    p: pipeline stages 数
+    m: micro-batches 数 (需要 m >= p)
+    """</span>
+    <span class="keyword">assert</span> m >= p, <span class="string">"1F1B requires m >= p"</span>
+
+    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)  <span class="comment"># 与 GPipe 相同的总时间</span>
+    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
+
+    <span class="comment"># 对每个 stage 独立调度</span>
+    <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
+        t = s  <span class="comment"># 该 stage 的起始时间 (等待上游)</span>
+        fwd_done = <span class="num">0</span>  <span class="comment"># 已完成的 forward 数</span>
+        bwd_done = <span class="num">0</span>  <span class="comment"># 已完成的 backward 数</span>
+        warmup = p - s - <span class="num">1</span>  <span class="comment"># warmup 阶段需要的额外 forward 数</span>
+
+        <span class="comment"># Warmup: 做 (p - s - 1 + 1) = p - s 个 forward</span>
+        warmup_count = min(p - s, m)
+        <span class="keyword">for</span> i <span class="keyword">in</span> range(warmup_count):
+            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
+            fwd_done += <span class="num">1</span>
+            t += <span class="num">1</span>
+
+        <span class="comment"># Steady state: 交替 1B + 1F</span>
+        <span class="keyword">while</span> fwd_done < m:
+            <span class="comment"># Backward</span>
+            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
+            bwd_done += <span class="num">1</span>
+            t += <span class="num">1</span>
+            <span class="comment"># Forward</span>
+            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
+            fwd_done += <span class="num">1</span>
+            t += <span class="num">1</span>
+
+        <span class="comment"># Cooldown: 做剩余 backward</span>
+        <span class="keyword">while</span> bwd_done < m:
+            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
+            bwd_done += <span class="num">1</span>
+            t += <span class="num">1</span>
+
+    <span class="comment"># 计算 bubble ratio</span>
+    total_slots = p * total_time
+    busy_slots = sum(<span class="num">1</span> <span class="keyword">for</span> s <span class="keyword">in</span> schedule <span class="keyword">for</span> x <span class="keyword">in</span> s <span class="keyword">if</span> x != <span class="string">'idle'</span>)
+    bubble_ratio = <span class="num">1.0</span> - busy_slots / total_slots
+
+    <span class="comment"># 峰值内存: 最多同时保存 (p - s) 个 activation 对于 stage s</span>
+    <span class="comment"># 第一个 stage 最多保存 p 个, 最后一个 stage 保存 1 个</span>
+    <span class="comment"># 但相比 GPipe 的 m 个, 1F1B 的峰值为 p (当 m >> p 时远小于 m)</span>
+    peak_memory = p  <span class="comment"># worst case for first stage</span>
+
+    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory, total_time
+
+<span class="keyword">def</span> <span class="func">print_schedule</span>(schedule, total_time, title):
+    print(f<span class="string">"\n{'='*60}"</span>)
+    print(f<span class="string">" {title}"</span>)
+    print(f<span class="string">"{'='*60}"</span>)
+    <span class="keyword">for</span> s, row <span class="keyword">in</span> enumerate(schedule):
+        slots = []
+        <span class="keyword">for</span> t <span class="keyword">in</span> range(total_time):
+            cell = row[t]
+            <span class="keyword">if</span> cell == <span class="string">'idle'</span>:
+                slots.append(<span class="string">'  . '</span>)
+            <span class="keyword">elif</span> cell.startswith(<span class="string">'F'</span>):
+                slots.append(f<span class="string">' {cell:3s}'</span>)
+            <span class="keyword">else</span>:
+                slots.append(f<span class="string">' {cell:3s}'</span>)
+        print(f<span class="string">"GPU {s}: |{'|'.join(slots)}|"</span>)
+
+<span class="comment"># === 运行对比 ===</span>
+p, m = <span class="num">4</span>, <span class="num">8</span>
+
+sched_g, bubble_g, mem_g, time_g = simulate_gpipe(p, m)
+print_schedule(sched_g, time_g, f<span class="string">"GPipe (p={p}, m={m})"</span>)
+print(f<span class="string">"  Bubble ratio: {bubble_g:.1%}"</span>)
+print(f<span class="string">"  Peak memory (activations): {mem_g}"</span>)
+
+sched_1, bubble_1, mem_1, time_1 = simulate_1f1b(p, m)
+print_schedule(sched_1, time_1, f<span class="string">"1F1B (p={p}, m={m})"</span>)
+print(f<span class="string">"  Bubble ratio: {bubble_1:.1%}"</span>)
+print(f<span class="string">"  Peak memory (activations): {mem_1}"</span>)
+
+print(f<span class="string">"\n--- Comparison ---"</span>)
+print(f<span class="string">"  Bubble ratio: GPipe={bubble_g:.1%} vs 1F1B={bubble_1:.1%}"</span>)
+print(f<span class="string">"  Peak memory:  GPipe={mem_g} vs 1F1B={mem_1}"</span>)
+print(f<span class="string">"  Memory reduction: {(1 - mem_1/mem_g)*100:.0f}%"</span>)</code></pre>
+    </div>
+  </div>
+
+  <!-- Exercise 3 -->
+  <div class="exercise">
+    <h4>练习 3: 用 Send/Recv 实现 Ring AllReduce</h4>
+    <p>使用 <code>torch.distributed</code> 的 <code>send</code> 和 <code>recv</code> 原语, 实现一个简化版的 Ring AllReduce (仅实现 Reduce-Scatter 阶段)。</p>
+    <p><strong>要求:</strong></p>
+    <ul>
+      <li>输入: 每个 rank 持有一个大小为 [world_size] 的 tensor</li>
+      <li>输出: 经过 Reduce-Scatter 后, rank i 持有第 i 个 chunk 的全局求和</li>
+    </ul>
+
+    <button class="hint-toggle" onclick="toggleHint('hint3')">提示</button>
+    <button class="solution-toggle" onclick="toggleSolution('sol3')">查看答案</button>
+
+    <div class="hint-content" id="hint3">
+      <p>关键: 每一步中, 每个 GPU 同时发送和接收。发送的 chunk index 和接收的 chunk index 需要正确计算。使用 <code>isend</code> 和 <code>irecv</code> 避免死锁。</p>
+    </div>
+
+    <div class="solution-content" id="sol3">
+      <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
+
+<span class="keyword">def</span> <span class="func">ring_reduce_scatter</span>(rank, world_size):
+    <span class="string">"""
+    Ring Reduce-Scatter 实现
+    输入: 每个 rank 有 tensor of shape [world_size]
+    输出: rank i 持有所有 rank 第 i 个元素的求和
+    """</span>
+    device = f<span class="string">'cuda:{rank}'</span>
+
+    <span class="comment"># 初始数据: 每个 rank 的 tensor = [rank+1, rank+1, ...]</span>
+    data = torch.full((world_size,), rank + <span class="num">1.0</span>, device=device)
+
+    <span class="comment"># 创建发送和接收 buffer</span>
+    send_buf = torch.zeros(<span class="num">1</span>, device=device)
+    recv_buf = torch.zeros(<span class="num">1</span>, device=device)
+
+    left = (rank - <span class="num">1</span>) % world_size
+    right = (rank + <span class="num">1</span>) % world_size
+
+    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
+        <span class="comment"># 要发送的 chunk index</span>
+        send_idx = (rank - step) % world_size
+        <span class="comment"># 要接收并累加的 chunk index</span>
+        recv_idx = (rank - step - <span class="num">1</span>) % world_size
+
+        <span class="comment"># 非阻塞发送和接收 (避免死锁)</span>
+        send_buf.copy_(data[send_idx])
+        req_send = dist.isend(send_buf, dst=right)
+        req_recv = dist.irecv(recv_buf, src=left)
+
+        <span class="comment"># 等待通信完成</span>
+        req_send.wait()
+        req_recv.wait()
+
+        <span class="comment"># 累加到对应位置</span>
+        data[recv_idx] += recv_buf.item()
+
+    <span class="comment"># 最终结果: data[(rank+1)%world_size] 是该 chunk 的全局和</span>
+    result_idx = (rank + <span class="num">1</span>) % world_size
+    print(f<span class="string">"Rank {rank}: chunk {result_idx} = {data[result_idx]}"</span>)
+    <span class="comment"># 如果 world_size=4, 每个 rank 的值为 1,2,3,4</span>
+    <span class="comment"># 则每个 chunk 的全局和 = 1+2+3+4 = 10</span>
+
+    <span class="keyword">return</span> data[result_idx]</code></pre>
+    </div>
+  </div>
+</div>
+
+<!-- Section 8: Summary -->
+<div class="card">
+  <h2>3.8 本章小结</h2>
+  <table>
+    <thead>
+      <tr><th>概念</th><th>核心要点</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Data Parallelism</td><td>复制模型, 切分数据, AllReduce 梯度; 简单但有显存瓶颈</td></tr>
+      <tr><td>Tensor Parallelism</td><td>切分层内权重 (column/row split); 需要高带宽互联</td></tr>
+      <tr><td>Pipeline Parallelism</td><td>按层切分模型; bubble ratio = (p-1)/(p-1+m)</td></tr>
+      <tr><td>Ring AllReduce</td><td>通信量 O(M), 与 GPU 数无关; 带宽最优</td></tr>
+      <tr><td>FSDP / ZeRO</td><td>分片优化器/梯度/参数; Stage 3 可线性降低内存</td></tr>
+      <tr><td>3D Parallelism</td><td>TP (节点内) + PP (跨节点) + DP (扩展); 训练超大模型的标准范式</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box">
+    <strong>下一章预告:</strong> Chapter 4 将深入探讨 GPU 内存管理与高效 Attention 实现 (FlashAttention, PagedAttention), 进一步从硬件层面理解训练和推理效率。
+  </div>
+</div>
+
+</div><!-- end container -->
+
+<script>
+// ============ Scroll Progress Bar ============
+window.addEventListener('scroll', () => {
+  const scrollTop = document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  const progress = (scrollTop / scrollHeight) * 100;
+  document.getElementById('scrollProgress').style.width = progress + '%';
+});
+
+// ============ IntersectionObserver for cards ============
+const observerOptions = {
+  threshold: 0.1,
+  rootMargin: '0px 0px -50px 0px'
+};
+
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+      // Trigger bar animations if applicable
+      if (entry.target.querySelector('.bar-fill')) {
+        const bars = entry.target.querySelectorAll('.bar-fill');
+        bars.forEach(bar => {
+          const width = bar.getAttribute('data-width');
+          setTimeout(() => {
+            bar.style.width = width + '%';
+          }, 300);
+        });
+      }
+    }
+  });
+}, observerOptions);
+
+document.querySelectorAll('.card').forEach(card => {
+  observer.observe(card);
+});
+
+// ============ Tab Switching ============
+function switchTab(event, tabId) {
+  // Deactivate all tabs
+  const container = event.target.closest('.tab-container');
+  container.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  container.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+  // Activate selected
+  event.target.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
+// ============ Ring AllReduce Animation (Table-based) ============
+let ringCurrentStep = 0;
+const RING_N = 4;
+const ringGpuColors = ['#f44336','#4caf50','#2196f3','#ff9800'];
+const ringGpuNames = ['GPU0','GPU1','GPU2','GPU3'];
+const ringChunkNames = ['c₀','c₁','c₂','c₃'];
+
+function ringGetState(targetStep) {
+  // Replay from scratch to targetStep to compute state
+  // state[g][c] = Set of GPU indices whose data is summed in GPU g's chunk c
+  let st = [];
+  for (let g = 0; g < RING_N; g++) {
+    st[g] = [];
+    for (let c = 0; c < RING_N; c++) st[g][c] = new Set([g]);
+  }
+
+  for (let s = 1; s <= targetStep; s++) {
+    if (s <= 3) {
+      // Reduce-Scatter step s: GPU g sends chunk (g - (s-1) + N) % N to (g+1)%N
+      const snapshots = st.map(gpu => gpu.map(ch => new Set(ch)));
+      for (let g = 0; g < RING_N; g++) {
+        const sendChunk = (g - (s - 1) + RING_N) % RING_N;
+        const dst = (g + 1) % RING_N;
+        snapshots[g][sendChunk].forEach(v => st[dst][sendChunk].add(v));
+      }
+    } else {
+      // AllGather step (s-3): GPU g sends chunk (g - (s-4) + 1 + N) % N to (g+1)%N
+      const snapshots = st.map(gpu => gpu.map(ch => new Set(ch)));
+      for (let g = 0; g < RING_N; g++) {
+        const sendChunk = (g - (s - 4) + 1 + RING_N) % RING_N;
+        const dst = (g + 1) % RING_N;
+        snapshots[g][sendChunk].forEach(v => st[dst][sendChunk].add(v));
+      }
+    }
+  }
+  return st;
+}
+
+function ringGetSendInfo(step) {
+  let info = [];
+  if (step >= 1 && step <= 3) {
+    for (let g = 0; g < RING_N; g++) {
+      const sendChunk = (g - (step - 1) + RING_N) % RING_N;
+      info.push({from: g, to: (g + 1) % RING_N, chunk: sendChunk});
+    }
+  } else if (step >= 4 && step <= 6) {
+    for (let g = 0; g < RING_N; g++) {
+      const sendChunk = (g - (step - 4) + 1 + RING_N) % RING_N;
+      info.push({from: g, to: (g + 1) % RING_N, chunk: sendChunk});
+    }
+  }
+  return info;
+}
+
+function ringCellHtml(gpuSources, chunkIdx, isSending) {
+  const border = isSending ? '2px solid #ffd700' : '1px solid #444';
+  const arrow = isSending ? '<span style="position:absolute;top:-4px;right:-4px;font-size:0.7rem;">⬆</span>' : '';
+  if (gpuSources.size === RING_N) {
+    return `<div style="position:relative;width:34px;height:34px;background:linear-gradient(135deg,${ringGpuColors.join(',')});border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:#fff;box-shadow:0 0 8px rgba(255,215,0,0.3);">${ringChunkNames[chunkIdx]}${arrow}</div>`;
+  } else if (gpuSources.size === 1) {
+    const src = [...gpuSources][0];
+    return `<div style="position:relative;width:34px;height:34px;background:${ringGpuColors[src]}55;border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:${ringGpuColors[src]};font-weight:bold;">${ringChunkNames[chunkIdx]}${arrow}</div>`;
+  } else {
+    const cols = [...gpuSources].sort().map(s => ringGpuColors[s]);
+    return `<div style="position:relative;width:34px;height:34px;background:linear-gradient(135deg,${cols.join(',')});border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:#fff;">${ringChunkNames[chunkIdx]}<span style="font-size:0.5rem;position:absolute;bottom:1px;right:2px;">${gpuSources.size}</span>${arrow}</div>`;
+  }
+}
+
+const ringDescriptions = [
+  'Step 0/6: <strong>初始状态</strong> — 每个 GPU 持有自己的 4 个 chunk。GPU0 有 [A₀,A₁,A₂,A₃], GPU1 有 [B₀,B₁,B₂,B₃] 等。<br><em>目标: 让每个 chunk 都变成所有 GPU 对应 chunk 的 sum。</em>',
+  'Step 1/6: <strong>Reduce-Scatter ①</strong> — GPU0 发送 c₀ 给 GPU1, GPU1 发送 c₁ 给 GPU2, ...<br>接收方<strong>累加</strong>: 如 GPU1 的 c₀ 现在 = B₀ + A₀ (2 个 GPU 的和)',
+  'Step 2/6: <strong>Reduce-Scatter ②</strong> — 继续传递已累加的 chunk。如 GPU2 收到 GPU1 的 c₀ (含 A₀+B₀), 累加得 C₀+A₀+B₀ (3 个 GPU 的和)',
+  'Step 3/6: <strong>Reduce-Scatter ③ 完成!</strong> — 每个 GPU 恰好有 <strong>1 个 chunk 达到了全局归约</strong> (4 色渐变)。<br>GPU0: c₁=Σ, GPU1: c₂=Σ, GPU2: c₃=Σ, GPU3: c₀=Σ',
+  'Step 4/6: <strong>AllGather ①</strong> — 每个 GPU 将自己持有的「完整归约 chunk」发送给右邻居。<br>接收方直接<strong>覆盖</strong>（因为发送的已经是最终结果）',
+  'Step 5/6: <strong>AllGather ②</strong> — 继续传递, 每个 GPU 逐步收集到更多完整归约的 chunk',
+  'Step 6/6: <strong>AllGather ③ 完成! ✓</strong> — 所有 GPU 的所有 chunk 都是全局归约结果!<br><em>总通信量 per GPU = 2 × (N-1)/N × M = 1.5M (与 GPU 数无关!)</em>'
+];
+
+function ringRender() {
+  const state = ringGetState(ringCurrentStep);
+  const sendInfo = ringGetSendInfo(ringCurrentStep);
+  const sendingSet = new Set(sendInfo.map(si => `${si.from}-${si.chunk}`));
+
+  // Render table
+  let html = '<table style="border-collapse:collapse;width:100%;font-size:0.82rem;">';
+  html += '<thead><tr style="border-bottom:2px solid #444;">';
+  html += '<th style="padding:8px;text-align:left;color:#888;width:60px;">GPU</th>';
+  for (let c = 0; c < RING_N; c++) html += `<th style="padding:8px;text-align:center;color:#888;">Chunk ${c}</th>`;
+  html += '</tr></thead><tbody>';
+  for (let g = 0; g < RING_N; g++) {
+    html += `<tr style="border-bottom:1px solid #2a2a3e;">`;
+    html += `<td style="padding:8px;color:${ringGpuColors[g]};font-weight:bold;">${ringGpuNames[g]}</td>`;
+    for (let c = 0; c < RING_N; c++) {
+      html += `<td style="padding:6px;text-align:center;">${ringCellHtml(state[g][c], c, sendingSet.has(`${g}-${c}`))}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('ring-state-table').innerHTML = html;
+
+  // Transfer arrows
+  const transferEl = document.getElementById('ring-transfer');
+  if (sendInfo.length > 0) {
+    const phase = ringCurrentStep <= 3 ? 'Reduce-Scatter (累加)' : 'AllGather (覆盖)';
+    const arrows = sendInfo.map(si =>
+      `<span style="color:${ringGpuColors[si.from]};font-weight:bold;">${ringGpuNames[si.from]}</span>` +
+      ` <span style="color:#ffd700;">→</span> ` +
+      `<span style="color:${ringGpuColors[si.to]};font-weight:bold;">${ringGpuNames[si.to]}</span>` +
+      `: <strong>${ringChunkNames[si.chunk]}</strong>`
+    ).join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+    transferEl.innerHTML = `<strong style="color:#ffd700;">[${phase}]</strong> ${arrows}`;
+  } else {
+    transferEl.innerHTML = '<span style="color:#888;">点击 "下一步" 开始 Ring AllReduce</span>';
+  }
+
+  // Description
+  document.getElementById('ringStepText').innerHTML = ringDescriptions[ringCurrentStep];
+  document.getElementById('ringPrev').disabled = (ringCurrentStep === 0);
+  document.getElementById('ringNext').disabled = (ringCurrentStep === 6);
+}
+
+function ringStep(direction) {
+  const target = ringCurrentStep + direction;
+  if (target < 0 || target > 6) return;
+  ringCurrentStep = target;
+  ringRender();
+}
+
+function ringReset() {
+  ringCurrentStep = 0;
+  ringRender();
+}
+ringReset();
+
+// ============ FSDP Calculator ============
+function updateFSDP() {
+  const params = parseFloat(document.getElementById('paramSlider').value);
+  const gpus = parseInt(document.getElementById('gpuSlider').value);
+  const memLimit = parseInt(document.getElementById('memSlider').value);
+
+  document.getElementById('paramDisplay').textContent = params;
+  document.getElementById('gpuDisplay').textContent = gpus;
+  document.getElementById('memDisplay').textContent = memLimit;
+
+  // Memory in GB (params in billions, 16 bytes per param for mixed precision + Adam)
+  const phi = params; // billions
+  const bytesPerParam = 16; // total for mixed precision training
+  const totalMemGB = phi * bytesPerParam; // GB (since 1B params * 16 bytes = 16 GB)
+
+  // DDP: full replication
+  const memDDP = totalMemGB;
+
+  // Stage 1: shard optimizer states (12 bytes/param sharded, 4 bytes/param replicated)
+  const memS1 = phi * 4 + (phi * 12) / gpus;
+
+  // Stage 2: shard optimizer + gradients
+  const memS2 = phi * 2 + (phi * 14) / gpus;
+
+  // Stage 3: shard everything
+  const memS3 = totalMemGB / gpus;
+
+  document.getElementById('memDDP').textContent = memDDP.toFixed(1) + ' GB';
+  document.getElementById('memS1').textContent = memS1.toFixed(1) + ' GB';
+  document.getElementById('memS2').textContent = memS2.toFixed(1) + ' GB';
+  document.getElementById('memS3').textContent = memS3.toFixed(1) + ' GB';
+
+  // Status indicators
+  function setStatus(id, mem) {
+    const el = document.getElementById(id);
+    if (mem > memLimit) {
+      el.textContent = '超出显存 (' + ((mem/memLimit)*100).toFixed(0) + '%)';
+      el.style.color = '#f44336';
+    } else {
+      el.textContent = '可放入 (' + ((mem/memLimit)*100).toFixed(0) + '%)';
+      el.style.color = '#4caf50';
+    }
+  }
+
+  setStatus('detailDDP', memDDP);
+  setStatus('detailS1', memS1);
+  setStatus('detailS2', memS2);
+  setStatus('detailS3', memS3);
+}
+
+// Initialize calculator
+updateFSDP();
+
+// ============ Exercise Toggles ============
+function toggleHint(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('show');
+}
+
+function toggleSolution(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('show');
+}
+
+// ============ Pipeline Parallelism Animation ============
+const ppColors = {
+  F: ['#2e7d32','#388e3c','#43a047','#4caf50'], // green shades per micro-batch
+  B: ['#c62828','#d32f2f','#e53935','#f44336'], // red shades per micro-batch
+  idle: '#333'
+};
+const gpuColors = ['#f44336','#4caf50','#2196f3','#ff9800'];
+
+let ppCurrentStep = 0;
+let ppScheduleType = 'gpipe';
+let ppScheduleData = null;
+
+function ppGenerateGPipeSchedule(p, m) {
+  // Returns array of steps, each step is a snapshot of the full grid
+  // Grid: p rows (stages), total_time columns
+  const totalTime = 2 * (m + p - 1);
+  const grid = Array.from({length: p}, () => Array(totalTime).fill(null));
+
+  // Forward: stage s, microbatch mb at time s + mb
+  for (let mb = 0; mb < m; mb++) {
+    for (let s = 0; s < p; s++) {
+      grid[s][s + mb] = {type: 'F', mb: mb};
+    }
+  }
+  // Backward: starts after all forwards
+  const bStart = m + p - 1;
+  for (let mb = 0; mb < m; mb++) {
+    for (let s = p - 1; s >= 0; s--) {
+      grid[s][bStart + mb + (p - 1 - s)] = {type: 'B', mb: mb};
+    }
+  }
+  return {grid, totalTime, p, m};
+}
+
+function ppGenerate1F1BSchedule(p, m) {
+  const totalTime = 2 * (m + p - 1);
+  const grid = Array.from({length: p}, () => Array(totalTime).fill(null));
+
+  for (let s = 0; s < p; s++) {
+    let t = s;
+    let fwdDone = 0, bwdDone = 0;
+    const warmupCount = Math.min(p - s, m);
+
+    // Warmup
+    for (let i = 0; i < warmupCount; i++) {
+      if (t < totalTime) { grid[s][t] = {type: 'F', mb: fwdDone}; fwdDone++; t++; }
+    }
+    // Steady state: 1B then 1F
+    while (fwdDone < m) {
+      if (t < totalTime) { grid[s][t] = {type: 'B', mb: bwdDone}; bwdDone++; t++; }
+      if (t < totalTime && fwdDone < m) { grid[s][t] = {type: 'F', mb: fwdDone}; fwdDone++; t++; }
+    }
+    // Cooldown
+    while (bwdDone < m) {
+      if (t < totalTime) { grid[s][t] = {type: 'B', mb: bwdDone}; bwdDone++; t++; }
+    }
+  }
+  return {grid, totalTime, p, m};
+}
+
+function ppBuildSteps(schedData) {
+  const {grid, totalTime, p, m} = schedData;
+  // Step 0: empty, then one step per time column
+  const steps = [];
+  steps.push({time: -1, desc: '初始状态: 4 个 Stage, 准备处理 4 个 micro-batch'});
+  for (let t = 0; t < totalTime; t++) {
+    let actions = [];
+    for (let s = 0; s < p; s++) {
+      const cell = grid[s][t];
+      if (cell) {
+        const label = cell.type === 'F' ? 'Forward' : 'Backward';
+        actions.push(`Stage ${s}: ${label} uB${cell.mb}`);
+      }
+    }
+    const desc = actions.length > 0 ? actions.join(' | ') : '所有 Stage 空闲 (Bubble)';
+    steps.push({time: t, desc: `Time ${t}: ${desc}`});
+  }
+  return steps;
+}
+
+function ppRenderGrid(schedData, highlightTime) {
+  const {grid, totalTime, p, m} = schedData;
+  const container = document.getElementById('ppGrid');
+  let html = '<table style="border-collapse:collapse; font-size:0.75em; width:100%; min-width:600px;">';
+  // Header
+  html += '<tr><td style="padding:4px 8px; color:#888; font-weight:bold;"></td>';
+  for (let t = 0; t < totalTime; t++) {
+    const hl = (t <= highlightTime) ? '' : 'opacity:0.3;';
+    html += `<td style="padding:4px 2px; text-align:center; color:#888; font-size:0.8em; ${hl}">t${t}</td>`;
+  }
+  html += '</tr>';
+  // Rows
+  for (let s = 0; s < p; s++) {
+    html += `<tr><td style="padding:4px 8px; color:${gpuColors[s]}; font-weight:bold; white-space:nowrap;">Stage ${s}</td>`;
+    for (let t = 0; t < totalTime; t++) {
+      const cell = grid[s][t];
+      const isActive = (t <= highlightTime);
+      const isCurrent = (t === highlightTime);
+      let bg = ppColors.idle;
+      let text = '';
+      let border = isCurrent ? '2px solid #fff' : '1px solid #555';
+      if (cell && isActive) {
+        if (cell.type === 'F') {
+          bg = ppColors.F[cell.mb % 4];
+          text = `F${cell.mb}`;
+        } else {
+          bg = ppColors.B[cell.mb % 4];
+          text = `B${cell.mb}`;
+        }
+      } else if (cell && !isActive) {
+        bg = '#1a1a2e';
+        text = '';
+      } else if (!cell && isActive) {
+        bg = ppColors.idle;
+        text = '';
+      } else {
+        bg = '#1a1a2e';
+      }
+      const opacity = isActive ? '1' : '0.25';
+      html += `<td style="padding:3px 1px; text-align:center; background:${bg}; color:#fff; font-weight:bold; font-size:0.85em; border:${border}; border-radius:3px; opacity:${opacity}; min-width:32px;">${text}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function ppSwitchSchedule(type) {
+  ppScheduleType = type;
+  document.getElementById('ppScheduleGPipe').style.opacity = (type === 'gpipe') ? '1' : '0.5';
+  document.getElementById('ppSchedule1F1B').style.opacity = (type === '1f1b') ? '1' : '0.5';
+  document.getElementById('pp1f1bInfo').style.display = (type === '1f1b') ? 'block' : 'none';
+  ppReset();
+}
+
+function ppGetSchedule() {
+  if (ppScheduleType === 'gpipe') {
+    return ppGenerateGPipeSchedule(4, 4);
+  } else {
+    return ppGenerate1F1BSchedule(4, 4);
+  }
+}
+
+function ppReset() {
+  ppCurrentStep = 0;
+  ppScheduleData = ppGetSchedule();
+  const steps = ppBuildSteps(ppScheduleData);
+  ppRenderGrid(ppScheduleData, -1);
+  document.getElementById('ppStepText').textContent = steps[0].desc;
+  document.getElementById('ppStepCounter').textContent = `Step 0 / ${steps.length - 1}`;
+  document.getElementById('ppPrev').disabled = true;
+  document.getElementById('ppNext').disabled = false;
+}
+
+function ppStep(dir) {
+  if (!ppScheduleData) ppScheduleData = ppGetSchedule();
+  const steps = ppBuildSteps(ppScheduleData);
+  ppCurrentStep += dir;
+  ppCurrentStep = Math.max(0, Math.min(ppCurrentStep, steps.length - 1));
+  document.getElementById('ppPrev').disabled = (ppCurrentStep === 0);
+  document.getElementById('ppNext').disabled = (ppCurrentStep === steps.length - 1);
+  ppRenderGrid(ppScheduleData, steps[ppCurrentStep].time);
+  document.getElementById('ppStepText').textContent = steps[ppCurrentStep].desc;
+  document.getElementById('ppStepCounter').textContent = `Step ${ppCurrentStep} / ${steps.length - 1}`;
+}
+
+// Initialize PP animation
+ppReset();
+
+// ============ Data Parallelism Animation ============
+let dpCurrentStep = 0;
+const dpSteps = [
+  {
+    desc: '初始状态: Mini-batch (B=32) 准备分发到 4 个 GPU, 每个 GPU 持有完整模型副本',
+    phase: 'init'
+  },
+  {
+    desc: 'Step 1 - 数据切分: Mini-batch 均分为 4 份, GPU0 得到 B[0:8], GPU1 得到 B[8:16], ...',
+    phase: 'split'
+  },
+  {
+    desc: 'Step 2 - Forward + Backward: 每个 GPU 独立计算前向传播和反向传播 (无通信, 完全并行)',
+    phase: 'compute'
+  },
+  {
+    desc: 'Step 3 - AllReduce 梯度同步: 所有 GPU 通过 Ring AllReduce 交换梯度, 确保梯度一致',
+    phase: 'allreduce'
+  },
+  {
+    desc: 'Step 4 - 参数更新: 所有 GPU 使用相同梯度更新参数, 保持模型一致性',
+    phase: 'update'
+  }
+];
+
+function dpRenderGrid(step) {
+  const container = document.getElementById('dpGrid');
+  const phases = ['split', 'compute', 'compute', 'allreduce', 'update'];
+  const phaseLabels = ['Split Data', 'Forward', 'Backward', 'AllReduce', 'Update'];
+  const phaseColors = ['#2196f3', '#4caf50', '#ff9800', '#9c27b0', '#667eea'];
+
+  let html = '<table style="border-collapse:collapse; font-size:0.8em; width:100%; min-width:500px;">';
+  // Header
+  html += '<tr><td style="padding:6px 10px; color:#888;"></td>';
+  for (let i = 0; i < phaseLabels.length; i++) {
+    const active = (i < step) ? '1' : (i === step - 1 || (step === 0 && i === 0)) ? '1' : '0.3';
+    const isCurrent = (i === step - 1);
+    const border = isCurrent ? '2px solid #fff' : '1px solid #555';
+    html += `<td style="padding:6px 8px; text-align:center; color:${phaseColors[i]}; font-weight:bold; opacity:${step === 0 ? '0.3' : active}; border-bottom:${border};">${phaseLabels[i]}</td>`;
+  }
+  html += '</tr>';
+
+  // GPU rows
+  for (let g = 0; g < 4; g++) {
+    html += `<tr><td style="padding:8px 10px; color:${gpuColors[g]}; font-weight:bold;">GPU ${g}</td>`;
+    for (let i = 0; i < phaseLabels.length; i++) {
+      const active = (i < step);
+      const isCurrent = (i === step - 1);
+      let bg = active ? phaseColors[i] : '#1a1a2e';
+      let text = '';
+      const border = isCurrent ? '2px solid #fff' : '1px solid #444';
+      const opacity = active ? '1' : '0.2';
+
+      if (active) {
+        if (i === 0) text = `B[${g*8}:${(g+1)*8}]`;
+        else if (i === 1) text = 'F(x)';
+        else if (i === 2) text = 'dL/dW';
+        else if (i === 3) text = g < 2 ? 'send/recv' : 'send/recv';
+        else if (i === 4) text = 'W -= lr*g';
+      }
+      html += `<td style="padding:8px 6px; text-align:center; background:${bg}; color:#fff; font-weight:bold; font-size:0.9em; border:${border}; border-radius:4px; opacity:${opacity}; min-width:80px;">${text}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  // Communication arrows for AllReduce step
+  if (step >= 4) {
+    html += '<tr><td></td><td colspan="5" style="text-align:center; color:#9c27b0; padding:5px; font-size:0.85em;">--- Ring AllReduce: GPU0 &#8594; GPU1 &#8594; GPU2 &#8594; GPU3 &#8594; GPU0 ---</td></tr>';
+  }
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function dpStep(dir) {
+  dpCurrentStep += dir;
+  dpCurrentStep = Math.max(0, Math.min(dpCurrentStep, dpSteps.length - 1));
+  document.getElementById('dpPrev').disabled = (dpCurrentStep === 0);
+  document.getElementById('dpNext').disabled = (dpCurrentStep === dpSteps.length - 1);
+  dpRenderGrid(dpCurrentStep);
+  document.getElementById('dpStepText').textContent = dpSteps[dpCurrentStep].desc;
+  document.getElementById('dpStepCounter').textContent = `Step ${dpCurrentStep} / ${dpSteps.length - 1}`;
+}
+
+function dpReset() {
+  dpCurrentStep = 0;
+  dpRenderGrid(0);
+  document.getElementById('dpStepText').textContent = dpSteps[0].desc;
+  document.getElementById('dpStepCounter').textContent = `Step 0 / ${dpSteps.length - 1}`;
+  document.getElementById('dpPrev').disabled = true;
+  document.getElementById('dpNext').disabled = false;
+}
+
+// Initialize DP animation
+dpReset();
+
+// ============ Tensor Parallelism Animation ============
+let tpCurrentStep = 0;
+const tpStepsData = [
+  {
+    desc: '初始状态: Input X (shape [B, H]) 被复制到所有 GPU (replicated)',
+    render: function(container) {
+      return renderTPStep(0);
+    }
+  },
+  {
+    desc: 'Step 1 - Column Parallel Linear: X * [W1_part] on GPU0, X * [W2_part] on GPU1 → 得到 partial Y (无通信!)',
+    render: function(container) {
+      return renderTPStep(1);
+    }
+  },
+  {
+    desc: 'Step 2 - GeLU 激活函数: 各 GPU 独立对 partial Y 执行 GeLU (无通信, 完全并行)',
+    render: function(container) {
+      return renderTPStep(2);
+    }
+  },
+  {
+    desc: 'Step 3 - Row Parallel Linear: Y_partial * W_row on each GPU → 得到 partial output',
+    render: function(container) {
+      return renderTPStep(3);
+    }
+  },
+  {
+    desc: 'Step 4 - AllReduce 通信: 对 partial outputs 求和 → 得到最终 output (唯一的通信点!)',
+    render: function(container) {
+      return renderTPStep(4);
+    }
+  },
+  {
+    desc: 'Step 5 - 完成: Output = sum of partial outputs, 与单卡计算结果数学等价',
+    render: function(container) {
+      return renderTPStep(5);
+    }
+  }
+];
+
+function renderTPStep(step) {
+  const stages = [
+    {label: 'Input X\n(replicated)', color: '#2196f3', comm: false},
+    {label: 'Column Parallel\nX * W_part', color: '#4caf50', comm: false},
+    {label: 'GeLU\n(independent)', color: '#4caf50', comm: false},
+    {label: 'Row Parallel\nY * W_row', color: '#ff9800', comm: false},
+    {label: 'AllReduce\n(SUM)', color: '#f44336', comm: true},
+    {label: 'Output\n(complete)', color: '#667eea', comm: false}
+  ];
+
+  let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
+
+  // Flow diagram
+  html += '<div style="display:flex; align-items:center; justify-content:center; gap:5px; flex-wrap:wrap; margin-bottom:15px;">';
+  for (let i = 0; i <= 5; i++) {
+    const active = (i <= step);
+    const isCurrent = (i === step);
+    const s = stages[i];
+    const opacity = active ? '1' : '0.25';
+    const border = isCurrent ? '3px solid #fff' : `2px solid ${s.color}`;
+    const bg = active ? s.color + '33' : '#1a1a2e';
+    html += `<div style="padding:8px 12px; border:${border}; border-radius:8px; background:${bg}; opacity:${opacity}; text-align:center; font-size:0.8em; min-width:80px; white-space:pre-line;">`;
+    html += `<div style="color:${s.color}; font-weight:bold;">${s.label}</div>`;
+    if (s.comm && active) html += `<div style="color:#f44336; font-size:0.8em; margin-top:3px;">COMMUNICATION</div>`;
+    html += '</div>';
+    if (i < 5) html += '<span style="color:#888; font-size:1.2em;">&#8594;</span>';
+  }
+  html += '</div>';
+
+  // GPU detail view
+  html += '<table style="border-collapse:collapse; font-size:0.8em; width:100%;">';
+  html += '<tr><td style="padding:4px 8px; color:#888;"></td>';
+  const colLabels = ['Input', 'ColParallel', 'GeLU', 'RowParallel', 'AllReduce', 'Output'];
+  for (let i = 0; i < 6; i++) {
+    const active = (i <= step);
+    html += `<td style="padding:4px 6px; text-align:center; color:#888; font-size:0.85em; opacity:${active?'1':'0.3'};">${colLabels[i]}</td>`;
+  }
+  html += '</tr>';
+
+  for (let g = 0; g < 4; g++) {
+    html += `<tr><td style="padding:6px 8px; color:${gpuColors[g]}; font-weight:bold;">GPU ${g}</td>`;
+    const gpuData = [
+      `X (full)`,
+      `X*W${g}`,
+      `GeLU(Y${g})`,
+      `Z${g}*Wr${g}`,
+      `Sum(all)`,
+      `Output`
+    ];
+    for (let i = 0; i < 6; i++) {
+      const active = (i <= step);
+      const isCurrent = (i === step);
+      const s = stages[i];
+      const bg = active ? s.color + '44' : '#1a1a2e';
+      const border = isCurrent ? '2px solid #fff' : '1px solid #444';
+      const opacity = active ? '1' : '0.2';
+      html += `<td style="padding:6px 4px; text-align:center; background:${bg}; border:${border}; border-radius:3px; opacity:${opacity}; color:#fff; font-size:0.85em;">${active ? gpuData[i] : ''}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+
+  // Communication indicator
+  if (step === 4) {
+    html += '<div style="text-align:center; margin-top:10px; padding:8px; background:#f4433622; border:1px solid #f44336; border-radius:6px; color:#f44336; font-weight:bold; font-size:0.9em;">';
+    html += 'AllReduce: GPU0 partial + GPU1 partial + GPU2 partial + GPU3 partial = Final Output';
+    html += '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function tpStep(dir) {
+  tpCurrentStep += dir;
+  tpCurrentStep = Math.max(0, Math.min(tpCurrentStep, tpStepsData.length - 1));
+  document.getElementById('tpPrev').disabled = (tpCurrentStep === 0);
+  document.getElementById('tpNext').disabled = (tpCurrentStep === tpStepsData.length - 1);
+  document.getElementById('tpGrid').innerHTML = renderTPStep(tpCurrentStep);
+  document.getElementById('tpStepText').textContent = tpStepsData[tpCurrentStep].desc;
+  document.getElementById('tpStepCounter').textContent = `Step ${tpCurrentStep} / ${tpStepsData.length - 1}`;
+}
+
+function tpReset() {
+  tpCurrentStep = 0;
+  document.getElementById('tpGrid').innerHTML = renderTPStep(0);
+  document.getElementById('tpStepText').textContent = tpStepsData[0].desc;
+  document.getElementById('tpStepCounter').textContent = `Step 0 / ${tpStepsData.length - 1}`;
+  document.getElementById('tpPrev').disabled = true;
+  document.getElementById('tpNext').disabled = false;
+}
+
+// Initialize TP animation
+tpReset();
+
+// ============ NCCL Primitives Visualization ============
+const ncclDemo = (() => {
+  const gpuColors = ['#f44336', '#4caf50', '#2196f3', '#ff9800'];
+  const gpuNames = ['GPU 0', 'GPU 1', 'GPU 2', 'GPU 3'];
+  const dataLabels = ['A', 'B', 'C', 'D'];
+
+  function makeGpuBox(gpuIdx, dataBlocks, highlight) {
+    const border = highlight ? `border:2px solid ${gpuColors[gpuIdx]}` : 'border:1px solid #444';
+    let blocksHtml = '';
+    dataBlocks.forEach(block => {
+      if (block.type === 'single') {
+        blocksHtml += `<div style="width:28px;height:28px;background:${block.color};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:bold;color:#fff;">${block.label}</div>`;
+      } else if (block.type === 'sum') {
+        blocksHtml += `<div style="width:28px;height:28px;background:linear-gradient(135deg,${block.colors.join(',')});border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:#fff;">Σ</div>`;
+      } else if (block.type === 'empty') {
+        blocksHtml += `<div style="width:28px;height:28px;background:#222;border:1px dashed #444;border-radius:4px;"></div>`;
+      }
+    });
+    return `<div style="text-align:center;">
+      <div style="background:#1a1a2e;${border};border-radius:8px;padding:10px;min-width:50px;">
+        <div style="font-size:0.7rem;color:${gpuColors[gpuIdx]};margin-bottom:6px;font-weight:bold;">${gpuNames[gpuIdx]}</div>
+        <div style="display:flex;gap:3px;justify-content:center;flex-wrap:wrap;">${blocksHtml}</div>
+      </div>
+    </div>`;
+  }
+
+  const primitives = {
+    broadcast: {
+      before: [
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'empty'},{type:'empty'},{type:'empty'},{type:'empty'}],
+        [{type:'empty'},{type:'empty'},{type:'empty'},{type:'empty'}],
+        [{type:'empty'},{type:'empty'},{type:'empty'},{type:'empty'}]
+      ],
+      after: [
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}]
+      ],
+      explain: `<strong style="color:#667eea;">Broadcast</strong>: GPU 0 (root) 的数据 <strong>复制</strong>到所有其他 GPU。<br>
+        <strong>用途:</strong> 分发模型参数初始值、分发 batch 数据到各 worker。<br>
+        <strong>通信量 (per GPU):</strong> M × (N-1)/N ≈ M（接收方各收一份完整数据）`
+    },
+    reduce: {
+      before: [
+        [{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[1],label:'B'}],
+        [{type:'single',color:gpuColors[2],label:'C'}],
+        [{type:'single',color:gpuColors[3],label:'D'}]
+      ],
+      after: [
+        [{type:'sum',colors:gpuColors,label:'Σ'}],
+        [{type:'empty'}],
+        [{type:'empty'}],
+        [{type:'empty'}]
+      ],
+      explain: `<strong style="color:#667eea;">Reduce</strong>: 所有 GPU 的数据<strong>规约 (sum) 到一个 root GPU</strong>，其他 GPU 上结果丢弃。<br>
+        <strong>用途:</strong> 汇总 loss 值到 rank 0 用于 logging。<br>
+        <strong>通信量 (per GPU):</strong> M × (N-1)/N。结果: root 持有 A+B+C+D`
+    },
+    allreduce: {
+      before: [
+        [{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[1],label:'B'}],
+        [{type:'single',color:gpuColors[2],label:'C'}],
+        [{type:'single',color:gpuColors[3],label:'D'}]
+      ],
+      after: [
+        [{type:'sum',colors:gpuColors,label:'Σ'}],
+        [{type:'sum',colors:gpuColors,label:'Σ'}],
+        [{type:'sum',colors:gpuColors,label:'Σ'}],
+        [{type:'sum',colors:gpuColors,label:'Σ'}]
+      ],
+      explain: `<strong style="color:#667eea;">AllReduce</strong>: 所有 GPU 的数据规约, 结果<strong>每个 GPU 都有一份完整副本</strong>。= Reduce + Broadcast。<br>
+        <strong>用途:</strong> DDP 同步梯度 — 每个 GPU 都需要完整的梯度求和来更新参数。<br>
+        <strong>通信量 (per GPU):</strong> 2M × (N-1)/N (最常用! Ring AllReduce 可高效实现)<br>
+        <strong>结果:</strong> 每个 GPU 都持有 A+B+C+D`
+    },
+    allgather: {
+      before: [
+        [{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[1],label:'B'}],
+        [{type:'single',color:gpuColors[2],label:'C'}],
+        [{type:'single',color:gpuColors[3],label:'D'}]
+      ],
+      after: [
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[3],label:'D'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[3],label:'D'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[3],label:'D'}],
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[3],label:'D'}]
+      ],
+      explain: `<strong style="color:#667eea;">AllGather</strong>: 每个 GPU 的数据片段<strong>拼接成完整数据</strong>, 每个 GPU 都持有全部。<br>
+        <strong>用途:</strong> FSDP forward 时收集分片的参数 — 每个 GPU 只存 1/N 参数, AllGather 后得到完整权重做 forward。<br>
+        <strong>通信量 (per GPU):</strong> M × (N-1)/N<br>
+        <strong>结果:</strong> 每个 GPU 从持有 1 个分片 → 持有所有 4 个分片 [A,B,C,D]`
+    },
+    reducescatter: {
+      before: [
+        [{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'},{type:'single',color:gpuColors[0],label:'A'}],
+        [{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[1],label:'B'},{type:'single',color:gpuColors[1],label:'B'}],
+        [{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[2],label:'C'},{type:'single',color:gpuColors[2],label:'C'}],
+        [{type:'single',color:gpuColors[3],label:'D'},{type:'single',color:gpuColors[3],label:'D'},{type:'single',color:gpuColors[3],label:'D'},{type:'single',color:gpuColors[3],label:'D'}]
+      ],
+      after: [
+        [{type:'sum',colors:[gpuColors[0],gpuColors[1],gpuColors[2],gpuColors[3]],label:'Σ₀'}],
+        [{type:'sum',colors:[gpuColors[0],gpuColors[1],gpuColors[2],gpuColors[3]],label:'Σ₁'}],
+        [{type:'sum',colors:[gpuColors[0],gpuColors[1],gpuColors[2],gpuColors[3]],label:'Σ₂'}],
+        [{type:'sum',colors:[gpuColors[0],gpuColors[1],gpuColors[2],gpuColors[3]],label:'Σ₃'}]
+      ],
+      explain: `<strong style="color:#667eea;">ReduceScatter</strong>: 每个 GPU 的完整数据先规约, 然后结果<strong>分片分发</strong>, 每个 GPU 只保留 1/N。<br>
+        <strong>用途:</strong> FSDP backward 时将梯度规约并分片 — 每个 GPU 只需保存自己负责的 1/N 梯度。<br>
+        <strong>通信量 (per GPU):</strong> M × (N-1)/N<br>
+        <strong>结果:</strong> GPU i 持有所有 GPU 第 i 个分片的 sum (如 GPU 0 持有 A₀+B₀+C₀+D₀)<br>
+        <strong>关系:</strong> AllReduce = ReduceScatter + AllGather`
+    }
+  };
+
+  function render(primitiveName) {
+    const p = primitives[primitiveName];
+    // Update button highlights
+    document.querySelectorAll('[id^="nccl-btn-"]').forEach(btn => btn.style.opacity = '0.5');
+    const activeBtn = document.getElementById('nccl-btn-' + primitiveName);
+    if (activeBtn) activeBtn.style.opacity = '1';
+
+    // Render before
+    const beforeEl = document.getElementById('nccl-before');
+    beforeEl.innerHTML = p.before.map((blocks, i) => makeGpuBox(i, blocks, true)).join('');
+
+    // Render after
+    const afterEl = document.getElementById('nccl-after');
+    afterEl.innerHTML = p.after.map((blocks, i) => makeGpuBox(i, blocks, true)).join('');
+
+    // Explanation
+    document.getElementById('nccl-explanation').innerHTML = p.explain;
+  }
+
+  return {
+    show(name) { render(name); }
+  };
+})();
+// Initialize with Broadcast
+ncclDemo.show('broadcast');
+
+// ============ Initialize on load ============
+document.addEventListener('DOMContentLoaded', () => {
+  // Trigger visibility for cards already in viewport
+  document.querySelectorAll('.card').forEach(card => {
+    const rect = card.getBoundingClientRect();
+    if (rect.top < window.innerHeight) {
+      card.classList.add('visible');
+    }
+  });
+
+  // Re-initialize animations after DOM is ready
+  ppReset();
+  dpReset();
+  tpReset();
+});
+</script>
+
+</body>
+</html>
