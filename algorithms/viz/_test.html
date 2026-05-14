@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Sanity Test</title>
+<style>
+body { font-family:system-ui; padding:20px; }
+button { padding:10px 20px; font-size:16px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer; }
+#out { margin-top:20px; padding:14px; background:#f3f4f6; border-radius:6px; font-family:monospace; min-height:60px; }
+</style></head>
+<body>
+<h2>Arkive iframe 探针</h2>
+<p>如果点击按钮看到 ↓ 的数字 +1，说明 iframe 能跑 JS。</p>
+<button onclick="bump()">点我 +1</button>
+<button onclick="auto()">自动跑</button>
+<button onclick="info()">环境信息</button>
+<div id="out">未点击</div>
+<script>
+let n = 0;
+function bump() { n++; document.getElementById('out').textContent = 'click count: ' + n + ' at ' + new Date().toLocaleTimeString(); }
+function auto() {
+  let i = 0;
+  const t = setInterval(() => {
+    i++;
+    document.getElementById('out').textContent = 'auto tick #' + i;
+    if (i >= 5) clearInterval(t);
+  }, 500);
+}
+function info() {
+  const ua = navigator.userAgent.slice(0,80);
+  const w = window.innerWidth + 'x' + window.innerHeight;
+  document.getElementById('out').innerHTML = 'UA: ' + ua + '<br>iframe size: ' + w + '<br>document ready state: ' + document.readyState;
+}
+document.getElementById('out').textContent = '✓ 脚本加载成功，请点按钮';
+</script>
+</body>
+</html>

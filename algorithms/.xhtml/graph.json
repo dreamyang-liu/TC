@@ -5,8 +5,8 @@
       "id": "node-1778661163412-r92m6e",
       "type": "shape",
       "position": {
-        "x": -819.2304718857696,
-        "y": 173.76860213846453
+        "x": -947.8765516912154,
+        "y": 284.2343791907632
       },
       "size": {
         "width": 90,
@@ -19,8 +19,8 @@
       "id": "node-1778661163412-sq2won",
       "type": "shape",
       "position": {
-        "x": -156.15560947190951,
-        "y": -369.5285382793585
+        "x": -315.5553454411704,
+        "y": -409.55524545313045
       },
       "size": {
         "width": 102,
@@ -33,8 +33,8 @@
       "id": "node-1778661163412-uwrfzt",
       "type": "shape",
       "position": {
-        "x": 1304.4385841276217,
-        "y": -1256.477050526899
+        "x": 1323.8170975999071,
+        "y": -1349.0314112963829
       },
       "size": {
         "width": 90,
@@ -47,8 +47,8 @@
       "id": "node-1778661163412-va6cv0",
       "type": "shape",
       "position": {
-        "x": 1007.5194893355576,
-        "y": -567.2282626606204
+        "x": 1032.535378580046,
+        "y": -557.4645512243129
       },
       "size": {
         "width": 90,
@@ -61,8 +61,8 @@
       "id": "node-1778661163412-btw1lu",
       "type": "shape",
       "position": {
-        "x": 617.949816729986,
-        "y": -185.57650496420223
+        "x": 636.957529717057,
+        "y": -137.50558669696846
       },
       "size": {
         "width": 93,
@@ -75,8 +75,8 @@
       "id": "node-1778661163412-xvsf03",
       "type": "shape",
       "position": {
-        "x": 1131.061298246164,
-        "y": -938.0448226497602
+        "x": 1136.3500639054932,
+        "y": -951.3197110154549
       },
       "size": {
         "width": 90,
@@ -89,8 +89,8 @@
       "id": "node-1778661163412-ijat2n",
       "type": "shape",
       "position": {
-        "x": -202.86077552926778,
-        "y": -709.4105443776433
+        "x": -499.06850766690553,
+        "y": -796.4128995722446
       },
       "size": {
         "width": 90,
@@ -103,8 +103,8 @@
       "id": "node-1778661163412-vj9fpp",
       "type": "shape",
       "position": {
-        "x": 1145.8662150198613,
-        "y": -216.76751024461015
+        "x": 1275.337537686652,
+        "y": -134.7092435445876
       },
       "size": {
         "width": 90,
@@ -117,8 +117,8 @@
       "id": "node-1778661163412-bcmyk9",
       "type": "shape",
       "position": {
-        "x": -879.9942986903443,
-        "y": -127.68948514636419
+        "x": -1070.9717416123585,
+        "y": -46.903690939571376
       },
       "size": {
         "width": 90,
@@ -131,8 +131,8 @@
       "id": "node-1778661163412-1d7tao",
       "type": "shape",
       "position": {
-        "x": 216.70159715112294,
-        "y": -805.662358952719
+        "x": 154.09295958066897,
+        "y": -880.2505460464232
       },
       "size": {
         "width": 102,
@@ -145,8 +145,8 @@
       "id": "node-1778661163412-i4h8ld",
       "type": "shape",
       "position": {
-        "x": 807.4668799338295,
-        "y": 67.54946460551693
+        "x": 781.2195886142969,
+        "y": 182.8181346883017
       },
       "size": {
         "width": 90,
@@ -159,8 +159,8 @@
       "id": "node-1778661163412-p2t6h0",
       "type": "shape",
       "position": {
-        "x": 877.4656236087257,
-        "y": -577.4719764653233
+        "x": 889.0768050960955,
+        "y": -583.1877676420005
       },
       "size": {
         "width": 90,
@@ -173,8 +173,8 @@
       "id": "node-1778661163412-lpyoka",
       "type": "shape",
       "position": {
-        "x": 1418.584699456881,
-        "y": -1140.418577389492
+        "x": 1469.9752717417923,
+        "y": -1084.7279550957294
       },
       "size": {
         "width": 102,
@@ -187,8 +187,8 @@
       "id": "node-1778661163412-y3oswc",
       "type": "shape",
       "position": {
-        "x": -1241.229420797243,
-        "y": -244.29011204384724
+        "x": -1438.0672556231214,
+        "y": -130.53387409250314
       },
       "size": {
         "width": 90,
@@ -201,8 +201,8 @@
       "id": "node-1778661416615-b2x2ln",
       "type": "shape",
       "position": {
-        "x": -1232.262130774298,
-        "y": 154.389237050779
+        "x": -1356.3064780106731,
+        "y": 293.4350161379676
       },
       "size": {
         "width": 140,
@@ -215,8 +215,8 @@
       "id": "node-trie-1778700000000",
       "type": "shape",
       "position": {
-        "x": 1486.0483362348298,
-        "y": -90.18182833279374
+        "x": 1665.6272074442222,
+        "y": 74.58936794291279
       },
       "size": {
         "width": 90,
@@ -229,8 +229,8 @@
       "id": "node-dijkstra-1778700000001",
       "type": "shape",
       "position": {
-        "x": -1160.2124164117677,
-        "y": -385.341197923746
+        "x": -1460.1809861349388,
+        "y": -351.3523068083736
       },
       "size": {
         "width": 90,
@@ -243,8 +243,8 @@
       "id": "node-1778663261775-j01n2z",
       "type": "markdown",
       "position": {
-        "x": 480.3920119970789,
-        "y": -397.5577633633195
+        "x": 404.8390083680024,
+        "y": -107.87329276712502
       },
       "size": {
         "width": 160,
@@ -257,8 +257,8 @@
       "id": "node-md-hash-table",
       "type": "markdown",
       "position": {
-        "x": -1065.403456536129,
-        "y": 48.427478745668154
+        "x": -1208.6969466158207,
+        "y": 170.79040158218828
       },
       "size": {
         "width": 160,
@@ -271,8 +271,8 @@
       "id": "node-md-two-pointers",
       "type": "markdown",
       "position": {
-        "x": -418.11759721613714,
-        "y": -416.7947736203661
+        "x": -572.4146139759921,
+        "y": -393.3435812553852
       },
       "size": {
         "width": 160,
@@ -285,8 +285,8 @@
       "id": "node-md-sliding-window",
       "type": "markdown",
       "position": {
-        "x": -314.31132483507014,
-        "y": -587.7458128491414
+        "x": -527.784748284716,
+        "y": -587.7202242709883
       },
       "size": {
         "width": 160,
@@ -299,8 +299,8 @@
       "id": "node-md-binary-search",
       "type": "markdown",
       "position": {
-        "x": 1429.5950990922486,
-        "y": -1522.5857234857822
+        "x": 1559.1649927185204,
+        "y": -1505.1550709681007
       },
       "size": {
         "width": 160,
@@ -313,8 +313,8 @@
       "id": "node-md-tree-traversal",
       "type": "markdown",
       "position": {
-        "x": 1020.1117731632464,
-        "y": -435.4872910887942
+        "x": 1221.0353495183238,
+        "y": -377.07204764625845
       },
       "size": {
         "width": 160,
@@ -327,8 +327,8 @@
       "id": "node-md-dp",
       "type": "markdown",
       "position": {
-        "x": 1144.8939601104003,
-        "y": -1214.399586879623
+        "x": 1319.066651080421,
+        "y": -1158.6420887432935
       },
       "size": {
         "width": 160,
@@ -341,8 +341,8 @@
       "id": "node-md-linked-list",
       "type": "markdown",
       "position": {
-        "x": -342.5208504780533,
-        "y": -961.0797314673515
+        "x": -483.3384693637482,
+        "y": -1074.5564245240946
       },
       "size": {
         "width": 160,
@@ -355,8 +355,8 @@
       "id": "node-md-backtracking",
       "type": "markdown",
       "position": {
-        "x": 1337.3869412661466,
-        "y": -18.594192208411478
+        "x": 1428.7946622390818,
+        "y": 94.9666350944019
       },
       "size": {
         "width": 160,
@@ -369,8 +369,8 @@
       "id": "node-md-heap",
       "type": "markdown",
       "position": {
-        "x": -995.4828647398054,
-        "y": -375.8979566449581
+        "x": -1246.7528731944499,
+        "y": -276.86769100619193
       },
       "size": {
         "width": 160,
@@ -383,8 +383,8 @@
       "id": "node-md-mono-stack",
       "type": "markdown",
       "position": {
-        "x": 253.75547231874543,
-        "y": -1082.3953389789137
+        "x": 319.4434236130366,
+        "y": -1076.3170725892435
       },
       "size": {
         "width": 160,
@@ -397,8 +397,8 @@
       "id": "node-md-mono-queue",
       "type": "markdown",
       "position": {
-        "x": 58.92191555526718,
-        "y": -1037.230251148378
+        "x": 147.25907060899542,
+        "y": -1171.4319249368032
       },
       "size": {
         "width": 160,
@@ -411,8 +411,8 @@
       "id": "node-md-union-find",
       "type": "markdown",
       "position": {
-        "x": 984.8639451709657,
-        "y": 286.8148580099741
+        "x": 905.824648105336,
+        "y": 427.0133731588974
       },
       "size": {
         "width": 160,
@@ -425,8 +425,8 @@
       "id": "node-md-topo",
       "type": "markdown",
       "position": {
-        "x": 1125.7019048980433,
-        "y": -682.3712572834894
+        "x": 1017.8534620598928,
+        "y": -812.416211184299
       },
       "size": {
         "width": 160,
@@ -439,8 +439,8 @@
       "id": "node-md-interval-dp",
       "type": "markdown",
       "position": {
-        "x": 1656.642519151866,
-        "y": -1313.5000246597353
+        "x": 1708.8071332224563,
+        "y": -1235.4808834838989
       },
       "size": {
         "width": 160,
@@ -453,8 +453,8 @@
       "id": "node-md-quickselect",
       "type": "markdown",
       "position": {
-        "x": -1524.989637822319,
-        "y": -339.69748016179074
+        "x": -1720.5244149625094,
+        "y": -170.90830840392073
       },
       "size": {
         "width": 160,
@@ -467,8 +467,8 @@
       "id": "node-md-diff-array",
       "type": "markdown",
       "position": {
-        "x": -1532.087607482139,
-        "y": 164.60794762969329
+        "x": -1642.6893912024752,
+        "y": 323.247457130221
       },
       "size": {
         "width": 160,
@@ -481,8 +481,8 @@
       "id": "node-md-trie",
       "type": "markdown",
       "position": {
-        "x": 1748.6784227519956,
-        "y": 29.206705207550755
+        "x": 1829.2385417534942,
+        "y": 298.79505023565326
       },
       "size": {
         "width": 160,
@@ -495,8 +495,8 @@
       "id": "node-md-dijkstra",
       "type": "markdown",
       "position": {
-        "x": -1380.4029527072523,
-        "y": -583.006093338573
+        "x": -1742.6380347276074,
+        "y": -389.32708256709765
       },
       "size": {
         "width": 160,
@@ -509,8 +509,8 @@
       "id": "node-1778664894644-jorot0",
       "type": "shape",
       "position": {
-        "x": -392.5638197196376,
-        "y": 241.41967693059382
+        "x": -526.0741376309556,
+        "y": 350.4879248416869
       },
       "size": {
         "width": 140,
@@ -522,8 +522,8 @@
       "id": "node-1778664929279-1zp7kx",
       "type": "markdown",
       "position": {
-        "x": 138.94932024597858,
-        "y": 495.94202419902757
+        "x": -10.253288930035662,
+        "y": 580.5439155314859
       },
       "size": {
         "width": 160,
@@ -536,8 +536,8 @@
       "id": "hub-company",
       "type": "shape",
       "position": {
-        "x": -130.63630290482905,
-        "y": 492.22041140019576
+        "x": -276.46665428882557,
+        "y": 570.1269704030461
       },
       "size": {
         "width": 160,
@@ -550,8 +550,8 @@
       "id": "md-openai",
       "type": "markdown",
       "position": {
-        "x": -108.18949156354542,
-        "y": 763.1543397779227
+        "x": -263.14612629357305,
+        "y": 839.295737249175
       },
       "size": {
         "width": 160,
@@ -564,8 +564,8 @@
       "id": "md-anthropic",
       "type": "markdown",
       "position": {
-        "x": 76.27177818665918,
-        "y": 685.862425828496
+        "x": -76.19774020249622,
+        "y": 768.2302680796762
       },
       "size": {
         "width": 160,
@@ -578,8 +578,8 @@
       "id": "hub-playbook",
       "type": "shape",
       "position": {
-        "x": -906.8545618403975,
-        "y": 454.5997003628106
+        "x": -1015.1925635138172,
+        "y": 576.2286895518262
       },
       "size": {
         "width": 140,
@@ -592,8 +592,8 @@
       "id": "md-pb-umpire",
       "type": "markdown",
       "position": {
-        "x": -820.4352706661101,
-        "y": 696.1001911788019
+        "x": -939.7528256740901,
+        "y": 825.2776229135737
       },
       "size": {
         "width": 160,
@@ -606,8 +606,8 @@
       "id": "md-pb-clarifying",
       "type": "markdown",
       "position": {
-        "x": -1067.1523695234441,
-        "y": 248.40969162824655
+        "x": -1183.375601591875,
+        "y": 374.74307425290544
       },
       "size": {
         "width": 160,
@@ -620,8 +620,8 @@
       "id": "md-pb-edge-cases",
       "type": "markdown",
       "position": {
-        "x": -1198.3097890978743,
-        "y": 399.37603990900544
+        "x": -1305.9994956230664,
+        "y": 525.5315654433118
       },
       "size": {
         "width": 160,
@@ -634,8 +634,8 @@
       "id": "md-pb-complexity",
       "type": "markdown",
       "position": {
-        "x": -1180.688802009297,
-        "y": 598.5830395034467
+        "x": -1291.1685642449374,
+        "y": 719.7903924224566
       },
       "size": {
         "width": 160,
@@ -648,8 +648,8 @@
       "id": "md-pb-concurrency",
       "type": "markdown",
       "position": {
-        "x": -1019.3468762934706,
-        "y": 716.7726456721197
+        "x": -1133.3682604773094,
+        "y": 842.6685456350439
       },
       "size": {
         "width": 160,
@@ -662,8 +662,8 @@
       "id": "hub-syscoding",
       "type": "shape",
       "position": {
-        "x": -578.343209932227,
-        "y": 1137.2812842327553
+        "x": -703.406172935023,
+        "y": 1360.5451989806722
       },
       "size": {
         "width": 180,
@@ -676,8 +676,8 @@
       "id": "md-sc-web-crawler",
       "type": "markdown",
       "position": {
-        "x": -717.0689850196788,
-        "y": 939.6829656293305
+        "x": -822.9309839973744,
+        "y": 1126.6807339610898
       },
       "size": {
         "width": 160,
@@ -690,8 +690,8 @@
       "id": "md-sc-lru-cache",
       "type": "markdown",
       "position": {
-        "x": -900.5403539975209,
-        "y": 1019.3341213545924
+        "x": -959.084808278246,
+        "y": 1248.4528936626816
       },
       "size": {
         "width": 160,
@@ -704,8 +704,8 @@
       "id": "md-sc-lfu-cache",
       "type": "markdown",
       "position": {
-        "x": -450.0237485094364,
-        "y": 937.0319641750157
+        "x": -634.5596130063549,
+        "y": 1111.7082747956151
       },
       "size": {
         "width": 160,
@@ -718,8 +718,8 @@
       "id": "md-sc-stack-trace",
       "type": "markdown",
       "position": {
-        "x": -981.8339967311878,
-        "y": 1207.2495616042195
+        "x": -1046.0523755352144,
+        "y": 1419.0241146727544
       },
       "size": {
         "width": 160,
@@ -732,8 +732,8 @@
       "id": "md-sc-tokenizer",
       "type": "markdown",
       "position": {
-        "x": -783.5407482776576,
-        "y": 1181.4731584117017
+        "x": -846.4975308850245,
+        "y": 1479.010432053966
       },
       "size": {
         "width": 160,
@@ -746,8 +746,8 @@
       "id": "md-sc-distributed-mode",
       "type": "markdown",
       "position": {
-        "x": -329.51816532924835,
-        "y": 1096.6252332510292
+        "x": -481.6848244235942,
+        "y": 1227.2296246940305
       },
       "size": {
         "width": 160,
@@ -760,8 +760,8 @@
       "id": "md-sc-kv-serializer",
       "type": "markdown",
       "position": {
-        "x": -860.4090730502951,
-        "y": 1366.199364607215
+        "x": -1002.5943107888759,
+        "y": 1619.6053108639642
       },
       "size": {
         "width": 160,
@@ -774,8 +774,8 @@
       "id": "md-sc-time-kv-store",
       "type": "markdown",
       "position": {
-        "x": -662.1743105117633,
-        "y": 1340.272141864197
+        "x": -842.6792130658573,
+        "y": 1704.4417094297005
       },
       "size": {
         "width": 160,
@@ -788,8 +788,8 @@
       "id": "md-sc-resumable-iterator",
       "type": "markdown",
       "position": {
-        "x": -265.9234493022009,
-        "y": 1286.2559920826416
+        "x": -344.8354123073238,
+        "y": 1379.9219063408377
       },
       "size": {
         "width": 160,
@@ -802,8 +802,8 @@
       "id": "md-sc-spreadsheet",
       "type": "markdown",
       "position": {
-        "x": -738.7221438723404,
-        "y": 1525.0256669958674
+        "x": -641.0241087267893,
+        "y": 1766.2049705404636
       },
       "size": {
         "width": 160,
@@ -816,8 +816,8 @@
       "id": "md-sc-unix-cd",
       "type": "markdown",
       "position": {
-        "x": -539.8055259421741,
-        "y": 1498.5832279418353
+        "x": -686.5542304684147,
+        "y": 1568.4557352922036
       },
       "size": {
         "width": 160,
@@ -830,8 +830,8 @@
       "id": "md-sc-sql-engine",
       "type": "markdown",
       "position": {
-        "x": -464.12573638053595,
-        "y": 1313.3889241642855
+        "x": -518.2743808467031,
+        "y": 1444.7166964448536
       },
       "size": {
         "width": 160,
@@ -844,8 +844,8 @@
       "id": "md-sc-rate-limiter",
       "type": "markdown",
       "position": {
-        "x": -341.6009533044684,
-        "y": 1471.4638352330103
+        "x": -483.3390319481227,
+        "y": 1641.6320485672695
       },
       "size": {
         "width": 160,
@@ -858,8 +858,8 @@
       "id": "node-greedy",
       "type": "shape",
       "position": {
-        "x": 1315.1395127028215,
-        "y": -586.2664435856422
+        "x": 1331.696020125275,
+        "y": -574.5115767012574
       },
       "size": {
         "width": 90,
@@ -872,8 +872,8 @@
       "id": "md-greedy",
       "type": "markdown",
       "position": {
-        "x": 1601.166890457295,
-        "y": -562.6956364058673
+        "x": 1618.9856531129467,
+        "y": -581.4672793588779
       },
       "size": {
         "width": 160,
@@ -886,8 +886,8 @@
       "id": "node-tree-dp",
       "type": "shape",
       "position": {
-        "x": 1357.263318919835,
-        "y": -777.5749449236658
+        "x": 1352.6591128478337,
+        "y": -765.2776881702124
       },
       "size": {
         "width": 90,
@@ -900,8 +900,8 @@
       "id": "md-tree-dp",
       "type": "markdown",
       "position": {
-        "x": 1634.9831364429408,
-        "y": -859.3744358872641
+        "x": 1631.7665864828582,
+        "y": -847.1710177005173
       },
       "size": {
         "width": 160,
@@ -914,8 +914,8 @@
       "id": "node-bit",
       "type": "shape",
       "position": {
-        "x": 685.5453537217456,
-        "y": -994.1289221563866
+        "x": 652.4320458956422,
+        "y": -1012.1485296087744
       },
       "size": {
         "width": 90,
@@ -928,8 +928,8 @@
       "id": "md-bit",
       "type": "markdown",
       "position": {
-        "x": 664.6087775562033,
-        "y": -1276.186266207918
+        "x": 642.9365330715609,
+        "y": -1298.080931248944
       },
       "size": {
         "width": 160,
@@ -942,8 +942,8 @@
       "id": "viz-binary-search",
       "type": "html",
       "position": {
-        "x": 1224.4385841276217,
-        "y": -1386.477050526899
+        "x": 1353.655516134821,
+        "y": -1629.1141541443096
       },
       "size": {
         "width": 240,
@@ -956,22 +956,23 @@
       "id": "viz-sliding-window",
       "type": "html",
       "position": {
-        "x": -236.15560947190951,
-        "y": -499.5285382793585
+        "x": -303.3900479423368,
+        "y": -672.8496252752508
       },
       "size": {
         "width": 240,
         "height": 140
       },
       "filePath": "viz/sliding-window.html",
+      "content": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"UTF-8\">\n<title>滑动窗口 · 看一次就懂</title>\n<style>\n  * { box-sizing: border-box; margin: 0; padding: 0; }\n  body { font-family: -apple-system, \"PingFang SC\", system-ui, sans-serif; background: linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }\n  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }\n  h1 { font-size:26px; margin-bottom:8px; }\n  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }\n  .insight { background:#dbeafe; border-left:4px solid #3b82f6; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }\n  .insight strong { color:#1e40af; }\n\n  /* String viz */\n  .str-row { display:flex; gap:4px; justify-content:center; margin:40px 0 16px; flex-wrap:wrap; }\n  .ch {\n    width:44px; height:44px; border-radius:8px; background:#f3f4f6;\n    display:flex; align-items:center; justify-content:center;\n    font-size:18px; font-weight:600; font-family:ui-monospace,monospace;\n    transition:all 0.4s cubic-bezier(.4,0,.2,1); position:relative;\n  }\n  .ch.in-window { background:#bfdbfe; color:#1e3a8a; }\n  .ch.duplicate { background:#fecaca; color:#7f1d1d; }\n  .ch.left-ptr { box-shadow: 0 0 0 3px #2563eb; }\n  .ch.right-ptr { box-shadow: 0 0 0 3px #db2777; }\n  .ch.both-ptr { box-shadow: 0 0 0 3px #7c3aed; }\n  .idx-row { display:flex; gap:4px; justify-content:center; color:#9ca3af; font-size:11px; margin-bottom:14px; }\n  .idx { width:44px; text-align:center; }\n  .ptr-labels { display:flex; gap:24px; justify-content:center; margin:14px 0; font-size:13px; font-weight:600; }\n  .pl { display:flex; align-items:center; gap:6px; }\n  .dot { width:10px; height:10px; border-radius:50%; }\n\n  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }\n  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }\n  .narrate { color:#4b5563; min-height:24px; }\n  .vars { display:flex; gap:20px; margin-top:10px; font-family:ui-monospace,monospace; flex-wrap:wrap; }\n  .var-box { display:flex; align-items:center; gap:6px; }\n  .var-label { color:#6b7280; font-size:12px; }\n  .var-val { background:#1f2937; color:#fff; padding:2px 10px; border-radius:4px; font-size:13px; min-width:30px; text-align:center; }\n  .var-val.left { background:#2563eb; }\n  .var-val.right { background:#db2777; }\n  .var-val.ans { background:#10b981; }\n\n  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }\n  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }\n  button:hover { background:#2563eb; transform:translateY(-1px); }\n  button:disabled { background:#d1d5db; cursor:not-allowed; transform:none; }\n\n  /* Window highlight bar */\n  .window-bar {\n    position:relative; height:8px; margin-top:6px;\n    display:flex; gap:4px; justify-content:center;\n  }\n  .wb-slot { width:44px; height:100%; }\n  .wb-active {\n    background: linear-gradient(90deg,#3b82f6 0%,#8b5cf6 100%);\n    border-radius:4px; height:100%;\n    transition: all 0.4s cubic-bezier(.4,0,.2,1);\n  }\n\n  .code { background:#1e293b; border-radius:10px; padding:20px 24px; margin-top:24px; font-family:ui-monospace,monospace; font-size:13px; line-height:1.8; color:#cbd5e1; overflow-x:auto; }\n  .code .line { padding:0 8px; border-radius:4px; transition:all 0.3s; }\n  .code .line.active { background:#fbbf2444; color:white; }\n  .code .kw { color:#ec4899; } .code .var { color:#38bdf8; } .code .num { color:#f59e0b; } .code .cmt { color:#64748b; font-style:italic; } .code .str { color:#86efac; }\n</style>\n</head>\n<body>\n<div class=\"card\">\n  <h1>🪟 滑动窗口 · 看一次就懂</h1>\n  <p class=\"subtitle\">求最长无重复子串：<code style=\"background:#1f2937;color:#86efac;padding:2px 8px;border-radius:4px;\">abcabcbb</code></p>\n\n  <div class=\"insight\">\n    <strong>核心 AHA</strong>：右指针管 <strong>扩张</strong>（每轮 +1），左指针只在 <strong>不合法时</strong> 才动。\n    窗口里的每个字符**最多被左指针扫过一次** → 整体 O(n)。\n  </div>\n\n  <div class=\"idx-row\" id=\"idxRow\"></div>\n  <div class=\"str-row\" id=\"strRow\"></div>\n  <div class=\"window-bar\" id=\"winBar\"></div>\n\n  <div class=\"ptr-labels\">\n    <div class=\"pl\"><span class=\"dot\" style=\"background:#2563eb\"></span>left (收缩端)</div>\n    <div class=\"pl\"><span class=\"dot\" style=\"background:#db2777\"></span>right (扩张端)</div>\n    <div class=\"pl\"><span class=\"dot\" style=\"background:#fecaca\"></span>重复字符</div>\n  </div>\n\n  <div class=\"status\">\n    <div class=\"narrate\" id=\"narrate\">点 \"下一步\" 开始</div>\n    <div class=\"vars\">\n      <div class=\"var-box\"><span class=\"var-label\">left</span><span class=\"var-val left\" id=\"vL\">0</span></div>\n      <div class=\"var-box\"><span class=\"var-label\">right</span><span class=\"var-val right\" id=\"vR\">-</span></div>\n      <div class=\"var-box\"><span class=\"var-label\">window</span><span class=\"var-val\" id=\"vW\">\"\"</span></div>\n      <div class=\"var-box\"><span class=\"var-label\">最长</span><span class=\"var-val ans\" id=\"vA\">0</span></div>\n    </div>\n  </div>\n\n  <div class=\"controls\">\n    <button onclick=\"reset()\">⟲ 重置</button>\n    <button onclick=\"step()\" id=\"stepBtn\">下一步 →</button>\n    <button onclick=\"autoPlay()\" id=\"playBtn\">▶ 自动播放</button>\n  </div>\n\n  <pre class=\"code\"><span class=\"line\" data-l=\"1\"><span class=\"kw\">def</span> <span class=\"var\">longest_unique</span>(s):</span>\n<span class=\"line\" data-l=\"2\">    window = {}; left = <span class=\"num\">0</span>; ans = <span class=\"num\">0</span></span>\n<span class=\"line\" data-l=\"3\">    <span class=\"kw\">for</span> right, c <span class=\"kw\">in</span> enumerate(s):</span>\n<span class=\"line\" data-l=\"4\">        window[c] = window.get(c, <span class=\"num\">0</span>) + <span class=\"num\">1</span>  <span class=\"cmt\"># 1) 扩张</span></span>\n<span class=\"line\" data-l=\"5\">        <span class=\"kw\">while</span> window[c] &gt; <span class=\"num\">1</span>:                <span class=\"cmt\"># 2) 不合法 → 收缩</span></span>\n<span class=\"line\" data-l=\"6\">            window[s[left]] -= <span class=\"num\">1</span></span>\n<span class=\"line\" data-l=\"7\">            left += <span class=\"num\">1</span></span>\n<span class=\"line\" data-l=\"8\">        ans = max(ans, right - left + <span class=\"num\">1</span>) <span class=\"cmt\"># 3) 更新答案</span></span>\n<span class=\"line\" data-l=\"9\">    <span class=\"kw\">return</span> ans</span>\n  </pre>\n</div>\n\n<script>\nconst s = \"abcabcbb\";\nlet left = 0, right = -1, ans = 0, window = {}, done = false, phase = 'expand';\nlet autoTimer = null;\n\nfunction render(highlightDup = null) {\n  document.getElementById('idxRow').innerHTML = [...s].map((_,i) => `<div class=\"idx\">${i}</div>`).join('');\n  document.getElementById('strRow').innerHTML = [...s].map((c,i) => {\n    let cls = 'ch';\n    if (i >= left && i <= right) cls += ' in-window';\n    if (i === highlightDup) cls += ' duplicate';\n    if (i === left && i === right) cls += ' both-ptr';\n    else if (i === left) cls += ' left-ptr';\n    else if (i === right) cls += ' right-ptr';\n    return `<div class=\"${cls}\">${c}</div>`;\n  }).join('');\n\n  // Window bar\n  const slots = [...s].map((_,i) => {\n    if (i >= left && i <= right) return `<div class=\"wb-slot\"><div class=\"wb-active\"></div></div>`;\n    return `<div class=\"wb-slot\"></div>`;\n  });\n  document.getElementById('winBar').innerHTML = slots.join('');\n\n  document.getElementById('vL').textContent = left;\n  document.getElementById('vR').textContent = right < 0 ? '-' : right;\n  const winStr = right < 0 ? '\"\"' : '\"' + s.slice(left, right+1) + '\"';\n  document.getElementById('vW').textContent = winStr;\n  document.getElementById('vA').textContent = ans;\n}\n\nfunction highlight(n) {\n  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));\n  const el = document.querySelector(`.code .line[data-l=\"${n}\"]`);\n  if (el) el.classList.add('active');\n}\n\nfunction step() {\n  if (done) return;\n  if (phase === 'expand') {\n    right++;\n    if (right >= s.length) {\n      done = true;\n      highlight(9);\n      document.getElementById('narrate').innerHTML = `遍历完成 ✅ 最长无重复子串长度 = <code>${ans}</code>`;\n      render();\n      return;\n    }\n    const c = s[right];\n    window[c] = (window[c]||0) + 1;\n    highlight(4);\n    document.getElementById('narrate').innerHTML = `右指针扩张到 ${right}，加入字符 <code>${c}</code>。window[<code>${c}</code>] = ${window[c]}`;\n    if (window[c] > 1) {\n      phase = 'shrink';\n    } else {\n      phase = 'update';\n    }\n    render();\n  } else if (phase === 'shrink') {\n    const c = s[right];\n    if (window[c] > 1) {\n      highlight(5);\n      // show which char is the duplicate (find earlier occurrence)\n      const dupIdx = s.slice(left, right).indexOf(c) + left;\n      document.getElementById('narrate').innerHTML = `<code>${c}</code> 在窗口里重复了（位置 ${dupIdx}），left 要往右移直到把它移出去`;\n      render(dupIdx);\n      phase = 'shrink-move';\n    } else {\n      phase = 'update';\n      step();\n    }\n  } else if (phase === 'shrink-move') {\n    const c = s[right];\n    if (window[c] > 1) {\n      highlight(6);\n      window[s[left]] -= 1;\n      document.getElementById('narrate').innerHTML = `踢出 <code>${s[left]}</code>，left += 1 → ${left+1}`;\n      left++;\n      render();\n      phase = 'shrink';\n    } else {\n      phase = 'update';\n      step();\n    }\n  } else if (phase === 'update') {\n    highlight(8);\n    const len = right - left + 1;\n    const old = ans;\n    ans = Math.max(ans, len);\n    document.getElementById('narrate').innerHTML =\n      `窗口 [<code>${left}</code>, <code>${right}</code>] 合法，长度 ${len}。ans = max(${old}, ${len}) = <code>${ans}</code>`;\n    phase = 'expand';\n    render();\n  }\n}\n\nfunction reset() {\n  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }\n  left=0; right=-1; ans=0; window={}; done=false; phase='expand';\n  document.getElementById('narrate').innerHTML = '点 \"下一步\" 开始。观察 left 何时移动。';\n  render();\n}\nfunction autoPlay() {\n  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }\n  document.getElementById('playBtn').textContent='⏸ 暂停';\n  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 700);\n}\nreset();\n</script>\n</body>\n</html>\n",
       "label": "🎬 sliding-window"
     },
     {
       "id": "viz-monotonic-stack",
       "type": "html",
       "position": {
-        "x": 136.70159715112294,
-        "y": -935.662358952719
+        "x": -60.557147657834356,
+        "y": -1051.380506994883
       },
       "size": {
         "width": 240,
@@ -984,8 +985,8 @@
       "id": "viz-bfs",
       "type": "html",
       "position": {
-        "x": 537.949816729986,
-        "y": -315.57650496420223
+        "x": 561.5457469598008,
+        "y": -383.10218534184537
       },
       "size": {
         "width": 240,
@@ -998,22 +999,23 @@
       "id": "viz-backtracking",
       "type": "html",
       "position": {
-        "x": 1065.8662150198613,
-        "y": -346.76751024461015
+        "x": 1547.2979443514564,
+        "y": -113.73615669073223
       },
       "size": {
         "width": 240,
         "height": 140
       },
       "filePath": "viz/backtracking.html",
+      "content": "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n<meta charset=\"UTF-8\">\n<title>回溯 · 决策树 DFS</title>\n<style>\n  * { box-sizing: border-box; margin: 0; padding: 0; }\n  body { font-family:-apple-system,\"PingFang SC\",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }\n  .card { max-width:1000px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }\n  h1 { font-size:26px; margin-bottom:8px; }\n  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }\n  .insight { background:#ede9fe; border-left:4px solid #8b5cf6; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }\n  .insight strong { color:#5b21b6; }\n\n  .tree-section { display:flex; justify-content:center; padding:20px; }\n  svg { display:block; }\n  .node-circle {\n    transition: all 0.3s;\n  }\n  .node-circle.visited { fill:#bfdbfe; stroke:#3b82f6; }\n  .node-circle.current { fill:#f59e0b; stroke:#d97706; }\n  .node-circle.leaf-found { fill:#10b981; stroke:#047857; }\n  .node-circle.backtrack { fill:#fecaca; stroke:#dc2626; }\n  .edge { stroke:#d1d5db; stroke-width:2; fill:none; transition: all 0.3s; }\n  .edge.active { stroke:#f59e0b; stroke-width:3; }\n  .edge.path { stroke:#10b981; stroke-width:3; }\n\n  .container { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }\n  .info-section { min-width:280px; }\n  .panel { background:#f9fafb; border-radius:10px; padding:16px 20px; margin-bottom:14px; }\n  .panel .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:8px; }\n  .pill { display:inline-block; background:#3b82f6; color:white; padding:4px 12px; border-radius:6px; margin:2px 4px 2px 0; font-weight:600; }\n  .results { display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; }\n  .result {\n    background:#dcfce7; color:#065f46; padding:6px 12px; border-radius:6px;\n    font-family:ui-monospace,monospace; font-size:13px; font-weight:600;\n    animation: slideIn 0.3s ease;\n  }\n  @keyframes slideIn { from { transform:translateX(-10px); opacity:0; } to { transform:none; opacity:1; } }\n\n  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }\n  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }\n  .narrate { color:#4b5563; min-height:24px; }\n\n  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }\n  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }\n  button:hover { background:#2563eb; transform:translateY(-1px); }\n\n  .code { background:#1e293b; border-radius:10px; padding:20px 24px; margin-top:24px; font-family:ui-monospace,monospace; font-size:13px; line-height:1.8; color:#cbd5e1; overflow-x:auto; }\n  .code .line { padding:0 8px; border-radius:4px; transition:all 0.3s; }\n  .code .line.active { background:#fbbf2444; color:white; }\n  .code .kw { color:#ec4899; } .code .var { color:#38bdf8; } .code .num { color:#f59e0b; } .code .cmt { color:#64748b; font-style:italic; }\n</style>\n</head>\n<body>\n<div class=\"card\">\n  <h1>🌳 回溯 · 决策树 DFS</h1>\n  <p class=\"subtitle\">求 [1,2,3] 的所有子集</p>\n\n  <div class=\"insight\">\n    <strong>核心 AHA</strong>：回溯 = \"<strong>选 → 递归 → 撤销</strong>\" 三件套。\n    每个节点的所有 children 共享同一个 path 变量，做完一个子分支必须把状态<strong>恢复成原样</strong>，\n    才能去走下一个。这就是回溯的\"<strong>撤销</strong>\"。\n  </div>\n\n  <div class=\"container\">\n    <div class=\"tree-section\">\n      <svg id=\"tree\" width=\"600\" height=\"400\" viewBox=\"0 0 600 400\"></svg>\n    </div>\n    <div class=\"info-section\">\n      <div class=\"panel\">\n        <div class=\"label\">当前 path (做过的选择)</div>\n        <div id=\"pathDisplay\">[]</div>\n      </div>\n      <div class=\"panel\">\n        <div class=\"label\">收集的答案</div>\n        <div class=\"results\" id=\"results\"></div>\n      </div>\n    </div>\n  </div>\n\n  <div class=\"status\">\n    <div class=\"narrate\" id=\"narrate\">点 \"下一步\" 开始</div>\n  </div>\n\n  <div class=\"controls\">\n    <button onclick=\"reset()\">⟲ 重置</button>\n    <button onclick=\"step()\" id=\"stepBtn\">下一步 →</button>\n    <button onclick=\"autoPlay()\" id=\"playBtn\">▶ 自动播放</button>\n  </div>\n\n  <pre class=\"code\"><span class=\"line\" data-l=\"1\"><span class=\"kw\">def</span> <span class=\"var\">subsets</span>(nums):</span>\n<span class=\"line\" data-l=\"2\">    ans = []</span>\n<span class=\"line\" data-l=\"3\">    <span class=\"kw\">def</span> <span class=\"var\">dfs</span>(start, path):</span>\n<span class=\"line\" data-l=\"4\">        ans.append(path[:])           <span class=\"cmt\"># 1) 收集</span></span>\n<span class=\"line\" data-l=\"5\">        <span class=\"kw\">for</span> i <span class=\"kw\">in</span> range(start, len(nums)):</span>\n<span class=\"line\" data-l=\"6\">            path.append(nums[i])      <span class=\"cmt\"># 2) 选</span></span>\n<span class=\"line\" data-l=\"7\">            dfs(i + <span class=\"num\">1</span>, path)         <span class=\"cmt\"># 3) 递归</span></span>\n<span class=\"line\" data-l=\"8\">            path.pop()                <span class=\"cmt\"># 4) 撤销 ← 关键！</span></span>\n<span class=\"line\" data-l=\"9\">    dfs(<span class=\"num\">0</span>, [])</span>\n<span class=\"line\" data-l=\"10\">    <span class=\"kw\">return</span> ans</span>\n  </pre>\n</div>\n\n<script>\nconst nums = [1,2,3];\n\n// Build decision tree once\nfunction buildTree() {\n  let id = 0;\n  function build(start, depth, path) {\n    const node = { id: id++, path: [...path], children: [], depth, x:0, y: depth*90 + 30 };\n    for (let i = start; i < nums.length; i++) {\n      path.push(nums[i]);\n      node.children.push(build(i+1, depth+1, path));\n      path.pop();\n    }\n    return node;\n  }\n  return build(0, 0, []);\n}\nconst root = buildTree();\n\n// Compute x positions via leaf order\nlet leafCount = 0;\nfunction layout(node) {\n  if (node.children.length === 0) {\n    node.x = 40 + leafCount * 80;\n    leafCount++;\n    return node.x;\n  }\n  const xs = node.children.map(layout);\n  node.x = (xs[0] + xs[xs.length-1]) / 2;\n  return node.x;\n}\nlayout(root);\n\n// Flatten for lookup\nconst all = [];\nfunction flat(n) { all.push(n); n.children.forEach(flat); }\nflat(root);\nfunction findNode(path) {\n  return all.find(n => n.path.length === path.length && n.path.every((v,i) => v === path[i]));\n}\n\n// Simulate DFS as event sequence\nconst events = [];\nfunction simulate(start, path) {\n  // 1. visit (collect)\n  events.push({ kind:'visit', path:[...path] });\n  for (let i = start; i < nums.length; i++) {\n    events.push({ kind:'choose', from:[...path], val:nums[i] });\n    path.push(nums[i]);\n    simulate(i+1, path);\n    events.push({ kind:'undo', path:[...path], val: path[path.length-1] });\n    path.pop();\n  }\n}\nsimulate(0, []);\n\nlet eventIdx = 0;\nlet visitedSet = new Set();\nlet backtrackSet = new Set();\nlet currentPath = [];\nlet results = [];\nlet activeEdges = new Set();\nlet pathEdges = new Set();\nlet autoTimer = null;\n\nfunction edgeKey(a, b) { return a.id + '-' + b.id; }\n\nfunction render(currentEvent) {\n  const svg = document.getElementById('tree');\n  svg.innerHTML = '';\n  // Draw edges first\n  function drawEdges(n) {\n    for (const c of n.children) {\n      const key = edgeKey(n, c);\n      let cls = 'edge';\n      if (pathEdges.has(key)) cls += ' path';\n      else if (activeEdges.has(key)) cls += ' active';\n      svg.innerHTML += `<line class=\"${cls}\" x1=\"${n.x}\" y1=\"${n.y}\" x2=\"${c.x}\" y2=\"${c.y}\"/>`;\n      drawEdges(c);\n    }\n  }\n  drawEdges(root);\n  // Draw nodes\n  function drawNodes(n) {\n    let cls = 'node-circle';\n    const isRoot = n.depth === 0;\n    const cur = currentEvent && (\n      (currentEvent.kind === 'visit' && JSON.stringify(currentEvent.path) === JSON.stringify(n.path)) ||\n      (currentEvent.kind === 'undo' && JSON.stringify(currentEvent.path) === JSON.stringify(n.path))\n    );\n    if (cur) cls += ' current';\n    else if (backtrackSet.has(n.id)) cls += ' backtrack';\n    else if (visitedSet.has(n.id)) cls += ' visited';\n    const label = n.path.length === 0 ? '[]' : '[' + n.path.join(',') + ']';\n    svg.innerHTML += `<circle class=\"${cls}\" cx=\"${n.x}\" cy=\"${n.y}\" r=\"20\" stroke-width=\"2\" fill=\"white\"/>`;\n    svg.innerHTML += `<text x=\"${n.x}\" y=\"${n.y+4}\" text-anchor=\"middle\" font-size=\"11\" font-weight=\"600\" fill=\"#1f2937\">${label}</text>`;\n    n.children.forEach(drawNodes);\n  }\n  drawNodes(root);\n}\n\nfunction highlight(n) {\n  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));\n  const el = document.querySelector(`.code .line[data-l=\"${n}\"]`);\n  if (el) el.classList.add('active');\n}\n\nfunction step() {\n  if (eventIdx >= events.length) {\n    document.getElementById('narrate').innerHTML = `完成 ✅ 收集了 <strong style=\"color:#10b981\">${results.length}</strong> 个子集`;\n    return;\n  }\n  const ev = events[eventIdx++];\n  if (ev.kind === 'visit') {\n    const node = findNode(ev.path);\n    visitedSet.add(node.id);\n    currentPath = [...ev.path];\n    results.push('[' + ev.path.join(',') + ']');\n    document.getElementById('results').innerHTML = results.map(r => `<div class=\"result\">${r}</div>`).join('');\n    highlight(4);\n    document.getElementById('narrate').innerHTML = `到达节点 <code>[${ev.path.join(',')}]</code> → 收集为答案`;\n    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class=\"pill\">${v}</span>`).join('') || '<span style=\"color:#9ca3af\">空</span>';\n    render(ev);\n  } else if (ev.kind === 'choose') {\n    const fromNode = findNode(ev.from);\n    const toPath = [...ev.from, ev.val];\n    const toNode = findNode(toPath);\n    activeEdges.add(edgeKey(fromNode, toNode));\n    currentPath = toPath;\n    highlight(6);\n    document.getElementById('narrate').innerHTML = `选 <code>${ev.val}</code>，path 变成 <code>[${toPath.join(',')}]</code>`;\n    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class=\"pill\">${v}</span>`).join('');\n    render(ev);\n  } else if (ev.kind === 'undo') {\n    const node = findNode(ev.path);\n    backtrackSet.add(node.id);\n    currentPath = ev.path.slice(0, -1);\n    highlight(8);\n    document.getElementById('narrate').innerHTML = `<strong style=\"color:#dc2626\">撤销</strong>：path.pop() 去掉 <code>${ev.val}</code>，回到 <code>[${currentPath.join(',')}]</code>`;\n    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class=\"pill\">${v}</span>`).join('') || '<span style=\"color:#9ca3af\">空</span>';\n    render(ev);\n  }\n}\n\nfunction reset() {\n  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }\n  eventIdx = 0; visitedSet=new Set(); backtrackSet=new Set(); currentPath=[]; results=[]; activeEdges=new Set(); pathEdges=new Set();\n  document.getElementById('narrate').innerHTML = '点 \"下一步\" 开始。注意红色节点 = 刚撤销的。';\n  document.getElementById('results').innerHTML = '';\n  document.getElementById('pathDisplay').innerHTML = '<span style=\"color:#9ca3af\">空</span>';\n  render(null);\n}\nfunction autoPlay() {\n  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }\n  document.getElementById('playBtn').textContent='⏸ 暂停';\n  autoTimer = setInterval(() => { step(); if (eventIdx >= events.length) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 800);\n}\nreset();\n</script>\n</body>\n</html>\n",
       "label": "🎬 backtracking"
     },
     {
       "id": "viz-dijkstra",
       "type": "html",
       "position": {
-        "x": -1240.2124164117677,
-        "y": -515.341197923746
+        "x": -1610.8913842546124,
+        "y": -589.9331757915911
       },
       "size": {
         "width": 240,
@@ -1026,8 +1028,8 @@
       "id": "viz-union-find",
       "type": "html",
       "position": {
-        "x": 727.4668799338295,
-        "y": -62.45053539448307
+        "x": 1040.8370711446782,
+        "y": 160.58111502862712
       },
       "size": {
         "width": 240,
@@ -1040,8 +1042,8 @@
       "id": "viz-trie",
       "type": "html",
       "position": {
-        "x": 1406.0483362348298,
-        "y": -220.18182833279374
+        "x": 1944.3165474766672,
+        "y": 88.18435539844386
       },
       "size": {
         "width": 240,
@@ -1054,8 +1056,8 @@
       "id": "viz-dp-lis",
       "type": "html",
       "position": {
-        "x": 1051.061298246164,
-        "y": -1068.0448226497601
+        "x": 1087.2529236877792,
+        "y": -1220.7901971887309
       },
       "size": {
         "width": 240,
@@ -1068,8 +1070,8 @@
       "id": "viz-linked-list-cycle",
       "type": "html",
       "position": {
-        "x": -282.8607755292678,
-        "y": -839.4105443776433
+        "x": -706.4068666400431,
+        "y": -986.0106091562155
       },
       "size": {
         "width": 240,
@@ -1077,6 +1079,20 @@
       },
       "filePath": "viz/linked-list-cycle.html",
       "label": "🎬 linked-list-cycle"
+    },
+    {
+      "id": "viz-test",
+      "type": "html",
+      "position": {
+        "x": 0,
+        "y": -500
+      },
+      "size": {
+        "width": 400,
+        "height": 320
+      },
+      "filePath": "viz/_test.html",
+      "label": "🔬 iframe 探针测试"
     }
   ],
   "edges": [
@@ -1595,9 +1611,9 @@
     }
   ],
   "viewport": {
-    "x": -393.6192433012012,
-    "y": 873.1113056702661,
-    "zoom": 1.081832718338732
+    "x": 501.4552301936171,
+    "y": 797.5837101557624,
+    "zoom": 0.4769998429557904
   },
-  "layoutMode": "force"
+  "layoutMode": "free"
 }
