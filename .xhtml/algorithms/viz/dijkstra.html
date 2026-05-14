@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Dijkstra · 最短路波纹扩散</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:980px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#fce7f3; border-left:4px solid #ec4899; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#9d174d; }
+
+  .container { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; }
+  .graph-section { flex:1; min-width:500px; }
+  svg { display:block; margin:0 auto; }
+  .edge-line { stroke:#cbd5e1; stroke-width:2; fill:none; }
+  .edge-line.relaxed { stroke:#fbbf24; stroke-width:3; }
+  .edge-line.in-tree { stroke:#10b981; stroke-width:3; }
+  .edge-label {
+    font-size:13px; font-weight:600; fill:#4b5563;
+    paint-order: stroke; stroke: white; stroke-width: 4px;
+  }
+  .node-circle { transition: all 0.4s cubic-bezier(.4,0,.2,1); }
+  .node-circle.unvisited { fill:white; stroke:#9ca3af; stroke-width:2; }
+  .node-circle.in-pq { fill:#fbbf24; stroke:#d97706; stroke-width:3; }
+  .node-circle.settled { fill:#10b981; stroke:#047857; stroke-width:3; }
+  .node-circle.current { fill:#3b82f6; stroke:#1e40af; stroke-width:4; animation:pulse 1.5s infinite; }
+  @keyframes pulse { 50% { stroke-width:6; } }
+  .node-label { font-size:16px; font-weight:700; text-anchor:middle; fill:#1f2937; }
+  .node-dist { font-size:11px; font-weight:600; text-anchor:middle; fill:#6b7280; }
+
+  .pq-section { min-width:220px; }
+  .pq-section .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:8px; text-align:center; }
+  .pq-box { background:#f9fafb; border-radius:10px; padding:14px; min-height:200px; border:2px dashed #d1d5db; }
+  .pq-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; background:#fbbf24; color:#78350f;
+    border-radius:6px; margin-bottom:6px; font-size:13px; font-weight:600;
+    animation:slideIn 0.3s ease;
+  }
+  .pq-item.top { background:#3b82f6; color:white; box-shadow:0 0 0 2px white, 0 0 0 4px #3b82f6; }
+  @keyframes slideIn { from { transform:translateY(-5px); opacity:0; } to { transform:none; opacity:1; } }
+
+  .dist-table { background:#f9fafb; border-radius:10px; padding:14px; margin-top:14px; }
+  .dist-row { display:flex; justify-content:space-between; padding:4px 8px; font-family:ui-monospace,monospace; font-size:13px; }
+  .dist-row .node { font-weight:700; color:#4b5563; }
+  .dist-row .val { color:#1f2937; font-weight:600; }
+  .dist-row.settled .val { color:#10b981; }
+  .dist-row.improved { background:#fef3c7; border-radius:4px; }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⚡ Dijkstra · 最短路波纹扩散</h1>
+  <p class="subtitle">从 A 出发，到所有点的最短距离</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：把"已经确定最短距离的点"看成水滩，<strong>每次从滩边选最近的一个点拉进来</strong>。
+    这个点确定后，用它去松弛邻居（看看绕它走是不是更近）。优先队列让"选最近"是 O(log n)。<br>
+    <strong>只对非负权图有效</strong>（有负权会出错，因为"确定"的点可能反悔）。
+  </div>
+
+  <div class="container">
+    <div class="graph-section">
+      <svg id="graph" width="520" height="380" viewBox="0 0 520 380"></svg>
+    </div>
+    <div class="pq-section">
+      <div class="label">优先队列 (按距离最小)</div>
+      <div class="pq-box" id="pq"></div>
+      <div class="label" style="margin-top:14px">距离表</div>
+      <div class="dist-table" id="distTable"></div>
+    </div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+</div>
+
+<script>
+// Graph: nodes and edges with weights
+const nodes = {
+  'A': {x: 80,  y: 190, label:'A'},
+  'B': {x: 230, y: 80,  label:'B'},
+  'C': {x: 230, y: 300, label:'C'},
+  'D': {x: 380, y: 80,  label:'D'},
+  'E': {x: 380, y: 300, label:'E'},
+  'F': {x: 480, y: 190, label:'F'},
+};
+const edges = [
+  ['A','B',4], ['A','C',2],
+  ['B','D',3], ['B','C',1],
+  ['C','E',5], ['C','D',2],
+  ['D','F',1],
+  ['E','F',2], ['D','E',1],
+];
+const src = 'A';
+
+const adj = {};
+Object.keys(nodes).forEach(k => adj[k] = []);
+for (const [u,v,w] of edges) { adj[u].push([v,w]); adj[v].push([u,w]); }
+
+let dist, pq, settled, currentNode, relaxedEdges, treeEdges, done, phase;
+let pendingRelax = [];
+let autoTimer = null;
+
+function init() {
+  dist = {}; Object.keys(nodes).forEach(k => dist[k] = Infinity);
+  dist[src] = 0;
+  pq = [[0, src]];
+  settled = new Set();
+  currentNode = null;
+  relaxedEdges = new Set();
+  treeEdges = new Set();
+  done = false; phase = 'pop'; pendingRelax = [];
+}
+
+function edgeKey(u,v) { return [u,v].sort().join('-'); }
+
+function render(highlightDist = null) {
+  const svg = document.getElementById('graph');
+  let html = '';
+  // Edges
+  for (const [u,v,w] of edges) {
+    const a = nodes[u], b = nodes[v];
+    let cls = 'edge-line';
+    const key = edgeKey(u,v);
+    if (treeEdges.has(key)) cls += ' in-tree';
+    else if (relaxedEdges.has(key)) cls += ' relaxed';
+    html += `<line class="${cls}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
+    const mx = (a.x+b.x)/2, my = (a.y+b.y)/2;
+    html += `<text class="edge-label" x="${mx}" y="${my}">${w}</text>`;
+  }
+  // Nodes
+  for (const [k,n] of Object.entries(nodes)) {
+    let cls = 'node-circle';
+    if (currentNode === k) cls += ' current';
+    else if (settled.has(k)) cls += ' settled';
+    else if (pq.some(([_,nn]) => nn === k)) cls += ' in-pq';
+    else cls += ' unvisited';
+    html += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="22"/>`;
+    html += `<text class="node-label" x="${n.x}" y="${n.y+5}">${n.label}</text>`;
+    const dd = dist[k] === Infinity ? '∞' : dist[k];
+    html += `<text class="node-dist" x="${n.x}" y="${n.y+38}">d=${dd}</text>`;
+  }
+  svg.innerHTML = html;
+
+  // PQ
+  const pqSorted = [...pq].sort((a,b) => a[0]-b[0]);
+  document.getElementById('pq').innerHTML = pqSorted.map(([d,n],i) =>
+    `<div class="pq-item ${i===0?'top':''}"><span>${n}</span><span>d=${d}</span></div>`
+  ).join('') || '<div style="color:#9ca3af;text-align:center;padding:20px;font-size:13px">空</div>';
+
+  // Dist table
+  document.getElementById('distTable').innerHTML = Object.keys(nodes).map(k => {
+    const cls = settled.has(k) ? 'settled' : (highlightDist===k ? 'improved' : '');
+    const v = dist[k] === Infinity ? '∞' : dist[k];
+    return `<div class="dist-row ${cls}"><span class="node">${k}</span><span class="val">${v}</span></div>`;
+  }).join('');
+}
+
+function step() {
+  if (done) return;
+  if (phase === 'pop') {
+    if (pq.length === 0) {
+      done = true;
+      currentNode = null;
+      document.getElementById('narrate').innerHTML = `完成 ✅ 所有可达点都已 settle`;
+      render();
+      return;
+    }
+    pq.sort((a,b) => a[0]-b[0]);
+    let [d, u] = pq.shift();
+    while (settled.has(u) && pq.length > 0) {
+      [d, u] = pq.shift();
+    }
+    if (settled.has(u)) { phase = 'pop'; return step(); }
+    currentNode = u;
+    settled.add(u);
+    document.getElementById('narrate').innerHTML = `弹出 PQ 顶 <strong style="color:#3b82f6">${u}</strong>，距离 ${d}。settle 它，然后松弛它的邻居`;
+    pendingRelax = [...adj[u]];
+    phase = 'relax';
+    render();
+  } else if (phase === 'relax') {
+    if (pendingRelax.length === 0) {
+      currentNode = null;
+      phase = 'pop';
+      return step();
+    }
+    const [v, w] = pendingRelax.shift();
+    const u = currentNode;
+    relaxedEdges.add(edgeKey(u,v));
+    if (settled.has(v)) {
+      document.getElementById('narrate').innerHTML = `${u} → ${v}：${v} 已 settle，跳过`;
+      render();
+      return;
+    }
+    const nd = dist[u] + w;
+    if (nd < dist[v]) {
+      const old = dist[v] === Infinity ? '∞' : dist[v];
+      dist[v] = nd;
+      pq.push([nd, v]);
+      // mark tree edge: remove any old edge to v
+      for (const key of [...treeEdges]) {
+        if (key.includes(v)) treeEdges.delete(key);
+      }
+      treeEdges.add(edgeKey(u,v));
+      document.getElementById('narrate').innerHTML =
+        `松弛 ${u}→${v}: 新距离 = ${dist[u]} + ${w} = <strong style="color:#10b981">${nd}</strong> &lt; ${old} → 更新！`;
+      render(v);
+    } else {
+      document.getElementById('narrate').innerHTML =
+        `松弛 ${u}→${v}: ${dist[u]} + ${w} = ${nd} ≥ ${dist[v]}，不更新`;
+      render();
+    }
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  init();
+  document.getElementById('narrate').innerHTML = '从 A 出发求最短路。观察绿色子树 = 最短路径树。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 1100);
+}
+reset();
+</script>
+</body>
+</html>

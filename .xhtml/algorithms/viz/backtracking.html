@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>回溯 · 决策树 DFS</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:1000px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#ede9fe; border-left:4px solid #8b5cf6; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#5b21b6; }
+
+  .tree-section { display:flex; justify-content:center; padding:20px; }
+  svg { display:block; }
+  .node-circle {
+    transition: all 0.3s;
+  }
+  .node-circle.visited { fill:#bfdbfe; stroke:#3b82f6; }
+  .node-circle.current { fill:#f59e0b; stroke:#d97706; }
+  .node-circle.leaf-found { fill:#10b981; stroke:#047857; }
+  .node-circle.backtrack { fill:#fecaca; stroke:#dc2626; }
+  .edge { stroke:#d1d5db; stroke-width:2; fill:none; transition: all 0.3s; }
+  .edge.active { stroke:#f59e0b; stroke-width:3; }
+  .edge.path { stroke:#10b981; stroke-width:3; }
+
+  .container { display:flex; gap:30px; flex-wrap:wrap; justify-content:center; align-items:flex-start; }
+  .info-section { min-width:280px; }
+  .panel { background:#f9fafb; border-radius:10px; padding:16px 20px; margin-bottom:14px; }
+  .panel .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:8px; }
+  .pill { display:inline-block; background:#3b82f6; color:white; padding:4px 12px; border-radius:6px; margin:2px 4px 2px 0; font-weight:600; }
+  .results { display:flex; flex-direction:column; gap:6px; max-height:180px; overflow-y:auto; }
+  .result {
+    background:#dcfce7; color:#065f46; padding:6px 12px; border-radius:6px;
+    font-family:ui-monospace,monospace; font-size:13px; font-weight:600;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform:translateX(-10px); opacity:0; } to { transform:none; opacity:1; } }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+
+  .code { background:#1e293b; border-radius:10px; padding:20px 24px; margin-top:24px; font-family:ui-monospace,monospace; font-size:13px; line-height:1.8; color:#cbd5e1; overflow-x:auto; }
+  .code .line { padding:0 8px; border-radius:4px; transition:all 0.3s; }
+  .code .line.active { background:#fbbf2444; color:white; }
+  .code .kw { color:#ec4899; } .code .var { color:#38bdf8; } .code .num { color:#f59e0b; } .code .cmt { color:#64748b; font-style:italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌳 回溯 · 决策树 DFS</h1>
+  <p class="subtitle">求 [1,2,3] 的所有子集</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：回溯 = "<strong>选 → 递归 → 撤销</strong>" 三件套。
+    每个节点的所有 children 共享同一个 path 变量，做完一个子分支必须把状态<strong>恢复成原样</strong>，
+    才能去走下一个。这就是回溯的"<strong>撤销</strong>"。
+  </div>
+
+  <div class="container">
+    <div class="tree-section">
+      <svg id="tree" width="600" height="400" viewBox="0 0 600 400"></svg>
+    </div>
+    <div class="info-section">
+      <div class="panel">
+        <div class="label">当前 path (做过的选择)</div>
+        <div id="pathDisplay">[]</div>
+      </div>
+      <div class="panel">
+        <div class="label">收集的答案</div>
+        <div class="results" id="results"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+
+  <pre class="code"><span class="line" data-l="1"><span class="kw">def</span> <span class="var">subsets</span>(nums):</span>
+<span class="line" data-l="2">    ans = []</span>
+<span class="line" data-l="3">    <span class="kw">def</span> <span class="var">dfs</span>(start, path):</span>
+<span class="line" data-l="4">        ans.append(path[:])           <span class="cmt"># 1) 收集</span></span>
+<span class="line" data-l="5">        <span class="kw">for</span> i <span class="kw">in</span> range(start, len(nums)):</span>
+<span class="line" data-l="6">            path.append(nums[i])      <span class="cmt"># 2) 选</span></span>
+<span class="line" data-l="7">            dfs(i + <span class="num">1</span>, path)         <span class="cmt"># 3) 递归</span></span>
+<span class="line" data-l="8">            path.pop()                <span class="cmt"># 4) 撤销 ← 关键！</span></span>
+<span class="line" data-l="9">    dfs(<span class="num">0</span>, [])</span>
+<span class="line" data-l="10">    <span class="kw">return</span> ans</span>
+  </pre>
+</div>
+
+<script>
+const nums = [1,2,3];
+
+// Build decision tree once
+function buildTree() {
+  let id = 0;
+  function build(start, depth, path) {
+    const node = { id: id++, path: [...path], children: [], depth, x:0, y: depth*90 + 30 };
+    for (let i = start; i < nums.length; i++) {
+      path.push(nums[i]);
+      node.children.push(build(i+1, depth+1, path));
+      path.pop();
+    }
+    return node;
+  }
+  return build(0, 0, []);
+}
+const root = buildTree();
+
+// Compute x positions via leaf order
+let leafCount = 0;
+function layout(node) {
+  if (node.children.length === 0) {
+    node.x = 40 + leafCount * 80;
+    leafCount++;
+    return node.x;
+  }
+  const xs = node.children.map(layout);
+  node.x = (xs[0] + xs[xs.length-1]) / 2;
+  return node.x;
+}
+layout(root);
+
+// Flatten for lookup
+const all = [];
+function flat(n) { all.push(n); n.children.forEach(flat); }
+flat(root);
+function findNode(path) {
+  return all.find(n => n.path.length === path.length && n.path.every((v,i) => v === path[i]));
+}
+
+// Simulate DFS as event sequence
+const events = [];
+function simulate(start, path) {
+  // 1. visit (collect)
+  events.push({ kind:'visit', path:[...path] });
+  for (let i = start; i < nums.length; i++) {
+    events.push({ kind:'choose', from:[...path], val:nums[i] });
+    path.push(nums[i]);
+    simulate(i+1, path);
+    events.push({ kind:'undo', path:[...path], val: path[path.length-1] });
+    path.pop();
+  }
+}
+simulate(0, []);
+
+let eventIdx = 0;
+let visitedSet = new Set();
+let backtrackSet = new Set();
+let currentPath = [];
+let results = [];
+let activeEdges = new Set();
+let pathEdges = new Set();
+let autoTimer = null;
+
+function edgeKey(a, b) { return a.id + '-' + b.id; }
+
+function render(currentEvent) {
+  const svg = document.getElementById('tree');
+  svg.innerHTML = '';
+  // Draw edges first
+  function drawEdges(n) {
+    for (const c of n.children) {
+      const key = edgeKey(n, c);
+      let cls = 'edge';
+      if (pathEdges.has(key)) cls += ' path';
+      else if (activeEdges.has(key)) cls += ' active';
+      svg.innerHTML += `<line class="${cls}" x1="${n.x}" y1="${n.y}" x2="${c.x}" y2="${c.y}"/>`;
+      drawEdges(c);
+    }
+  }
+  drawEdges(root);
+  // Draw nodes
+  function drawNodes(n) {
+    let cls = 'node-circle';
+    const isRoot = n.depth === 0;
+    const cur = currentEvent && (
+      (currentEvent.kind === 'visit' && JSON.stringify(currentEvent.path) === JSON.stringify(n.path)) ||
+      (currentEvent.kind === 'undo' && JSON.stringify(currentEvent.path) === JSON.stringify(n.path))
+    );
+    if (cur) cls += ' current';
+    else if (backtrackSet.has(n.id)) cls += ' backtrack';
+    else if (visitedSet.has(n.id)) cls += ' visited';
+    const label = n.path.length === 0 ? '[]' : '[' + n.path.join(',') + ']';
+    svg.innerHTML += `<circle class="${cls}" cx="${n.x}" cy="${n.y}" r="20" stroke-width="2" fill="white"/>`;
+    svg.innerHTML += `<text x="${n.x}" y="${n.y+4}" text-anchor="middle" font-size="11" font-weight="600" fill="#1f2937">${label}</text>`;
+    n.children.forEach(drawNodes);
+  }
+  drawNodes(root);
+}
+
+function highlight(n) {
+  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.code .line[data-l="${n}"]`);
+  if (el) el.classList.add('active');
+}
+
+function step() {
+  if (eventIdx >= events.length) {
+    document.getElementById('narrate').innerHTML = `完成 ✅ 收集了 <strong style="color:#10b981">${results.length}</strong> 个子集`;
+    return;
+  }
+  const ev = events[eventIdx++];
+  if (ev.kind === 'visit') {
+    const node = findNode(ev.path);
+    visitedSet.add(node.id);
+    currentPath = [...ev.path];
+    results.push('[' + ev.path.join(',') + ']');
+    document.getElementById('results').innerHTML = results.map(r => `<div class="result">${r}</div>`).join('');
+    highlight(4);
+    document.getElementById('narrate').innerHTML = `到达节点 <code>[${ev.path.join(',')}]</code> → 收集为答案`;
+    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class="pill">${v}</span>`).join('') || '<span style="color:#9ca3af">空</span>';
+    render(ev);
+  } else if (ev.kind === 'choose') {
+    const fromNode = findNode(ev.from);
+    const toPath = [...ev.from, ev.val];
+    const toNode = findNode(toPath);
+    activeEdges.add(edgeKey(fromNode, toNode));
+    currentPath = toPath;
+    highlight(6);
+    document.getElementById('narrate').innerHTML = `选 <code>${ev.val}</code>，path 变成 <code>[${toPath.join(',')}]</code>`;
+    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class="pill">${v}</span>`).join('');
+    render(ev);
+  } else if (ev.kind === 'undo') {
+    const node = findNode(ev.path);
+    backtrackSet.add(node.id);
+    currentPath = ev.path.slice(0, -1);
+    highlight(8);
+    document.getElementById('narrate').innerHTML = `<strong style="color:#dc2626">撤销</strong>：path.pop() 去掉 <code>${ev.val}</code>，回到 <code>[${currentPath.join(',')}]</code>`;
+    document.getElementById('pathDisplay').innerHTML = currentPath.map(v => `<span class="pill">${v}</span>`).join('') || '<span style="color:#9ca3af">空</span>';
+    render(ev);
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  eventIdx = 0; visitedSet=new Set(); backtrackSet=new Set(); currentPath=[]; results=[]; activeEdges=new Set(); pathEdges=new Set();
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。注意红色节点 = 刚撤销的。';
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('pathDisplay').innerHTML = '<span style="color:#9ca3af">空</span>';
+  render(null);
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (eventIdx >= events.length) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 800);
+}
+reset();
+</script>
+</body>
+</html>

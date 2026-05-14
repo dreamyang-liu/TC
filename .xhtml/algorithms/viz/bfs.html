@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>BFS · 像水波一样扩散</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#cffafe; border-left:4px solid #06b6d4; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#155e75; }
+
+  .container { display:flex; gap:30px; justify-content:center; flex-wrap:wrap; align-items:flex-start; }
+  .grid-section { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .grid {
+    display:grid; grid-template-columns: repeat(7, 50px);
+    gap:3px; padding:8px; background:#f3f4f6; border-radius:10px;
+  }
+  .cell {
+    width:50px; height:50px; border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; color:white;
+    background:#e5e7eb; transition:all 0.6s cubic-bezier(.4,0,.2,1);
+    position:relative;
+  }
+  .cell.wall { background:#1f2937; color:#1f2937; }
+  .cell.start { background:#10b981; }
+  .cell.target { background:#ef4444; box-shadow: 0 0 0 3px white, 0 0 0 5px #ef4444; }
+  .cell.visited { background:#bfdbfe; color:#1e3a8a; }
+  .cell.in-queue { background:#fbbf24; color:#78350f; animation:bounce 0.4s ease; }
+  .cell.current { background:#3b82f6; color:white; transform:scale(1.1); box-shadow:0 4px 12px rgba(59,130,246,0.5); }
+  .cell.path { background:#10b981; animation:pop 0.4s ease; }
+  @keyframes bounce { 50% { transform:scale(1.2); } }
+  @keyframes pop { 0% { transform:scale(0.8); } 50% { transform:scale(1.2); } 100% { transform:scale(1); } }
+  .cell .dist { position:absolute; top:2px; right:4px; font-size:9px; opacity:0.85; }
+
+  .queue-section { min-width:220px; }
+  .queue-section .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:8px; text-align:center; }
+  .queue-box {
+    background:#f9fafb; border-radius:10px; padding:14px; min-height:300px;
+    border: 2px dashed #d1d5db;
+  }
+  .q-item {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; background:#fbbf24; color:#78350f;
+    border-radius:6px; margin-bottom:6px; font-size:13px; font-weight:600;
+    animation:slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform:translateX(20px); opacity:0; } to { transform:translateX(0); opacity:1; } }
+  .q-item .step-label { background:#78350f; color:white; padding:2px 6px; border-radius:4px; font-size:11px; }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:20px 0; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+  .vars { display:flex; gap:20px; margin-top:10px; font-family:ui-monospace,monospace; flex-wrap:wrap; }
+  .var-box { display:flex; align-items:center; gap:6px; }
+  .var-label { color:#6b7280; font-size:12px; }
+  .var-val { background:#1f2937; color:#fff; padding:2px 10px; border-radius:4px; font-size:13px; min-width:30px; text-align:center; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+
+  .legend { display:flex; gap:14px; justify-content:center; margin-top:10px; flex-wrap:wrap; font-size:12px; color:#4b5563; }
+  .lg { display:flex; align-items:center; gap:5px; }
+  .lg .sq { width:14px; height:14px; border-radius:3px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🌊 BFS · 像水波一样扩散</h1>
+  <p class="subtitle">从绿点（起点）走到红点（终点），网格最短路径</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：BFS 像往水池扔石头 —— 同心圆一圈圈扩出去。
+    第一次到达某点的"圈数" = 起点到它的<strong>最短步数</strong>（边权都是 1 时）。
+    用队列保证"先入先出 = 先发现的先扩"。
+  </div>
+
+  <div class="container">
+    <div class="grid-section">
+      <div class="grid" id="grid"></div>
+      <div class="legend">
+        <div class="lg"><div class="sq" style="background:#10b981"></div>起点</div>
+        <div class="lg"><div class="sq" style="background:#ef4444"></div>终点</div>
+        <div class="lg"><div class="sq" style="background:#1f2937"></div>墙</div>
+        <div class="lg"><div class="sq" style="background:#fbbf24"></div>队列中</div>
+        <div class="lg"><div class="sq" style="background:#3b82f6"></div>正在扩</div>
+        <div class="lg"><div class="sq" style="background:#bfdbfe"></div>已访问</div>
+      </div>
+    </div>
+    <div class="queue-section">
+      <div class="label">队列 (FIFO)</div>
+      <div class="queue-box" id="queueBox"></div>
+    </div>
+  </div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+    <div class="vars">
+      <div class="var-box"><span class="var-label">当前层</span><span class="var-val" id="vLayer">0</span></div>
+      <div class="var-box"><span class="var-label">已访问</span><span class="var-val" id="vVisited">1</span></div>
+      <div class="var-box"><span class="var-label">队列长</span><span class="var-val" id="vQ">1</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+</div>
+
+<script>
+const ROWS=5, COLS=7;
+// 0 = empty, 1 = wall
+const grid = [
+  [0,0,0,0,0,0,0],
+  [0,1,1,0,1,0,0],
+  [0,0,1,0,0,0,0],
+  [0,0,1,1,1,1,0],
+  [0,0,0,0,0,0,0],
+];
+const start = [0,0], target = [4,6];
+const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+let visited, queue, dist, found, done, currentCell;
+let autoTimer = null;
+
+function init() {
+  visited = Array.from({length:ROWS}, ()=>Array(COLS).fill(false));
+  queue = [{r:start[0], c:start[1], d:0}];
+  visited[start[0]][start[1]] = true;
+  dist = Array.from({length:ROWS}, ()=>Array(COLS).fill(-1));
+  dist[start[0]][start[1]] = 0;
+  found = false; done = false; currentCell = null;
+}
+
+function render() {
+  const cells = [];
+  for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+    let cls = 'cell';
+    if (grid[r][c] === 1) cls += ' wall';
+    else if (r===start[0]&&c===start[1]) cls += ' start';
+    else if (r===target[0]&&c===target[1]) cls += ' target';
+    else if (currentCell && currentCell.r===r && currentCell.c===c) cls += ' current';
+    else if (queue.some(q => q.r===r && q.c===c)) cls += ' in-queue';
+    else if (visited[r][c]) cls += ' visited';
+    const inner = grid[r][c]===1 ? '' : (visited[r][c] ? `<span class="dist">${dist[r][c]}</span>` : '');
+    if (found && r===target[0] && c===target[1]) cls += ' path';
+    cells.push(`<div class="${cls}">${inner}${(r===start[0]&&c===start[1])?'S':(r===target[0]&&c===target[1])?'T':''}</div>`);
+  }
+  document.getElementById('grid').innerHTML = cells.join('');
+
+  document.getElementById('queueBox').innerHTML = queue.map(q =>
+    `<div class="q-item"><span>(${q.r},${q.c})</span><span class="step-label">d=${q.d}</span></div>`
+  ).join('') || '<div style="color:#9ca3af;text-align:center;padding:20px;font-size:13px">空</div>';
+
+  const curD = currentCell ? currentCell.d : (queue[0] ? queue[0].d : 0);
+  document.getElementById('vLayer').textContent = curD;
+  const visCount = visited.flat().filter(Boolean).length;
+  document.getElementById('vVisited').textContent = visCount;
+  document.getElementById('vQ').textContent = queue.length;
+}
+
+function step() {
+  if (done) return;
+  if (queue.length === 0) {
+    done = true;
+    document.getElementById('narrate').innerHTML = `队列空了。终点不可达 ❌`;
+    render();
+    return;
+  }
+  // Dequeue
+  currentCell = queue.shift();
+  const {r,c,d} = currentCell;
+  if (r === target[0] && c === target[1]) {
+    found = true; done = true;
+    document.getElementById('narrate').innerHTML = `🎉 到达终点 (${r},${c})！最短步数 = <strong style="color:#10b981">${d}</strong>`;
+    render();
+    return;
+  }
+  let pushed = [];
+  for (const [dr,dc] of dirs) {
+    const nr = r+dr, nc = c+dc;
+    if (nr<0||nr>=ROWS||nc<0||nc>=COLS) continue;
+    if (grid[nr][nc] === 1) continue;
+    if (visited[nr][nc]) continue;
+    visited[nr][nc] = true;
+    dist[nr][nc] = d+1;
+    queue.push({r:nr, c:nc, d:d+1});
+    pushed.push([nr,nc]);
+  }
+  document.getElementById('narrate').innerHTML =
+    `扩展 (${r},${c})，距离=${d}。${pushed.length===0 ? '没有新邻居' : '加入 ' + pushed.map(p=>`(${p[0]},${p[1]})`).join(', ') + ` → 距离=${d+1}`}`;
+  render();
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  init();
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。注意"层"的概念：同层的所有格子都先被探索完，才进入下一层。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 700);
+}
+reset();
+</script>
+</body>
+</html>

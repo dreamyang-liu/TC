@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>单调栈 · 一眼看懂</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family:-apple-system,"PingFang SC",system-ui,sans-serif; background:linear-gradient(135deg,#f6f8fb,#eef2f7); min-height:100vh; padding:30px 20px; color:#1f2937; }
+  .card { max-width:920px; margin:0 auto; background:white; border-radius:16px; padding:36px 40px; box-shadow:0 4px 20px rgba(0,0,0,0.06); }
+  h1 { font-size:26px; margin-bottom:8px; }
+  .subtitle { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .insight { background:#dcfce7; border-left:4px solid #10b981; padding:14px 18px; border-radius:8px; margin-bottom:28px; font-size:15px; line-height:1.6; }
+  .insight strong { color:#065f46; }
+
+  .container { display:flex; gap:30px; align-items:flex-end; justify-content:center; margin:30px 0; min-height:280px; }
+  .arr-section { display:flex; flex-direction:column; align-items:center; gap:6px; }
+  .arr-section .label { font-size:12px; color:#6b7280; font-weight:600; margin-bottom:8px; }
+  .arr-row { display:flex; gap:4px; align-items:flex-end; min-height:200px; }
+  .bar { width:48px; border-radius:8px 8px 4px 4px; background:#e5e7eb; transition:all 0.4s cubic-bezier(.4,0,.2,1); display:flex; align-items:flex-start; justify-content:center; padding-top:6px; font-weight:700; color:#374151; position:relative; }
+  .bar.current { background:#f59e0b; color:white; }
+  .bar.in-stack { background:#3b82f6; color:white; }
+  .bar.popped { opacity:0.35; }
+  .bar.has-answer::after { content:attr(data-ans); position:absolute; bottom:-26px; color:#10b981; font-size:11px; font-weight:700; white-space:nowrap; }
+  .idx-row { display:flex; gap:4px; color:#9ca3af; font-size:11px; margin-top:32px; }
+  .idx { width:48px; text-align:center; }
+
+  /* Stack vertical viz */
+  .stack-section { display:flex; flex-direction:column; align-items:center; }
+  .stack-frame { width:80px; min-height:200px; border:2px dashed #d1d5db; border-top:none; border-radius:0 0 10px 10px; display:flex; flex-direction:column-reverse; gap:4px; padding:4px; background:#f9fafb; }
+  .stack-slot {
+    width:100%; height:32px; border-radius:6px; background:#3b82f6; color:white;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+    transition: all 0.4s; animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { transform:translateY(-20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+  .ans-row { margin-top:50px; display:flex; gap:4px; justify-content:center; }
+  .ans-cell { width:48px; height:36px; border-radius:6px; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-weight:700; color:#10b981; font-size:14px; }
+
+  .status { background:#f9fafb; border-radius:10px; padding:18px 22px; margin:30px 0 20px; font-size:14px; line-height:1.7; }
+  .status code { background:#1f2937; color:#d1d5db; padding:2px 8px; border-radius:4px; font-size:13px; }
+  .narrate { color:#4b5563; min-height:24px; }
+  .vars { display:flex; gap:20px; margin-top:10px; font-family:ui-monospace,monospace; flex-wrap:wrap; }
+  .var-box { display:flex; align-items:center; gap:6px; }
+  .var-label { color:#6b7280; font-size:12px; }
+  .var-val { background:#1f2937; color:#fff; padding:2px 10px; border-radius:4px; font-size:13px; min-width:30px; text-align:center; }
+
+  .controls { display:flex; gap:10px; justify-content:center; margin:24px 0 10px; flex-wrap:wrap; }
+  button { padding:10px 22px; border-radius:8px; border:none; background:#3b82f6; color:white; cursor:pointer; font-size:14px; font-weight:500; transition:all 0.2s; }
+  button:hover { background:#2563eb; transform:translateY(-1px); }
+
+  .code { background:#1e293b; border-radius:10px; padding:20px 24px; margin-top:24px; font-family:ui-monospace,monospace; font-size:13px; line-height:1.8; color:#cbd5e1; overflow-x:auto; }
+  .code .line { padding:0 8px; border-radius:4px; transition:all 0.3s; }
+  .code .line.active { background:#fbbf2444; color:white; }
+  .code .kw { color:#ec4899; } .code .var { color:#38bdf8; } .code .num { color:#f59e0b; } .code .cmt { color:#64748b; font-style:italic; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📚 单调栈 · 一眼看懂</h1>
+  <p class="subtitle">"下一个更大元素"：数组 [2, 1, 5, 3, 4]，找每个数右边第一个比它大的</p>
+
+  <div class="insight">
+    <strong>核心 AHA</strong>：栈里存的是"<strong>还在等下一个更大值</strong>"的元素。
+    新元素来了，比它们都大 → 它就是它们等的那个！所有"被它打败"的人一次性出栈。
+    每个元素 最多入栈出栈各一次 → 总 O(n)。
+  </div>
+
+  <div class="container">
+    <div class="arr-section">
+      <div class="label">数组 (橙=当前，蓝=还在栈中等)</div>
+      <div class="arr-row" id="arrRow"></div>
+      <div class="idx-row" id="idxRow"></div>
+    </div>
+    <div class="stack-section">
+      <div class="label">栈 (顶在上)</div>
+      <div class="stack-frame" id="stack"></div>
+    </div>
+  </div>
+
+  <div class="ans-row" id="ansRow"></div>
+
+  <div class="status">
+    <div class="narrate" id="narrate">点 "下一步" 开始</div>
+    <div class="vars">
+      <div class="var-box"><span class="var-label">i</span><span class="var-val" id="vI">-</span></div>
+      <div class="var-box"><span class="var-label">nums[i]</span><span class="var-val" id="vV">-</span></div>
+      <div class="var-box"><span class="var-label">栈内容</span><span class="var-val" id="vStack">[]</span></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button onclick="reset()">⟲ 重置</button>
+    <button onclick="step()" id="stepBtn">下一步 →</button>
+    <button onclick="autoPlay()" id="playBtn">▶ 自动播放</button>
+  </div>
+
+  <pre class="code"><span class="line" data-l="1"><span class="kw">def</span> <span class="var">next_greater</span>(nums):</span>
+<span class="line" data-l="2">    n = len(nums); ans = [-<span class="num">1</span>]*n; stack = []</span>
+<span class="line" data-l="3">    <span class="kw">for</span> i, x <span class="kw">in</span> enumerate(nums):</span>
+<span class="line" data-l="4">        <span class="kw">while</span> stack <span class="kw">and</span> nums[stack[-<span class="num">1</span>]] &lt; x:</span>
+<span class="line" data-l="5">            ans[stack.pop()] = x        <span class="cmt"># x 是栈顶的下一个更大</span></span>
+<span class="line" data-l="6">        stack.append(i)</span>
+<span class="line" data-l="7">    <span class="kw">return</span> ans</span>
+  </pre>
+</div>
+
+<script>
+const nums = [2, 1, 5, 3, 4];
+let stack = [], ans = Array(nums.length).fill(-1), i = -1, done = false, phase = 'enter';
+let autoTimer = null;
+const maxVal = Math.max(...nums);
+
+function render() {
+  document.getElementById('idxRow').innerHTML = nums.map((_,j) => `<div class="idx">${j}</div>`).join('');
+  document.getElementById('arrRow').innerHTML = nums.map((v,j) => {
+    let cls = 'bar';
+    if (j === i) cls += ' current';
+    else if (stack.includes(j)) cls += ' in-stack';
+    else if (j < i) cls += ' popped';
+    const h = 60 + (v / maxVal) * 130;
+    const ansAttr = ans[j] !== -1 ? `data-ans="↑ ${ans[j]}"` : '';
+    if (ans[j] !== -1) cls += ' has-answer';
+    return `<div class="${cls}" style="height:${h}px" ${ansAttr}>${v}</div>`;
+  }).join('');
+
+  document.getElementById('stack').innerHTML = stack.map(idx =>
+    `<div class="stack-slot">${nums[idx]}@${idx}</div>`
+  ).join('');
+
+  document.getElementById('vI').textContent = i < 0 ? '-' : i;
+  document.getElementById('vV').textContent = i < 0 ? '-' : nums[i];
+  document.getElementById('vStack').textContent = '[' + stack.map(j => nums[j]).join(',') + ']';
+
+  document.getElementById('ansRow').innerHTML = ans.map(a =>
+    `<div class="ans-cell">${a===-1?'·':a}</div>`).join('');
+}
+
+function highlight(n) {
+  document.querySelectorAll('.code .line').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.code .line[data-l="${n}"]`);
+  if (el) el.classList.add('active');
+}
+
+function step() {
+  if (done) return;
+  if (phase === 'enter') {
+    i++;
+    if (i >= nums.length) {
+      done = true;
+      highlight(7);
+      document.getElementById('narrate').innerHTML =
+        `遍历完。栈里剩下 <code>[${stack.map(j=>nums[j]).join(',')}]</code> 都没找到更大的 → 答案保持 -1。
+        <br>最终：<code>[${ans.join(', ')}]</code>`;
+      render();
+      return;
+    }
+    highlight(3);
+    document.getElementById('narrate').innerHTML = `i=${i}，当前 nums[${i}] = <strong style="color:#f59e0b">${nums[i]}</strong>。检查栈顶能不能被它"打败"`;
+    phase = 'pop';
+    render();
+  } else if (phase === 'pop') {
+    highlight(4);
+    if (stack.length > 0 && nums[stack[stack.length-1]] < nums[i]) {
+      const top = stack[stack.length-1];
+      highlight(5);
+      document.getElementById('narrate').innerHTML =
+        `栈顶 <code>nums[${top}]=${nums[top]}</code> &lt; <code>${nums[i]}</code> → <strong style="color:#10b981">${nums[i]} 就是它等的下一个更大！</strong> ans[${top}] = ${nums[i]}`;
+      ans[top] = nums[i];
+      stack.pop();
+      render();
+      // stay in pop phase to keep checking
+    } else {
+      phase = 'push';
+      step();
+    }
+  } else if (phase === 'push') {
+    highlight(6);
+    stack.push(i);
+    document.getElementById('narrate').innerHTML = `没有更多可以打败的了，<code>${nums[i]}</code> 入栈，等它的下一个更大`;
+    phase = 'enter';
+    render();
+  }
+}
+
+function reset() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; }
+  stack=[]; ans=Array(nums.length).fill(-1); i=-1; done=false; phase='enter';
+  document.getElementById('narrate').innerHTML = '点 "下一步" 开始。';
+  render();
+}
+function autoPlay() {
+  if (autoTimer) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; return; }
+  document.getElementById('playBtn').textContent='⏸ 暂停';
+  autoTimer = setInterval(() => { step(); if (done) { clearInterval(autoTimer); autoTimer=null; document.getElementById('playBtn').textContent='▶ 自动播放'; } }, 900);
+}
+reset();
+</script>
+</body>
+</html>
