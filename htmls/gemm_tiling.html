@@ -294,6 +294,7 @@
     </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 <h1>GEMM Tiling: 矩阵乘法怎么拆到 Tensor Core</h1>
 <div class="subtitle">C[64, 24576] = A[64, 8192] × B[8192, 24576]</div>
 
@@ -849,5 +850,6 @@ function rst() {
     cap('Grid 切空间 → Block 切 K → Warp 发指令 → Tensor Core 算 16×16×16');
 }
 </script>
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

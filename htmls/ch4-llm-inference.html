@@ -127,6 +127,7 @@ tr:hover { background: #1e1e3f; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 
 <h1>Chapter 4: LLM 推理系统</h1>
 <p class="subtitle">SGLang 深度解析 - 从请求到生成的完整链路</p>
@@ -151,7 +152,7 @@ tr:hover { background: #1e1e3f; }
 <h2>4.1 请求生命周期 (Request Lifecycle)</h2>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/sglang-worker/SGLang-Archi.png" alt="SGLang Architecture Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/sglang-archi.png" alt="SGLang Architecture Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: SGLang 整体架构: TokenizerManager → Scheduler → TpModelWorker → DetokenizerManager</div>
 </div>
 
@@ -250,6 +251,181 @@ attention_output = <span class="function">softmax</span>(Q @ K.T / sqrt(d)) @ V 
 <span class="comment">// Decode: 每次只处理 1 个 token</span>
 <span class="comment">// Memory reads ≈ 2 * seq_len * d_model * num_layers (memory bound)</span>
 attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)) @ V_cache  <span class="comment">// q: [1, d], K: [seq, d]</span></code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>性能指标: TTFT 与 TPOT</h3>
+<table>
+<thead>
+<tr><th>指标</th><th>全称</th><th>含义</th><th>决定因素</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>TTFT</strong></td><td>Time To First Token</td><td>用户发出请求到第一个 token 出现的延迟</td><td>Prefill 速度 + 排队时间</td></tr>
+<tr><td><strong>TPOT</strong></td><td>Time Per Output Token</td><td>后续每个 token 的生成间隔 (用户感知的 "打字速度")</td><td>Decode 速度</td></tr>
+</tbody>
+</table>
+<p style="margin-top:12px;">用户体验: 1000 / TPOT = tokens/sec。TPOT=50ms → 20 tok/s (流畅), TPOT=200ms → 5 tok/s (卡顿)。</p>
+</div>
+
+<div class="card fade-in">
+<h3>Prefill 速度推导: 从 GPU FLOPS 到 tokens/sec</h3>
+<p>Prefill 是 compute-bound, 速度由 <strong>GPU 算力 / 每 token 计算量</strong> 决定:</p>
+
+<pre><code><span class="comment"># 核心公式:</span>
+prefill_speed = GPU_FLOPS × MFU / FLOPs_per_token
+
+<span class="comment"># Step 1: 每 token 的 FLOPs ≈ 2 × model_params</span>
+<span class="comment"># 为什么 2×? 矩阵乘 y=x@W (W有P参数) = P次乘法 + P次加法 = 2P FLOPs</span>
+<span class="comment"># 模型 forward = 过一遍所有权重矩阵, 所以 FLOPs/token ≈ 2 × total_params</span>
+
+<span class="comment"># Step 2: GPU 实际算力 = 峰值 × MFU (Model FLOPs Utilization)</span>
+<span class="comment"># Prefill 是大矩阵乘, MFU 较高: 50-70%</span>
+<span class="comment"># H100 BF16 峰值 989 TFLOPS, 实际 ~500-700 TFLOPS</span>
+
+<span class="comment"># Step 3: 相除</span>
+<span class="comment"># 7B on H100 BF16, MFU=60%:</span>
+<span class="comment">#   = 989 × 0.6 TFLOPS / (2 × 7 GFLOP/token)</span>
+<span class="comment">#   = 593 TFLOPS / 14 GFLOP = ~42K tokens/sec</span></code></pre>
+
+<h4>速记公式 (H100 BF16, MFU≈60%)</h4>
+<pre><code><span class="comment"># prefill_speed ≈ 300,000 / B  (tokens/sec, 单卡)</span>
+<span class="comment">#</span>
+<span class="comment"># 7B   → ~42K tok/s</span>
+<span class="comment"># 13B  → ~23K tok/s</span>
+<span class="comment"># 70B  → ~4.3K tok/s  (单卡; TP=8 → ~30K tok/s)</span>
+<span class="comment"># 405B → ~740 tok/s   (单卡; TP=8 → ~5K tok/s)</span></code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>Decode 速度推导: Memory-Bandwidth Bound</h3>
+<p>Decode 时每个权重只被 1 个 token 用一次, 瓶颈在 <strong>读数据的速度</strong>。每生成一个 token 需要从 HBM 读取:</p>
+
+<pre><code><span class="comment"># 完整公式: 每 token 需要读的总数据量</span>
+bytes_per_token = model_weights + kv_cache_read
+<span class="comment">#                 ↑ 固定 (每次都要读完整模型)   ↑ 随 seq_len 增长!</span>
+
+<span class="comment"># TPOT = bytes_per_token / memory_bandwidth</span>
+<span class="comment"># Decode throughput = memory_bandwidth / bytes_per_token</span></code></pre>
+
+<h4>简化情况: 短序列 + GQA (KV cache 可忽略)</h4>
+<pre><code><span class="comment"># LLaMA-70B GQA, seq_len=2048 on 2×A100-80GB (TP=2):</span>
+model_weights = <span class="number">140</span>  <span class="comment"># GB (BF16), TP=2 → 每卡读 70 GB</span>
+kv_cache = <span class="number">80</span> * <span class="number">8</span> * <span class="number">128</span> * <span class="number">2048</span> * <span class="number">2</span> * <span class="number">2</span> / <span class="number">1e9</span>  <span class="comment"># = 0.67 GB (GQA 只有 8 KV heads)</span>
+<span class="comment"># KV cache 只占 0.5% → 可忽略</span>
+
+<span class="comment"># TP=2: 两卡并行, 每卡独立读自己的 70 GB 权重</span>
+<span class="comment"># A100 带宽 2.0 TB/s:</span>
+<span class="comment">#   理论 TPOT = 70 GB / 2.0 TB/s = 35 ms</span>
+<span class="comment">#   + TP AllReduce (80层×2次) + kernel launch overhead ≈ +15ms</span>
+<span class="comment"># 实测: ~53.8 ms (Cursor blog, bs=1)</span>
+<span class="comment"># → MBU = 35/53.8 ≈ 65% (合理: AllReduce + launch 吃掉了 35% 的时间)</span></code></pre>
+
+<h4>KV Cache 何时不可忽略?</h4>
+<pre><code><span class="comment"># 关键: KV cache 大小 = 2 × layers × kv_heads × head_dim × seq_len × 2</span>
+<span class="comment"># 它随 seq_len 线性增长!</span>
+
+<span class="comment"># 小模型 + MHA + 长序列: KV cache 可能比模型还大</span>
+<span class="comment"># LLaMA-7B (MHA, 32 KV heads), seq_len=32768:</span>
+model_weights = <span class="number">14</span>    <span class="comment"># GB</span>
+kv_cache = <span class="number">32</span> * <span class="number">32</span> * <span class="number">128</span> * <span class="number">32768</span> * <span class="number">2</span> * <span class="number">2</span> / <span class="number">1e9</span>  <span class="comment"># = 16.8 GB (!)</span>
+<span class="comment"># KV cache 比模型还大! TPOT 翻倍:</span>
+<span class="comment"># (14 + 16.8) / 3350 = 9.2 ms (vs 无 KV 的 4.2ms)</span>
+
+<span class="comment"># 大模型 + GQA + 短序列: KV cache 微不足道</span>
+<span class="comment"># LLaMA-70B (GQA, 8 KV heads), seq_len=4096:</span>
+<span class="comment"># KV = 80×8×128×4096×2×2 / 1e9 = 1.3 GB vs 140 GB model → ~1%</span></code></pre>
+
+<table>
+<thead>
+<tr><th>场景</th><th>Model Size</th><th>KV Cache</th><th>KV 占比</th><th>TPOT 影响</th></tr>
+</thead>
+<tbody>
+<tr><td>70B + GQA + 4K seq</td><td>140 GB</td><td>1.3 GB</td><td>1%</td><td>可忽略</td></tr>
+<tr><td>7B + MHA + 4K seq</td><td>14 GB</td><td>2.1 GB</td><td>13%</td><td>轻微</td></tr>
+<tr><td>7B + MHA + 32K seq</td><td>14 GB</td><td>16.8 GB</td><td><strong>55%</strong></td><td>TPOT 翻倍!</td></tr>
+<tr><td>7B + MHA + 128K seq</td><td>14 GB</td><td>67 GB</td><td><strong>83%</strong></td><td>完全主导</td></tr>
+<tr><td>70B + GQA + 128K seq</td><td>140 GB</td><td>41 GB</td><td>23%</td><td>不可忽略</td></tr>
+</tbody>
+</table>
+
+<p style="margin-top:12px;"><strong>结论:</strong> GQA/MLA 不仅省显存, 更重要的是<strong>省带宽</strong> — 减少每次 decode 需要读取的 KV cache 量, 直接降低 TPOT。</p>
+
+<h4>实测数据验证 (理论 vs 实际)</h4>
+<table>
+<thead>
+<tr><th>模型</th><th>GPU</th><th>理论 TPOT</th><th>实测 TPOT</th><th>MBU</th><th>来源</th></tr>
+</thead>
+<tbody>
+<tr><td>LLaMA-7B (BF16)</td><td>1×A100 80GB</td><td>7.2 ms</td><td>9.3 ms (bs=4)</td><td>~77%</td><td>HuggingFace TGI</td></tr>
+<tr><td>LLaMA-70B (BF16)</td><td>2×A100 80GB</td><td>36 ms</td><td>53.8 ms (bs=1)</td><td>~67%</td><td>Cursor blog</td></tr>
+<tr><td>LLaMA-70B (BF16)</td><td>H100 (推算)</td><td>21 ms</td><td>~35 ms</td><td>~60%</td><td>Databricks (H100 比 A100 快 36%)</td></tr>
+</tbody>
+</table>
+
+<p style="margin-top:10px;color:#888;font-size:0.85rem;">MBU (Model Bandwidth Utilization) = 理论 TPOT / 实测 TPOT。实际 60-80% 是正常的, 因为还有 kernel launch overhead、AllReduce (TP)、attention 计算等非权重读取的开销。</p>
+
+<h4>为什么 Decode 要 Batching?</h4>
+<pre><code><span class="comment"># 权重从 HBM 读一次, 被 batch 中的 B 个 token 共享:</span>
+<span class="comment"># Arithmetic Intensity = 2B (B个token每个做2次运算/读一次权重)</span>
+<span class="comment"># 当 B 增大, 从 memory-bound 逐渐变成 compute-bound</span>
+<span class="comment">#</span>
+<span class="comment"># 临界 batch size (compute 与 memory 平衡):</span>
+<span class="comment">#   B_critical = FLOPS / (Bandwidth × 2) = 989e12 / (3.35e12 × 2) ≈ 148</span>
+<span class="comment">#</span>
+<span class="comment"># B < 148: memory-bound, 增大 batch → 吞吐线性增长, TPOT 不变</span>
+<span class="comment"># B > 148: compute-bound, 增大 batch → TPOT 开始增长</span>
+<span class="comment">#</span>
+<span class="comment"># 实测验证 (Cursor blog, LLaMA-70B on 2×A100):</span>
+<span class="comment">#   bs=1:  18.6 tok/s  ← memory-bound</span>
+<span class="comment">#   bs=8:  17.2 tok/s  ← 仍然 memory-bound (每请求 TPOT 不变)</span>
+<span class="comment">#   bs=32: 12.4 tok/s  ← 开始 saturate</span>
+<span class="comment">#</span>
+<span class="comment"># LLM-Viewer 论文 (arXiv 2402.16363) 证实:</span>
+<span class="comment"># "在 decode 阶段, 所有计算层的 arithmetic intensity ≈ 1 OPs/byte,</span>
+<span class="comment">#  firmly in memory-bound region"</span></code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>KV Cache 大小估算</h3>
+<p>从模型 config 推算 KV cache per token:</p>
+
+<pre><code><span class="comment"># 公式:</span>
+kv_per_token = <span class="number">2</span> × n_layers × n_kv_heads × head_dim × dtype_bytes
+<span class="comment">#              ↑       ↑          ↑           ↑          ↑</span>
+<span class="comment">#             K+V     层数     KV heads数   每head维度   BF16=2</span>
+
+<span class="comment"># 速算: kv_per_token = 512 × n_layers × n_kv_heads  (bytes, BF16)</span></code></pre>
+
+<table>
+<thead>
+<tr><th>模型</th><th>参数量</th><th>Layers</th><th>KV Heads</th><th>Attention</th><th>KV/token (BF16)</th></tr>
+</thead>
+<tbody>
+<tr><td>LLaMA-7B</td><td>7B</td><td>32</td><td>32 (MHA)</td><td>MHA</td><td><strong>512 KB</strong></td></tr>
+<tr><td>LLaMA-13B</td><td>13B</td><td>40</td><td>40 (MHA)</td><td>MHA</td><td><strong>800 KB</strong></td></tr>
+<tr><td>LLaMA-70B</td><td>70B</td><td>80</td><td>8 (GQA)</td><td>GQA</td><td><strong>320 KB</strong></td></tr>
+<tr><td>LLaMA-405B</td><td>405B</td><td>126</td><td>8 (GQA)</td><td>GQA</td><td><strong>504 KB</strong></td></tr>
+<tr><td>DeepSeek-V3</td><td>671B</td><td>61</td><td>MLA</td><td>MLA (512d)</td><td><strong>122 KB</strong></td></tr>
+</tbody>
+</table>
+
+<h4>关键观察: 不能从参数量线性推断!</h4>
+<pre><code><span class="comment"># 7B  → 512 KB/token  (73 KB per B of params)</span>
+<span class="comment"># 70B → 320 KB/token  (4.6 KB per B of params) ← 差 16×!</span>
+<span class="comment">#</span>
+<span class="comment"># 原因: 大模型用 GQA (8 KV heads 共享给 64 Q heads)</span>
+<span class="comment"># KV cache 不随 Q heads 增长, 只随 KV heads 增长</span>
+<span class="comment"># MLA 更激进: 把 KV 压缩到低维 latent (512 vs 7168)</span></code></pre>
+
+<h4>Serving 容量估算</h4>
+<pre><code><span class="comment"># 70B on 2×H100 (TP=2), 模型占 70GB/卡, 剩余 10GB 给 KV cache</span>
+available_kv = <span class="number">10</span> * <span class="number">1024</span>  <span class="comment"># 10240 MB</span>
+kv_per_token = <span class="number">0.32</span>       <span class="comment"># MB (320 KB, LLaMA-70B GQA)</span>
+
+<span class="comment"># 如果平均 seq_len = 4096:</span>
+max_concurrent = available_kv / (kv_per_token * <span class="number">4096</span>)
+<span class="comment"># = 10240 / 1310 ≈ 7-8 个并发请求 (单卡很紧张!)</span>
+<span class="comment"># 这就是为什么 PagedAttention 和内存管理如此重要</span></code></pre>
 </div>
 </section>
 
@@ -399,7 +575,7 @@ attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)
 <h3>Radix Cache: 前缀共享树</h3>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/kvcache-code-walk-through/kv-cache-request-lifecycle.png" alt="KV Cache Request Lifecycle" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/kv-cache-request-lifecycle.png" alt="KV Cache Request Lifecycle" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: KV Cache 请求生命周期: 从分配到复用的完整流程</div>
 </div>
 
@@ -496,7 +672,7 @@ attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)
 <h3>Prefill 与 Decode 的调度矛盾</h3>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/scheduler-evolution/img/overlap.png" alt="Overlap Scheduling" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/overlap.png" alt="Overlap Scheduling" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Overlap Scheduling: CPU 调度与 GPU 计算重叠, 实现零开销调度</div>
 </div>
 
@@ -542,15 +718,102 @@ attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)
 </div>
 
 <div class="card fade-in">
-<h3>Chunked Prefill</h3>
-<p>将长 prompt 的 prefill 分成多个 chunk，每个 chunk 与 decode 请求混合执行。这样既不会因为一个长 prompt 阻塞所有 decode 请求，又能充分利用 GPU 算力：</p>
-<ul style="margin-left: 20px; margin-top: 10px;">
-<li><strong>降低 TTFT 方差</strong>：长 prompt 不再独占 GPU</li>
-<li><strong>保护 Decode 延迟</strong>：每步 decode 不会被大 prefill 阻塞</li>
-<li><strong>更好的 GPU 利用</strong>：prefill (compute) + decode (memory) 互补</li>
-</ul>
+<h3>Chunked Prefill: 为什么需要 & 如何计算 chunk size</h3>
 
-<h4>拥塞控制机制：</h4>
+<h4>问题: 长 prefill 阻塞 decode</h4>
+<p>Prefill 和 decode 共享 GPU 的 SM (计算单元)。一个大 prefill kernel 提交到 GPU 后独占所有 SM 直到执行完, 后续的 decode kernel 必须排队:</p>
+<pre><code><span class="comment"># 无 chunked prefill: 32K tokens 的 prefill 占用 GPU ~1 秒</span>
+<span class="comment"># GPU timeline:</span>
+<span class="comment"># |<--- prefill 32K (占满所有 SM, ~1s) --->|<- decode ->|</span>
+<span class="comment">#                                           ↑ decode 等了 1 秒</span>
+<span class="comment"># 用户正在打字 → 突然停顿 1 秒 → 体验极差</span></code></pre>
+
+<p style="margin-top:12px;"><strong>注意:</strong> 不能用多 stream 解决 — 如果一个 kernel 已经占满所有 SM, 另一个 stream 的 kernel 虽然 submit 了也拿不到 SM。Chunked prefill 是在 <strong>kernel 边界</strong>做交替, 不是真正的并行。</p>
+
+<h4>Chunk Size 推导</h4>
+<pre><code><span class="comment"># 约束: 每个 chunk 的执行时间 ≤ TPOT 预算</span>
+<span class="comment"># chunk_time = chunk_size / prefill_speed ≤ TPOT_budget</span>
+<span class="comment"># → max_chunk_size = prefill_speed × TPOT_budget</span>
+
+prefill_speed = <span class="number">30000</span>   <span class="comment"># tokens/sec (7B on H100, from 300K/B formula)</span>
+tpot_budget = <span class="number">0.050</span>     <span class="comment"># 50ms, decode latency SLO</span>
+max_chunk_size = prefill_speed * tpot_budget  <span class="comment"># = 1500 tokens</span>
+
+<span class="comment"># 各请求切分:</span>
+<span class="comment"># 100 tokens:   1 chunk (< 1500, 不需要切)</span>
+<span class="comment"># 500 tokens:   1 chunk</span>
+<span class="comment"># 2000 tokens:  2 chunks (1500 + 500)</span>
+<span class="comment"># 8000 tokens:  6 chunks, 总 prefill 时间 = 6×50ms = 300ms</span>
+<span class="comment"># 32000 tokens: 22 chunks, 总 prefill 时间 ≈ 1.1s</span>
+<span class="comment">#               但 decode 每 51ms 仍然出 1 个 token!</span>
+
+<span class="comment"># 实际时间线:</span>
+<span class="comment"># [chunk 1500tok][decode 1tok][chunk 1500tok][decode 1tok]...</span>
+<span class="comment">#     50ms         ~1ms          50ms         ~1ms</span></code></pre>
+
+<h4>调度策略: SJF (Shortest Job First) + 内存感知</h4>
+<pre><code><span class="comment"># SJF: 短请求优先 prefill → 最小化平均等待时间</span>
+<span class="comment"># 内存感知: 如果 KV cache 不够放这个请求, 跳过它</span>
+
+<span class="keyword">def</span> <span class="function">schedule_prefills</span>(waiting_queue, available_kv_memory):
+    <span class="comment"># 按 prompt length 排序 (SJF)</span>
+    sorted_queue = <span class="function">sorted</span>(waiting_queue, key=<span class="keyword">lambda</span> r: r.prompt_len)
+
+    <span class="keyword">for</span> req <span class="keyword">in</span> sorted_queue:
+        kv_needed = req.prompt_len * kv_per_token
+        <span class="keyword">if</span> kv_needed <= available_kv_memory:
+            <span class="function">schedule</span>(req)
+            available_kv_memory -= kv_needed
+        <span class="keyword">else</span>:
+            <span class="comment"># 放不下 → 跳过 (不阻塞后面更小的请求)</span>
+            <span class="keyword">continue</span></code></pre>
+</div>
+
+<div class="card fade-in">
+<h3>Preemption (抢占): 内存不够时怎么办</h3>
+<p>当 KV cache 内存不足以容纳新请求时, 需要 "踢掉" 某些正在运行的请求来腾出空间。</p>
+
+<h4>内存压力分析示例</h4>
+<pre><code><span class="comment"># 场景: 7B 模型, H100, KV cache 预算 50 GB</span>
+<span class="comment"># 当前状态:</span>
+running_decode = <span class="number">20</span>  <span class="comment"># 正在 decode 的请求, 平均 seq_len=2000</span>
+kv_used = <span class="number">20</span> * <span class="number">2000</span> * <span class="number">0.5</span>  <span class="comment"># MB = 20 GB (0.5 MB/token for 7B MHA)</span>
+
+<span class="comment"># 新请求涌入:</span>
+new_requests = [<span class="number">100</span>, <span class="number">500</span>, <span class="number">2000</span>, <span class="number">8000</span>, <span class="number">32000</span>]  <span class="comment"># prompt lengths</span>
+kv_needed = <span class="function">sum</span>(new_requests) * <span class="number">0.5</span>  <span class="comment"># MB = 21.3 GB</span>
+
+<span class="comment"># 当前 20 + 21.3 = 41.3 GB < 50 GB → 暂时够用</span>
+
+<span class="comment"># ⚠ 但 decode 会增长! 每个 decode 请求的 seq_len 持续增加:</span>
+<span class="comment"># 如果每个 decode 最终生成到 4096 tokens:</span>
+future_kv = <span class="number">20</span> * <span class="number">4096</span> * <span class="number">0.5</span>  <span class="comment"># = 40 GB</span>
+<span class="comment"># 加上 32000 的新请求 (16 GB) → 56 GB > 50 GB → 爆了!</span></code></pre>
+
+<h4>Preemption 策略</h4>
+<table>
+<thead>
+<tr><th>策略</th><th>做法</th><th>恢复速度</th><th>额外开销</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Swap to CPU</strong></td><td>KV cache 搬到 CPU RAM</td><td>快 (PCIe copy back)</td><td>需要 CPU 内存 + PCIe 带宽</td></tr>
+<tr><td><strong>Recompute</strong></td><td>丢弃 KV cache, 恢复时重新 prefill</td><td>慢 (重算)</td><td>无额外内存, 但浪费算力</td></tr>
+<tr><td><strong>Kill</strong></td><td>直接终止请求</td><td>N/A</td><td>用户体验差</td></tr>
+</tbody>
+</table>
+
+<h4>谁应该被 preempt?</h4>
+<pre><code><span class="comment"># 优先 preempt 32000 token 的请求:</span>
+<span class="comment"># 1. KV cache 最大 (16 GB), 踢掉它释放最多内存</span>
+<span class="comment"># 2. 还在 chunked prefill, 没产出任何 output → 用户感知代价低</span>
+<span class="comment"># 3. 短请求已在 decode, preempt 它们 = 用户看到输出中断 → 体验更差</span>
+<span class="comment">#</span>
+<span class="comment"># SGLang/vLLM 策略:</span>
+<span class="comment">#   - LIFO preemption (后来的先被踢)</span>
+<span class="comment">#   - 优先保护已经产出 output 的请求</span>
+<span class="comment">#   - 大请求设置低优先级</span></code></pre>
+
+<h4>拥塞控制机制</h4>
 <p>类似 TCP 的拥塞控制，当系统负载过高时：</p>
 <ol style="margin-left: 20px; margin-top: 10px;">
 <li>监控等待队列长度和 KV Cache 利用率</li>
@@ -652,7 +915,7 @@ attention_output = <span class="function">softmax</span>(q @ K_cache.T / sqrt(d)
 
 <div class="card">
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/speculative-decoding/withSpec1.png" alt="Speculative Decoding" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/withspec1.png" alt="Speculative Decoding" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Speculative Decoding: Draft model 生成候选 token, Target model 并行验证</div>
 </div>
 
@@ -1463,6 +1726,355 @@ Effective speedup ≈ (avg_accepted + 1) / 1 = 3.35x
 </details>
 </div>
 
+<!-- Interview-style System Design Questions -->
+<div class="card fade-in">
+<h3 style="color:#ff9800;">System Design 面试题 (Anthropic/OpenAI 风格)</h3>
+<p style="color:#888;">以下题目模拟 AI Infra 面试中的系统设计和性能分析问题。要求: 给出数值推导过程, 不只是定性回答。</p>
+</div>
+
+<div class="exercise">
+<h4>面试题 1: Capacity Planning — Claude/GPT 级模型的 serving 集群</h4>
+<p>你负责部署一个 <strong>405B 参数</strong>的模型 (类似 LLaMA-405B), 要求:</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>SLO: P99 TPOT ≤ 100ms, P99 TTFT ≤ 2s</li>
+<li>QPS: 稳态 200 requests/sec</li>
+<li>平均 input length: 2000 tokens, 平均 output length: 500 tokens</li>
+<li>GPU: H100 80GB SXM (BF16, 3.35 TB/s bandwidth, 989 TFLOPS)</li>
+<li>模型用 FP8 量化 (405B × 1 byte = 405 GB)</li>
+</ul>
+<p style="margin-top:10px;"><strong>问题:</strong></p>
+<ol style="margin-left: 20px;">
+<li>最少需要几张 H100 才能<strong>放下模型</strong>? 推荐的 TP degree?</li>
+<li>单个 TP group 的理论 <strong>TPOT</strong> 是多少? 能满足 100ms SLO 吗?</li>
+<li>单个 TP group 的 <strong>prefill 速度</strong>是多少 tok/s? 2000 tokens 的 TTFT?</li>
+<li>要支撑 200 QPS (每秒 200 × 500 = 100K output tokens), 需要几个 <strong>TP replica</strong>?</li>
+<li>总共需要多少 H100? 年成本估算 (假设 $2/GPU·hour)?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (1) 模型放置</span>
+model_size = <span class="number">405</span>  <span class="comment"># GB (FP8)</span>
+h100_mem = <span class="number">80</span>      <span class="comment"># GB</span>
+min_gpus = <span class="number">405</span> / <span class="number">80</span>  <span class="comment"># = 5.06 → 最少 6 张, 但推荐 TP=8 (对齐节点)</span>
+<span class="comment"># TP=8: 每卡 405/8 ≈ 50.6 GB 模型 + KV cache + activation 余量</span>
+
+<span class="comment"># (2) TPOT</span>
+<span class="comment"># TP=8: 每卡读 405/8 = 50.6 GB</span>
+<span class="comment"># 但 FP8 的 Tensor Core 吞吐 2× BF16, compute 不是瓶颈</span>
+<span class="comment"># 瓶颈仍在 bandwidth (decode is memory-bound)</span>
+tpot_theory = <span class="number">50.6</span> / <span class="number">3350</span> * <span class="number">1000</span>  <span class="comment"># = 15.1 ms (理论)</span>
+tpot_actual = tpot_theory / <span class="number">0.65</span>    <span class="comment"># ÷ MBU ≈ 23 ms (实际)</span>
+<span class="comment"># 23ms << 100ms SLO → 单 TP group TPOT 满足 ✓</span>
+
+<span class="comment"># (3) Prefill 速度</span>
+<span class="comment"># FP8 on H100: ~1979 TFLOPS, MFU ~55%</span>
+<span class="comment"># FLOPs/token = 2 × 405B = 810 GFLOP</span>
+<span class="comment"># TP=8 → 8 卡一起算, effective FLOPS = 8 × 1979 × 0.55 = 8.7 PFLOPS</span>
+prefill_speed = <span class="number">8</span> * <span class="number">1979e12</span> * <span class="number">0.55</span> / (<span class="number">810e9</span>)  <span class="comment"># ≈ 10,750 tok/s</span>
+ttft_2000 = <span class="number">2000</span> / <span class="number">10750</span>  <span class="comment"># = 186 ms → 加上排队时间, P99 约 500ms-1s</span>
+<span class="comment"># 满足 2s SLO ✓ (有余量应对排队)</span>
+
+<span class="comment"># (4) Decode 吞吐</span>
+<span class="comment"># 单 TP group: 1/0.023 = 43 tok/s per request</span>
+<span class="comment"># 但可以 batch! 临界 batch ≈ 148 (前面推导过)</span>
+<span class="comment"># 实际 batch=64 (memory 限制): 吞吐 ≈ 64 × 43 = 2752 tok/s per TP group</span>
+<span class="comment"># (batch 越大, memory bound → TPOT 不变, 吞吐线性增长)</span>
+
+<span class="comment"># 需要总 decode 吞吐: 200 QPS × 500 output_tokens = 100K tok/s</span>
+<span class="comment"># 但同时在 decode 的请求数 = 200 × (500/43) ≈ 2326 个 concurrent</span>
+<span class="comment"># 每 TP group 能 batch 64 个 → 需要 2326/64 ≈ 37 个 TP groups</span>
+num_replicas = <span class="number">37</span>
+
+<span class="comment"># (5) 总 GPU 和成本</span>
+total_gpus = <span class="number">37</span> * <span class="number">8</span>  <span class="comment"># = 296 H100s</span>
+annual_cost = <span class="number">296</span> * <span class="number">2</span> * <span class="number">24</span> * <span class="number">365</span>  <span class="comment"># = $5.19M / year</span>
+<span class="comment"># 实际还需 20-30% buffer (failover, 峰值) → ~380 GPUs, ~$6.7M/year</span></code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 2: Decode Batching 的天花板在哪?</h4>
+<p>面试官: "你说增大 batch size 可以提高 decode 吞吐, 那为什么不无限增大?"</p>
+<p style="margin-top:10px;">给定 LLaMA-70B (BF16) on 1×H100, 推导:</p>
+<ol style="margin-left: 20px; margin-top: 10px;">
+<li>Batch size 从 1 增大到 256, TPOT 和吞吐如何变化?</li>
+<li>batch size 的<strong>三个上限</strong>分别是什么? 各自的数值是多少?</li>
+<li>如果 avg seq_len = 4096, 实际最大 batch 是多少?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># 三个 batch size 上限:</span>
+
+<span class="comment"># 上限 1: Memory (KV cache 装不下)</span>
+model_mem = <span class="number">140</span>  <span class="comment"># GB (70B BF16)</span>
+available_kv = <span class="number">80</span> - <span class="number">140</span>  <span class="comment"># = -60 GB → 单卡放不下! 需要 TP=2</span>
+<span class="comment"># TP=2: 每卡 70 GB model, 剩 10 GB for KV</span>
+kv_per_seq = <span class="number">0.32</span> * <span class="number">4096</span>  <span class="comment"># = 1310 MB = 1.28 GB per request (70B GQA)</span>
+max_batch_memory = <span class="number">10</span> / <span class="number">1.28</span>  <span class="comment"># ≈ 7-8 requests ← 非常紧张!</span>
+
+<span class="comment"># 上限 2: Compute (变成 compute-bound)</span>
+<span class="comment"># 当 batch 足够大, 矩阵从 [1,h]×[h,4h] 变成 [B,h]×[h,4h]</span>
+<span class="comment"># 临界点: 读一次权重能做的计算 = GPU FLOPS 的极限</span>
+<span class="comment"># B_critical = FLOPS / (Bandwidth × 2) = 989e12 / (3.35e12 × 2) ≈ 148</span>
+<span class="comment"># 超过 148 后, TPOT 开始随 B 线性增长 (吞吐不再增加)</span>
+
+<span class="comment"># 上限 3: Latency SLO</span>
+<span class="comment"># SLO 要求 TPOT ≤ 100ms</span>
+<span class="comment"># 当 B > B_critical, TPOT ≈ 2×Params×B / FLOPS</span>
+<span class="comment"># 100ms = 2×70e9×B / 989e12 → B = 989e12×0.1 / 140e9 = 706</span>
+<span class="comment"># 但这远大于内存限制, 所以实际上 memory 是第一个 hit 的瓶颈</span>
+
+<span class="comment"># 结论 (70B TP=2 on 2×H100):</span>
+<span class="comment"># max batch ≈ 7 (被 KV cache memory 限死)</span>
+<span class="comment"># 这就是为什么 PagedAttention 如此重要 — 减少内存碎片, 多挤几个请求</span>
+
+<span class="comment"># TPOT vs batch size 变化:</span>
+<span class="comment"># B=1:   TPOT=35ms,  吞吐=28 tok/s   (memory-bound, 读 70GB 权重)</span>
+<span class="comment"># B=4:   TPOT=35ms,  吞吐=114 tok/s  (仍然 memory-bound, TPOT 不变!)</span>
+<span class="comment"># B=8:   TPOT=36ms,  吞吐=222 tok/s  (接近 memory 上限)</span>
+<span class="comment"># B=148: TPOT=35ms,  吞吐=4229 tok/s (理论极限, 但 memory 早就不够)</span></code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 3: Prefill-Decode Disaggregation 的 Trade-off</h4>
+<p>有些系统 (如 Mooncake, DistServe) 把 Prefill 和 Decode 放到不同的 GPU 集群上:</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>Prefill 集群: 高计算密度, 不需要大 KV cache</li>
+<li>Decode 集群: 高内存带宽, 大 KV cache</li>
+</ul>
+<p style="margin-top:10px;"><strong>问题:</strong></p>
+<ol style="margin-left: 20px;">
+<li>Prefill 完成后, KV cache 需要从 Prefill GPU 传输到 Decode GPU。计算 2000 tokens 的 KV cache 传输延迟 (70B GQA, 通过 IB 400 Gbps)。</li>
+<li>这个传输延迟对 TTFT 的影响是多少? 值得吗?</li>
+<li>什么场景下 disaggregation 收益最大? 什么场景下不值得?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (1) KV cache 传输延迟</span>
+<span class="comment"># 70B GQA: kv_per_token = 2×80×8×128×2 = 327,680 bytes = 320 KB/token</span>
+kv_size = <span class="number">2000</span> * <span class="number">320</span> / <span class="number">1024</span>  <span class="comment"># = 625 MB</span>
+
+<span class="comment"># IB 400 Gbps = 50 GB/s</span>
+transfer_time = <span class="number">625</span> / (<span class="number">50</span> * <span class="number">1024</span>) * <span class="number">1000</span>  <span class="comment"># = 12.2 ms</span>
+<span class="comment"># 如果 RDMA: 延迟 ~1-2ms overhead + 传输 → 总 ~14 ms</span>
+
+<span class="comment"># (2) 对 TTFT 的影响</span>
+<span class="comment"># 正常 co-located TTFT = prefill_time = 2000 / 4300 = 465 ms (70B TP=8)</span>
+<span class="comment"># Disaggregated TTFT = prefill_time + KV transfer = 465 + 14 = 479 ms</span>
+<span class="comment"># 增加了 3% 的 TTFT — 可接受!</span>
+
+<span class="comment"># (3) 什么时候值得?</span>
+<span class="comment"># ✓ 值得:</span>
+<span class="comment">#   - decode 请求很多, prefill 抢占 decode 的 SM → disaggregate 消除干扰</span>
+<span class="comment">#   - prefill 请求长度变化大 (100 ~ 100K) → 单独集群好做 SJF + 负载均衡</span>
+<span class="comment">#   - 可以给 decode 集群配更高带宽 GPU (如 H200), prefill 用更便宜的</span>
+<span class="comment">#</span>
+<span class="comment"># ✗ 不值得:</span>
+<span class="comment">#   - KV cache 很大时 (MHA + 长序列): 传输延迟高, 且占 IB 带宽</span>
+<span class="comment">#   - QPS 低时: co-located 更简单, 不需要额外的网络通信</span>
+<span class="comment">#   - 短请求为主时: prefill 很快, disaggregate 的 overhead 占比大</span></code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 4: 为什么 Speculative Decoding 在高 batch size 下收益递减?</h4>
+<p>Speculative Decoding 用小模型 draft K 个 token, 大模型一次 verify。理论上 speedup = accepted_length + 1。但在 serving 系统中, batch size 大时收益会下降。</p>
+<ol style="margin-left: 20px; margin-top: 10px;">
+<li>解释 "verify 阶段" 的计算量和 batch size 的关系</li>
+<li>在什么 batch size 下, speculative decoding 反而会变慢?</li>
+<li>如何设计一个自适应策略: 低负载用 spec decoding, 高负载关闭?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># 核心洞察: Speculative Decoding 增加了 compute, 但减少了 "decode steps"</span>
+<span class="comment"># decode 原本是 memory-bound → 少做几步能省时间</span>
+<span class="comment"># 但 verify 阶段 (K tokens 并行) 是 compute → 在高 batch 下可能变成瓶颈</span>
+
+<span class="comment"># (1) Verify 的计算量</span>
+<span class="comment"># 正常 decode (B 个请求): [B, h] × [h, 4h]</span>
+<span class="comment"># Spec verify (B 个请求, 每个 K 候选): [B×K, h] × [h, 4h]</span>
+<span class="comment"># → compute 增大 K 倍!</span>
+
+<span class="comment"># (2) 什么时候变慢?</span>
+<span class="comment"># 原来 batch B 在 memory-bound region (B < B_critical=148)</span>
+<span class="comment"># 加了 spec decoding: effective B' = B × K</span>
+<span class="comment"># 如果 B × K > B_critical → verify 变成 compute-bound!</span>
+<span class="comment"># 例: B=64, K=5 → B'=320 > 148 → verify 阶段 compute-bound</span>
+<span class="comment">#     verify time = 2×Params×320 / FLOPS 可能比 5 步 decode 还慢</span>
+
+<span class="comment"># 临界 batch size (K=5, 70B on H100):</span>
+<span class="comment"># B_crossover = B_critical / K = 148 / 5 ≈ 30</span>
+<span class="comment"># → batch > 30 时, speculative decoding 开始不划算</span>
+
+<span class="comment"># (3) 自适应策略</span>
+<span class="keyword">def</span> <span class="function">should_use_spec_decoding</span>(current_batch_size, draft_k, b_critical):
+    <span class="comment"># 如果 verify 会超过 compute-bound 临界点, 关闭 spec</span>
+    <span class="keyword">if</span> current_batch_size * draft_k > b_critical:
+        <span class="keyword">return</span> <span class="keyword">False</span>
+    <span class="comment"># 如果负载低 (大量 idle SM), 用 spec decoding 减少总步数</span>
+    <span class="keyword">if</span> current_batch_size < b_critical * <span class="number">0.3</span>:
+        <span class="keyword">return</span> <span class="keyword">True</span>
+    <span class="comment"># 中间地带: 减小 K</span>
+    <span class="keyword">return</span> <span class="keyword">True</span>, max(<span class="number">1</span>, b_critical // current_batch_size)</code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 5: 设计一个 Multi-turn Chat 的 KV Cache 策略</h4>
+<p>场景: 一个 chat 应用, 用户会进行多轮对话。每轮新消息平均 200 tokens, 模型回复平均 500 tokens。</p>
+<ul style="margin-left: 20px; margin-top: 10px;">
+<li>模型: 70B, GQA, KV per token = 320 KB</li>
+<li>GPU: 4×H100 (TP=4), 可用 KV cache 内存: 30 GB/卡</li>
+<li>用户行为: 平均 8 轮对话, 50% 用户在 5 分钟内继续下一轮</li>
+</ul>
+<p style="margin-top:10px;"><strong>设计题:</strong></p>
+<ol style="margin-left: 20px;">
+<li>一个 8 轮对话占多少 KV cache? 能同时保持多少个活跃 session?</li>
+<li>设计 cache eviction 策略: 哪些 session 应该被 evict? 什么时候 evict?</li>
+<li>被 evict 的 session 回来了怎么办? 计算 re-prefill 的代价</li>
+<li>Prefix caching (system prompt 共享) 能节省多少?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># (1) 单 session KV cache</span>
+tokens_per_round = <span class="number">200</span> + <span class="number">500</span>  <span class="comment"># user + assistant = 700 tokens/轮</span>
+tokens_8_rounds = <span class="number">8</span> * <span class="number">700</span>  <span class="comment"># = 5600 tokens</span>
+kv_per_session = <span class="number">5600</span> * <span class="number">320</span> / <span class="number">1024</span> / <span class="number">1024</span>  <span class="comment"># = 1.71 GB</span>
+
+<span class="comment"># TP=4: KV cache 按 head 切分 → 每卡 1.71/4 = 0.43 GB/session</span>
+<span class="comment"># 可用 30 GB/卡 → max sessions = 30 / 0.43 ≈ 70 个</span>
+
+<span class="comment"># (2) Eviction 策略</span>
+<span class="comment"># LRU 不够好 — 有些 session 虽然最近没活动但马上会回来</span>
+<span class="comment"># 更好的策略: LRU + session 价值加权</span>
+<span class="comment">#   cost_to_evict = tokens_cached × prefill_time_per_token</span>
+<span class="comment">#                  (大 session evict 代价高, 应该留着)</span>
+<span class="comment">#   probability_of_return = based on idle_time (5min 内 50% 回来)</span>
+<span class="comment">#   expected_cost = cost_to_evict × probability_of_return</span>
+<span class="comment"># 优先 evict expected_cost 最低的 (短 session + idle 久的)</span>
+
+<span class="comment"># (3) Re-prefill 代价</span>
+<span class="comment"># 被 evict 的 session (5600 tokens) 回来:</span>
+<span class="comment"># prefill 5600 tokens at 4300 tok/s (70B TP=8) = 1.3 seconds TTFT!</span>
+<span class="comment"># 用户体验: 切回对话要等 1.3 秒 — 不可接受</span>
+<span class="comment"># 优化: swap to CPU RAM (120 GB), re-load time = 1.71 GB / 64 GB/s PCIe = 27ms</span>
+<span class="comment">#       远好于 re-prefill 的 1.3s!</span>
+
+<span class="comment"># (4) Prefix caching (system prompt = 1000 tokens, 共享)</span>
+<span class="comment"># 如果所有 session 共享相同 system prompt:</span>
+<span class="comment"># 每 session 省 1000 × 320 KB = 312 MB ≈ 0.3 GB</span>
+<span class="comment"># 70 个 session 总共省: 70 × 0.3 / 4 (TP) = 5.25 GB/卡 → 能多放 12 个 session</span>
+<span class="comment"># 节省: 5.25/30 = 17.5% 内存</span>
+<span class="comment"># 而且新 session 不需要 prefill system prompt → TTFT 省 233ms (1000/4300)</span></code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 6: 量化对 Serving 性能的影响分析</h4>
+<p>你需要对比 BF16 vs FP8 vs INT4 三种精度部署 LLaMA-70B 的性能:</p>
+<ol style="margin-left: 20px; margin-top: 10px;">
+<li>三种精度下, 模型分别需要多少 H100? (考虑 TP 最小度)</li>
+<li>计算每种精度的 decode TPOT (batch=1)</li>
+<li>量化后每种精度的最大 concurrent batch size (KV cache 空间)</li>
+<li>如果 INT4 引入 5% quality degradation, 从 cost-per-quality 角度哪种最优?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># 模型大小:</span>
+<span class="comment"># BF16: 70B × 2 = 140 GB → TP=2 (每卡 70 GB, 勉强放下)</span>
+<span class="comment"># FP8:  70B × 1 = 70 GB  → TP=1 可行! (70 GB + 10 GB KV)</span>
+<span class="comment"># INT4: 70B × 0.5 = 35 GB → TP=1 (35 GB model, 45 GB for KV!)</span>
+
+<span class="comment"># TPOT (batch=1, H100 3.35 TB/s):</span>
+<span class="comment"># BF16 TP=2: 70 GB / 3.35 TB/s = 20.9 ms (理论) → ~32 ms (MBU 65%)</span>
+<span class="comment"># FP8 TP=1:  70 GB / 3.35 TB/s = 20.9 ms (理论) → ~32 ms</span>
+<span class="comment"># INT4 TP=1: 35 GB / 3.35 TB/s = 10.4 ms (理论) → ~16 ms</span>
+<span class="comment"># </span>
+<span class="comment"># ⚠ FP8 和 BF16 TPOT 相同! 因为 decode 是 memory-bound,</span>
+<span class="comment">#   FP8 的 2× compute 优势在 decode 时用不上</span>
+<span class="comment">#   FP8 真正的优势: TP=1 (省 GPU 数) + 更大的 KV cache 空间</span>
+
+<span class="comment"># 最大 batch (avg seq_len=4096, GQA KV=320KB/token):</span>
+<span class="comment"># KV per request = 4096 × 0.32 MB = 1.31 GB</span>
+<span class="comment"># BF16 TP=2: 可用 KV = 10 GB/卡 → 10/1.31 ≈ 7 concurrent</span>
+<span class="comment"># FP8 TP=1:  可用 KV = 10 GB → 7 concurrent (相同)</span>
+<span class="comment"># INT4 TP=1: 可用 KV = 45 GB → 45/1.31 ≈ 34 concurrent! (4.8×)</span>
+
+<span class="comment"># Cost-per-quality 分析:</span>
+<span class="comment"># BF16: 2 GPUs, throughput ~7×28=196 tok/s, quality=100%</span>
+<span class="comment">#       cost_per_tok = 2/$2/hr / 196 = $0.0102/1K tokens</span>
+<span class="comment"># FP8:  1 GPU, throughput ~7×31=217 tok/s, quality≈100%</span>
+<span class="comment">#       cost_per_tok = 1/$2/hr / 217 = $0.0046/1K tokens ← 最优!</span>
+<span class="comment"># INT4: 1 GPU, throughput ~34×62=2108 tok/s, quality=95%</span>
+<span class="comment">#       cost_per_tok = 1/$2/hr / 2108 = $0.00047/1K tokens</span>
+<span class="comment">#       quality_adj = $0.00047/0.95 = $0.0005/1K tokens</span>
+<span class="comment"># </span>
+<span class="comment"># 结论: FP8 是 quality-sensitive 场景的甜蜜点</span>
+<span class="comment">#       INT4 适合 quality 要求不严的高吞吐场景 (如 draft model)</span></code></pre>
+</div>
+</details>
+</div>
+
+<div class="exercise">
+<h4>面试题 7: 突发流量下的降级策略</h4>
+<p>正常负载 100 QPS, 突然飙到 500 QPS (5× spike), 持续 2 分钟。集群没有自动扩容。</p>
+<p style="margin-top:10px;">设计一套<strong>优雅降级</strong>方案, 让尽可能多的用户感知正常:</p>
+<ol style="margin-left: 20px; margin-top: 10px;">
+<li>立即生效的措施 (< 1秒内)</li>
+<li>短期措施 (10-30秒内)</li>
+<li>如何决定哪些请求 "牺牲" 质量, 哪些保持?</li>
+<li>spike 结束后如何恢复?</li>
+</ol>
+
+<details class="exercise-solution">
+<summary>完整解答</summary>
+<div class="content">
+<pre><code><span class="comment"># 立即生效 (< 1s):</span>
+<span class="comment"># 1. 减小 max_output_tokens (2048 → 512): 每请求释放 KV cache 更快</span>
+<span class="comment"># 2. 增大 chunked prefill 的 chunk_size: 优先消化现有 decode</span>
+<span class="comment"># 3. 对新请求排队 (admission control): 返回 429 Too Many Requests</span>
+<span class="comment">#    但只限制 P50 以上长度的请求, 短请求仍然接纳</span>
+
+<span class="comment"># 短期措施 (10-30s):</span>
+<span class="comment"># 4. 动态量化: 将部分 replica 从 BF16 切到 FP8 (释放内存给 KV cache)</span>
+<span class="comment">#    需要预加载 FP8 checkpoint → 10s warmup</span>
+<span class="comment"># 5. 减少 speculative decoding 的 K (K=5 → K=2 或关闭)</span>
+<span class="comment">#    释放 draft model 占用的 compute 给 decode</span>
+<span class="comment"># 6. 对 "低价值" 请求启用 early stopping (repetition/quality 检测)</span>
+
+<span class="comment"># 请求分级:</span>
+<span class="comment"># Tier 1 (保护): 付费用户, multi-turn 对话中间轮 (context 已建立)</span>
+<span class="comment"># Tier 2 (降级): 新 session, 长 prompt (> 4096), 非付费用户</span>
+<span class="comment"># Tier 3 (丢弃): 重试请求, 超过 5s 排队的请求 (用户可能已离开)</span>
+<span class="comment"># 降级方式: 减小 max_tokens, 增大 temperature (牺牲质量换速度)</span>
+
+<span class="comment"># Spike 结束后恢复:</span>
+<span class="comment"># 1. 不要立即恢复 max_output_tokens → 等待队列 drain 完毕</span>
+<span class="comment"># 2. 逐步增加接纳率 (类似 TCP slow start)</span>
+<span class="comment"># 3. 被 preempt 的 session 优先 re-prefill (它们的用户等了最久)</span>
+<span class="comment"># 4. 监控 P99 TPOT 恢复到 SLO 内后, 切回正常模式</span></code></pre>
+</div>
+</details>
+</div>
+
 </section>
 
 <!-- JavaScript -->
@@ -1809,5 +2421,6 @@ const pipelineEl = document.getElementById('pipeline-anim');
 if (pipelineEl) pipelineObserver.observe(pipelineEl);
 </script>
 
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

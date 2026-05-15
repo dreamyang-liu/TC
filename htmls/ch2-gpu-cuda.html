@@ -62,18 +62,7 @@ pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; }
 .mem-arrow { text-align: center; color: #666; font-size: 1.2rem; margin: 2px 0; animation: arrowBounce 1.5s ease-in-out infinite; }
 @keyframes arrowBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 
-/* CUDA Graph Timeline */
-.timeline-container { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
-.timeline-column { flex: 1; min-width: 300px; background: #12122a; border-radius: 8px; padding: 16px; border: 1px solid #333; }
-.timeline-column h4 { text-align: center; margin-bottom: 12px; font-size: 0.95rem; }
-.timeline-bar-group { margin-bottom: 8px; position: relative; }
-.timeline-bar { height: 24px; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 0.7rem; color: #fff; margin-bottom: 3px; }
-.bar-kernel { background: linear-gradient(90deg, #00d2ff, #0088aa); }
-.bar-launch { background: #ff6b6b; }
-.bar-gap { background: #333; border: 1px dashed #555; color: #888; }
-.bar-graph { background: linear-gradient(90deg, #7b2ff7, #a855f7); }
-.timeline-animate .timeline-bar { width: 0; animation: barGrow 0.8s ease forwards; }
-@keyframes barGrow { to { width: 100%; } }
+/* CUDA Graph Timeline (canvas-based, minimal CSS needed) */
 .speedup-badge { text-align: center; margin-top: 16px; padding: 10px; background: linear-gradient(135deg, #00d2ff20, #7b2ff720); border-radius: 8px; border: 1px solid #7b2ff7; }
 .speedup-badge span { font-size: 1.4rem; font-weight: bold; color: #7b2ff7; }
 
@@ -127,6 +116,7 @@ pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 
 <header class="chapter-header">
   <h1>Chapter 2: GPU 计算与 CUDA 基础</h1>
@@ -901,38 +891,19 @@ store reg_C → C[block_m, block_n]   <span class="comment"># 写回 Global Memo
 
     <div class="card">
       <h3>CUDA Graph 时间线对比（动画）</h3>
-      <div class="timeline-container" id="timelineContainer">
-        <div class="timeline-column">
-          <h4 style="color:#ff6b6b;">Without CUDA Graph</h4>
-          <div id="timelineNormal">
-            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:40%;">Kernel 1</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:35%;">Kernel 2</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:45%;">Kernel 3</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-gap" style="width:20%;">idle gap</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-launch" style="width:25%;">CPU Launch</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:38%;">Kernel 4</div></div>
-          </div>
-          <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:10px;">总时间: ~120μs（其中 launch + gap 占 ~45μs）</p>
+      <div style="position:relative;">
+        <canvas id="cudaGraphCanvas" width="900" height="420" style="width:100%;max-width:900px;display:block;margin:0 auto;border-radius:8px;background:#0a0a1a;"></canvas>
+        <div style="text-align:center;margin-top:16px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button onclick="cgAnim.reset(); cgAnim.play();" style="background:linear-gradient(135deg,#00d2ff,#7b2ff7);border:none;color:#fff;padding:8px 20px;border-radius:6px;cursor:pointer;">▶ 播放动画</button>
+          <button onclick="cgAnim.reset();" style="background:#333;border:1px solid #555;color:#ccc;padding:8px 20px;border-radius:6px;cursor:pointer;">↺ 重置</button>
         </div>
-        <div class="timeline-column">
-          <h4 style="color:#7b2ff7;">With CUDA Graph</h4>
-          <div id="timelineGraph">
-            <div class="timeline-bar-group"><div class="timeline-bar bar-graph" style="width:20%;">Graph Launch (一次)</div></div>
-            <div class="timeline-bar-group"><div class="timeline-bar bar-kernel" style="width:100%;">Kernel 1 → 2 → 3 → 4 (back-to-back)</div></div>
-          </div>
-          <p style="text-align:center;color:#888;font-size:0.8rem;margin-top:10px;">总时间: ~80μs（launch 仅一次 ~5μs）</p>
-          <div class="speedup-badge">
-            <span>~1.5× speedup</span>
-            <p style="font-size:0.8rem;color:#aaa;margin-top:4px;">Kernel 越小越多，加速比越大</p>
-          </div>
+        <div style="display:flex;gap:20px;justify-content:center;margin-top:12px;font-size:0.75rem;color:#888;flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:12px;height:12px;background:#ff6b6b;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>CPU Launch</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#00d2ff;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>GPU Kernel</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#333;border:1px dashed #666;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>GPU Idle</span>
+          <span><span style="display:inline-block;width:12px;height:12px;background:#7b2ff7;border-radius:2px;vertical-align:middle;margin-right:4px;"></span>Graph Launch</span>
         </div>
       </div>
-      <button style="display:block;margin:16px auto;background:linear-gradient(135deg,#00d2ff,#7b2ff7);border:none;color:#fff;padding:8px 20px;border-radius:6px;cursor:pointer;" onclick="animateTimeline()">重播动画</button>
     </div>
 
     <div class="card">
@@ -1865,6 +1836,370 @@ GEMM TFLOPS vs Matrix Size
       </div>
     </div>
 
+    <!-- Exercise 5: Roofline Model -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 5：Roofline Model 分析</h4>
+        <span class="badge">面试题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件：</p>
+        <ul>
+          <li>GPU: NVIDIA H100 SXM</li>
+          <li>BF16 Tensor Core 峰值算力: 989 TFLOPS</li>
+          <li>HBM 带宽: 3.35 TB/s</li>
+          <li>Arithmetic Intensity (AI) = FLOPs / Bytes_accessed</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：</strong></p>
+        <ol style="padding-left:20px;">
+          <li style="margin-bottom:8px;">Ridge point 在哪？（即 AI = Peak FLOPS / Peak Bandwidth）</li>
+          <li style="margin-bottom:8px;">判断以下 kernel 是 compute-bound 还是 memory-bound：
+            <ul style="margin-top:4px;">
+              <li>GEMM <code>[4096,4096] x [4096,4096]</code>（AI=4096）</li>
+              <li>LayerNorm <code>[batch=32, seq=2048, h=4096]</code>（AI约5）</li>
+              <li>Softmax <code>[32, 32, 2048, 2048]</code>（AI约3）</li>
+              <li>Element-wise ReLU（AI=0.25）</li>
+            </ul>
+          </li>
+          <li style="margin-bottom:8px;">对 memory-bound kernel，优化策略是什么？对 compute-bound kernel 呢？</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>Ridge point = Peak FLOPS / Peak Bandwidth，单位是 FLOPs/Byte</li>
+            <li>AI &lt; Ridge → memory-bound；AI &gt; Ridge → compute-bound</li>
+            <li>Memory-bound 意味着计算单元在等数据，优化方向是减少数据搬运</li>
+            <li>Compute-bound 意味着带宽够用但算力不够，优化方向是提高计算效率</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># (1) Ridge Point</span>
+ridge = <span class="number">989e12</span> / <span class="number">3.35e12</span>  <span class="comment"># ≈ 295 FLOPs/Byte</span>
+
+<span class="comment"># (2) 判断各 kernel</span>
+
+<span class="comment"># GEMM [4096,4096]×[4096,4096]</span>
+<span class="comment"># FLOPs = 2×4096³ ≈ 137G, Bytes = 3×4096²×2 = 96MB</span>
+<span class="comment"># AI = 137G / 96M ≈ 1431, 但简化计算: 对于方阵 GEMM, AI ≈ M/2 = 4096/2</span>
+<span class="comment"># 更精确: AI = 2MNK / (MK+KN+MN)*elem_size ≈ 4096 (when M=N=K large)</span>
+ai_gemm = <span class="number">4096</span>       <span class="comment"># >> 295 → Compute-bound ✓</span>
+
+<span class="comment"># LayerNorm [32, 2048, 4096]</span>
+<span class="comment"># 每个元素: ~5 FLOPs (sub mean, square, div std, scale, shift)</span>
+<span class="comment"># 读写: 2 bytes read + 2 bytes write = 4 bytes/element (BF16)</span>
+ai_layernorm = <span class="number">5</span> / <span class="number">4</span>  <span class="comment"># 实际约 5 FLOPs/Byte (考虑 reduction 复用)</span>
+                      <span class="comment"># AI ≈ 5 << 295 → Memory-bound ✓</span>
+
+<span class="comment"># Softmax [32, 32, 2048, 2048]</span>
+<span class="comment"># 需要 3 passes: max, exp+sum, div → 读 3 次 + 写 1 次</span>
+<span class="comment"># FLOPs ≈ 5N per row, Bytes ≈ 8N per row (3 read + 1 write, BF16)</span>
+ai_softmax = <span class="number">3</span>       <span class="comment"># << 295 → Memory-bound ✓</span>
+
+<span class="comment"># Element-wise ReLU</span>
+<span class="comment"># 1 compare + 1 select = ~1 FLOP per element</span>
+<span class="comment"># Read 2 bytes + Write 2 bytes = 4 bytes</span>
+ai_relu = <span class="number">1</span> / <span class="number">4</span>       <span class="comment"># = 0.25 << 295 → Memory-bound ✓</span>
+
+<span class="comment"># (3) 优化策略</span>
+<span class="comment"># Memory-bound kernel 优化:</span>
+<span class="comment">#   - Kernel fusion: 减少中间结果的 HBM round-trips</span>
+<span class="comment">#     (e.g., fuse LayerNorm + ReLU + Dropout 为一个 kernel)</span>
+<span class="comment">#   - 利用 Shared Memory 做 reduction, 避免多次读 HBM</span>
+<span class="comment">#   - Flash Attention: 将 Softmax 的 3-pass 融合为 1-pass</span>
+<span class="comment">#</span>
+<span class="comment"># Compute-bound kernel 优化:</span>
+<span class="comment">#   - 使用 Tensor Core (MMA 指令), 比 FP32 CUDA Core 快 8-16x</span>
+<span class="comment">#   - 增大 tile size, 提高数据复用率</span>
+<span class="comment">#   - 优化 warp-level scheduling, 减少 pipeline bubble</span></code></pre>
+          <p style="margin-top:10px;"><strong>总结：</strong></p>
+          <ul>
+            <li>Ridge point = <strong>295 FLOPs/Byte</strong></li>
+            <li>GEMM (AI=4096): <strong>Compute-bound</strong></li>
+            <li>LayerNorm (AI≈5), Softmax (AI≈3), ReLU (AI=0.25): 全部 <strong>Memory-bound</strong></li>
+            <li>LLM 推理中绝大多数非 GEMM 的 kernel 都是 memory-bound，这就是为什么 Flash Attention 和 kernel fusion 如此重要</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 6: Shared Memory Bank Conflict -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 6：Shared Memory Bank Conflict</h4>
+        <span class="badge">面试题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件：</p>
+        <ul>
+          <li>Shared Memory 有 <strong>32 个 bank</strong>，每个 bank 宽度为 4 bytes</li>
+          <li>一个 warp 中的 32 个 thread 同时访问 Shared Memory</li>
+          <li>如果多个 thread 访问同一 bank 的不同地址 → <strong>Bank Conflict</strong>（串行化）</li>
+          <li>如果多个 thread 访问同一 bank 的同一地址 → <strong>Broadcast</strong>（无冲突）</li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：</strong></p>
+        <ol style="padding-left:20px;">
+          <li style="margin-bottom:8px;">Thread <code>i</code> 访问地址 <code>i × 4</code>：有多少 bank conflict？</li>
+          <li style="margin-bottom:8px;">Thread <code>i</code> 访问地址 <code>i × 128</code>：有多少 bank conflict？</li>
+          <li style="margin-bottom:8px;">设计一个 padding 策略，消除对 <code>32×32 float</code> 矩阵在 Shared Memory 中按列访问时的 bank conflict</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>Bank index = (byte_address / 4) % 32</li>
+            <li>Stride = 4 bytes 时，连续 thread 访问连续 bank</li>
+            <li>Stride = 128 bytes 时，128/4 = 32 个 bank 一个周期 → 每个 thread 跳过 32 个 bank</li>
+            <li>Padding 的思路：让相邻行的起始地址错开，使得列访问不再命中同一 bank</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># (1) Thread i 访问地址 i×4</span>
+<span class="comment"># Bank index = (i×4 / 4) % 32 = i % 32 = i (for i=0..31)</span>
+<span class="comment"># → 每个 thread 访问不同的 bank</span>
+<span class="comment"># → 0 bank conflicts! (理想情况)</span>
+
+<span class="comment"># (2) Thread i 访问地址 i×128</span>
+<span class="comment"># Bank index = (i×128 / 4) % 32 = (i×32) % 32 = 0</span>
+<span class="comment"># → 所有 32 个 thread 都访问 bank 0!</span>
+<span class="comment"># → 32-way bank conflict → 串行化为 32 步!</span>
+<span class="comment"># → 性能下降 32x</span>
+
+<span class="comment"># (3) Padding 策略消除列访问 bank conflict</span>
+<span class="comment">#</span>
+<span class="comment"># 问题: 32×32 float matrix, 按列访问</span>
+<span class="comment"># __shared__ float A[32][32];</span>
+<span class="comment"># 列访问: thread i 访问 A[i][col]</span>
+<span class="comment"># 地址 = (i*32 + col) * 4</span>
+<span class="comment"># Bank = (i*32 + col) % 32 = col (不依赖 i!)</span>
+<span class="comment"># → 所有 thread 访问同一 bank → 32-way conflict!</span>
+<span class="comment">#</span>
+<span class="comment"># 解决: Pad 每行到 33 个 float</span>
+<span class="comment"># __shared__ float A[32][33];  // 多加 1 列 padding</span>
+<span class="comment">#</span>
+<span class="comment"># 现在列访问: thread i 访问 A[i][col]</span>
+<span class="comment"># 地址 = (i*33 + col) * 4</span>
+<span class="comment"># Bank = (i*33 + col) % 32</span>
+<span class="comment"># 由于 33 和 32 互素 (gcd=1)，不同 i 得到不同 bank</span>
+<span class="comment"># → 0 bank conflicts!</span></code></pre>
+
+          <p style="margin-top:10px;"><strong>代码示例：</strong></p>
+          <pre><code><span class="comment">// 有 bank conflict 的版本</span>
+__shared__ <span class="keyword">float</span> tile[<span class="number">32</span>][<span class="number">32</span>];
+<span class="comment">// 按列访问: tile[threadIdx.x][col] → 32-way conflict</span>
+
+<span class="comment">// 无 bank conflict 的版本 (padding)</span>
+__shared__ <span class="keyword">float</span> tile[<span class="number">32</span>][<span class="number">33</span>];  <span class="comment">// 只多了 32×4=128 bytes</span>
+<span class="comment">// 按列访问: tile[threadIdx.x][col] → 0 conflict</span>
+<span class="comment">// 代价: 每行浪费 4 bytes, 总共浪费 128 bytes → 微不足道</span></code></pre>
+          <p style="color:#aaa;font-size:0.85rem;margin-top:8px;"><strong>面试要点：</strong>Bank conflict 是 shared memory 性能的最大隐患。在 GEMM tiling 中，如果 A tile 按行加载但按列读取（transpose 访问模式），不加 padding 性能可能下降数倍。Triton 和 CUTLASS 都内置了 swizzle/padding 机制来自动避免这个问题。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 7: CUDA Graph 量化收益 -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 7：CUDA Graph 适用性判断 + 量化收益</h4>
+        <span class="badge">面试题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件：</p>
+        <ul>
+          <li>一个 LLM decode step 包含 <strong>200 个小 kernel</strong></li>
+          <li>平均每个 kernel 的计算时间 = <strong>15 微秒</strong></li>
+          <li>不使用 CUDA Graph 时，每个 kernel 的 launch overhead = <strong>5 微秒</strong></li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：</strong></p>
+        <ol style="padding-left:20px;">
+          <li style="margin-bottom:8px;">不使用 CUDA Graph：总时间是多少？launch overhead 占比？</li>
+          <li style="margin-bottom:8px;">使用 CUDA Graph：总时间是多少？加速比？</li>
+          <li style="margin-bottom:8px;">如果某些 kernel 有动态 shape（例如 continuous batching 导致 batch size 变化），还能用 CUDA Graph 吗？SGLang/vLLM 如何处理？</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>Without graph: 每个 kernel 都要经历 CPU→GPU 的 launch 过程</li>
+            <li>With graph: 整个 kernel 序列只需一次 launch，GPU 自动执行后续 kernel</li>
+            <li>CUDA Graph 在 capture 时固定了所有 tensor shape 和 kernel 参数</li>
+            <li>Dynamic shape 的解决方案：预编译多个 graph，运行时选择最近的</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># (1) Without CUDA Graph</span>
+n_kernels = <span class="number">200</span>
+compute_time = <span class="number">15</span>   <span class="comment"># 微秒/kernel</span>
+launch_overhead = <span class="number">5</span>  <span class="comment"># 微秒/kernel</span>
+
+total_no_graph = n_kernels * (compute_time + launch_overhead)
+<span class="comment"># = 200 × (15 + 5) = 4000 微秒 = 4 ms</span>
+
+overhead_ratio = (n_kernels * launch_overhead) / total_no_graph
+<span class="comment"># = (200 × 5) / 4000 = 1000/4000 = 25%</span>
+<span class="comment"># → 25% 的时间浪费在 kernel launch 上!</span>
+
+<span class="comment"># (2) With CUDA Graph</span>
+<span class="comment"># 整个 graph 只需 1 次 launch (~5 微秒)</span>
+<span class="comment"># 然后 GPU 连续执行所有 kernel，无额外 launch overhead</span>
+total_with_graph = <span class="number">5</span> + n_kernels * compute_time
+<span class="comment"># = 5 + 200 × 15 = 3005 微秒 ≈ 3 ms</span>
+
+speedup = total_no_graph / total_with_graph
+<span class="comment"># = 4000 / 3005 ≈ 1.33x</span>
+
+<span class="comment"># (3) Dynamic shapes 的处理</span>
+<span class="comment"># CUDA Graph 在 capture 时固定了所有 tensor 的 shape</span>
+<span class="comment"># 如果 runtime shape 变化 → graph 无法使用 → 必须 re-capture 或 fallback</span>
+<span class="comment">#</span>
+<span class="comment"># SGLang/vLLM 的解决方案:</span>
+<span class="comment"># - 启动时为常见 batch size 预编译多个 graph:</span>
+<span class="comment">#   batch_sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256]</span>
+<span class="comment"># - 运行时: 将实际 batch 向上 pad 到最近的预编译大小</span>
+<span class="comment">#   e.g., actual_bs=13 → pad to 16, 用 bs=16 的 graph</span>
+<span class="comment"># - SGLang 在启动时预编译约 30 个 graph (不同 bs)</span>
+<span class="comment"># - Padding 浪费的算力很小 (多算几个 dummy token)</span>
+<span class="comment">#   但节省的 launch overhead 很可观 (25% → ~0%)</span>
+<span class="comment">#</span>
+<span class="comment"># 权衡:</span>
+<span class="comment"># - 预编译耗时: 启动时多花 10-30 秒</span>
+<span class="comment"># - 内存占用: 每个 graph 占用额外显存 (存储中间 tensor)</span>
+<span class="comment"># - Padding 浪费: bs=13 pad to 16, 浪费 3/16 ≈ 19% 算力</span>
+<span class="comment">#   但 19% 算力浪费 &lt; 25% launch overhead → 仍然值得!</span></code></pre>
+          <p style="margin-top:10px;"><strong>总结：</strong></p>
+          <ul>
+            <li>Without graph: <strong>4 ms</strong>，launch overhead 占 <strong>25%</strong></li>
+            <li>With graph: <strong>~3 ms</strong>，加速 <strong>1.33x</strong></li>
+            <li>Dynamic shape 通过预编译多个 graph + padding 解决，是 SGLang/vLLM 的标准做法</li>
+          </ul>
+          <p style="color:#aaa;font-size:0.85rem;margin-top:8px;"><strong>面试延伸：</strong>在 decode 阶段 kernel 越小（因为 seq_len=1），launch overhead 占比越高，CUDA Graph 收益越大。这也是为什么 decode 阶段几乎所有框架都用 CUDA Graph，而 prefill 阶段（kernel 大）通常不用。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exercise 8: Occupancy vs Performance -->
+    <div class="exercise">
+      <div class="exercise-header" onclick="toggleExercise(this)">
+        <h4>练习 8：Occupancy vs Performance</h4>
+        <span class="badge">面试题</span>
+      </div>
+      <div class="exercise-body">
+        <p>已知条件：</p>
+        <ul>
+          <li>一个 kernel 使用 <strong>64 registers/thread</strong> 和 <strong>48 KB shared memory/block</strong></li>
+          <li>H100 SM 资源：
+            <ul>
+              <li>65536 registers / SM</li>
+              <li>228 KB shared memory / SM</li>
+              <li>最大 2048 threads / SM</li>
+              <li>最大 32 blocks / SM</li>
+            </ul>
+          </li>
+        </ul>
+        <p style="margin-top:10px;"><strong>问题：</strong></p>
+        <ol style="padding-left:20px;">
+          <li style="margin-bottom:8px;">如果只考虑 register 限制，每个 SM 最多能容纳多少 threads？</li>
+          <li style="margin-bottom:8px;">如果只考虑 shared memory 限制，每个 SM 最多能运行多少 blocks？</li>
+          <li style="margin-bottom:8px;">假设每 block 256 threads，计算实际 occupancy</li>
+          <li style="margin-bottom:8px;">更高的 occupancy 是否总意味着更好的性能？给出一个反例。</li>
+        </ol>
+
+        <button class="hint-btn" onclick="toggleHint(this)">显示提示</button>
+        <button class="solution-btn" onclick="toggleSolution(this)">显示答案</button>
+
+        <div class="hint-content">
+          <p><strong>提示：</strong></p>
+          <ul>
+            <li>Register 限制: max_threads = total_registers / registers_per_thread</li>
+            <li>Shared memory 限制: max_blocks = total_smem / smem_per_block</li>
+            <li>Occupancy = actual_threads / max_threads_per_SM</li>
+            <li>最终 occupancy 受最严格的那个资源限制决定</li>
+            <li>思考：更多 warp 意味着更好的 latency hiding，但也意味着每个 warp 分到的 cache/register 更少</li>
+          </ul>
+        </div>
+
+        <div class="solution-content">
+          <p><strong>解答：</strong></p>
+          <pre><code><span class="comment"># 已知条件</span>
+regs_per_thread = <span class="number">64</span>
+smem_per_block = <span class="number">48</span>  <span class="comment"># KB</span>
+threads_per_block = <span class="number">256</span>
+
+<span class="comment"># SM 资源</span>
+total_regs = <span class="number">65536</span>
+total_smem = <span class="number">228</span>    <span class="comment"># KB</span>
+max_threads_sm = <span class="number">2048</span>
+max_blocks_sm = <span class="number">32</span>
+
+<span class="comment"># (1) Register 限制</span>
+max_threads_by_reg = total_regs // regs_per_thread
+<span class="comment"># = 65536 / 64 = 1024 threads</span>
+max_blocks_by_reg = max_threads_by_reg // threads_per_block
+<span class="comment"># = 1024 / 256 = 4 blocks</span>
+
+<span class="comment"># (2) Shared Memory 限制</span>
+max_blocks_by_smem = total_smem // smem_per_block
+<span class="comment"># = 228 / 48 = 4.75 → 4 blocks (向下取整)</span>
+
+<span class="comment"># (3) 计算 Occupancy</span>
+<span class="comment"># 取所有限制中最严格的:</span>
+<span class="comment"># - Register 限制: 4 blocks</span>
+<span class="comment"># - Shared Memory 限制: 4 blocks</span>
+<span class="comment"># - Thread 限制: 2048/256 = 8 blocks</span>
+<span class="comment"># - Block 限制: 32 blocks</span>
+<span class="comment"># → 瓶颈是 register 和 smem, 都限制为 4 blocks</span>
+
+actual_blocks = <span class="number">4</span>
+actual_threads = actual_blocks * threads_per_block  <span class="comment"># = 4 × 256 = 1024</span>
+occupancy = actual_threads / max_threads_sm
+<span class="comment"># = 1024 / 2048 = 50%</span>
+
+<span class="comment"># (4) 更高 occupancy ≠ 更好性能的反例</span>
+<span class="comment">#</span>
+<span class="comment"># 反例: GEMM kernel</span>
+<span class="comment"># - 高 register 版本: 128 regs/thread, occupancy = 25%</span>
+<span class="comment">#   → 每个 thread 在 register 中缓存大量数据</span>
+<span class="comment">#   → 计算时无需反复读 shared memory</span>
+<span class="comment">#   → 实际 throughput 更高!</span>
+<span class="comment">#</span>
+<span class="comment"># - 低 register 版本: 32 regs/thread, occupancy = 100%</span>
+<span class="comment">#   → 数据放不下, 频繁 spill 到 local memory (实际是 HBM!)</span>
+<span class="comment">#   → 或者频繁读 shared memory → bank conflict</span>
+<span class="comment">#   → 实际 throughput 反而更低!</span>
+<span class="comment">#</span>
+<span class="comment"># 原因: "Occupancy cliff" 在很多情况下是个误区</span>
+<span class="comment"># - 对 compute-bound kernel: 只要有足够 warp 隐藏</span>
+<span class="comment">#   instruction pipeline latency (~20 cycles), 额外的</span>
+<span class="comment">#   warp 不会带来收益, 但会抢占 register</span>
+<span class="comment"># - 对 memory-bound kernel: occupancy 更重要, 因为需要</span>
+<span class="comment">#   大量 warp 隐藏 HBM latency (~400 cycles)</span></code></pre>
+          <p style="margin-top:10px;"><strong>总结：</strong></p>
+          <ul>
+            <li>Register 限制: 最多 <strong>1024 threads</strong> (4 blocks x 256)</li>
+            <li>Shared Memory 限制: 最多 <strong>4 blocks</strong></li>
+            <li>Occupancy = <strong>50%</strong> (1024 / 2048)</li>
+            <li>更高 occupancy <strong>不一定</strong>更好！GEMM 等 compute-bound kernel 故意用大量 register 做数据复用，牺牲 occupancy 换取更高的实际吞吐</li>
+          </ul>
+          <p style="color:#aaa;font-size:0.85rem;margin-top:8px;"><strong>面试要点：</strong>NVIDIA 官方文档也指出 "higher occupancy does not always equate to higher performance"。实际优化中应该用 <code>ncu</code> (Nsight Compute) profile 来确定瓶颈是 latency hiding (需要更高 occupancy) 还是 instruction throughput (需要更多 register per thread)。cuBLAS 的最优 GEMM kernel 通常 occupancy 只有 25-50%。</p>
+        </div>
+      </div>
+    </div>
+
   </section>
 
   <!-- Summary -->
@@ -2106,33 +2441,232 @@ function resetGemmAnimation() {
 }
 
 // ========================
-// CUDA Graph Timeline Animation
+// CUDA Graph Timeline Animation (Canvas-based Gantt chart)
 // ========================
-function animateTimeline() {
-  const bars = document.querySelectorAll('.timeline-container .timeline-bar');
-  bars.forEach(bar => {
-    bar.style.width = '0';
-    bar.style.transition = 'none';
-  });
+const cgAnim = (() => {
+  const canvas = document.getElementById('cudaGraphCanvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
 
-  setTimeout(() => {
-    bars.forEach((bar, i) => {
-      const origWidth = bar.getAttribute('data-width') || bar.style.width;
-      if (!bar.getAttribute('data-width')) {
-        bar.setAttribute('data-width', getComputedStyle(bar).width);
+  // Layout
+  const marginLeft = 90, marginRight = 30;
+  const trackW = W - marginLeft - marginRight;
+  const topY = 50, laneH = 36, laneGap = 10;
+
+  // Timing (in microseconds) — Without CUDA Graph
+  const kernels = [
+    { name: 'K1', compute: 15 },
+    { name: 'K2', compute: 12 },
+    { name: 'K3', compute: 18 },
+    { name: 'K4', compute: 14 },
+    { name: 'K5', compute: 10 },
+  ];
+  const launchTime = 8;  // CPU launch overhead per kernel
+  const gapTime = 4;     // GPU idle between kernels (waiting for next launch)
+
+  // Build event lists
+  // Without Graph: CPU launches sequentially, GPU has gaps
+  const normalCPU = [];
+  const normalGPU = [];
+  let t = 0;
+  kernels.forEach((k, i) => {
+    normalCPU.push({ start: t, dur: launchTime, label: `L${i+1}`, color: '#ff6b6b' });
+    const gpuStart = t + launchTime;
+    normalGPU.push({ start: gpuStart, dur: k.compute, label: k.name, color: '#00d2ff' });
+    t = gpuStart + k.compute + gapTime;
+  });
+  const normalTotal = t - gapTime;
+
+  // With Graph: single graph launch, then all kernels back-to-back
+  const graphCPU = [{ start: 0, dur: 8, label: 'Graph', color: '#7b2ff7' }];
+  const graphGPU = [];
+  let gt = 8; // GPU starts right after graph launch
+  kernels.forEach((k) => {
+    graphGPU.push({ start: gt, dur: k.compute, label: k.name, color: '#00d2ff' });
+    gt += k.compute;
+  });
+  const graphTotal = gt;
+
+  const maxTime = normalTotal;
+  const pxPerUs = trackW / maxTime;
+
+  let progress = 0; // 0 to 1
+  let animId = null;
+  let startTime = null;
+  const duration = 3000; // ms
+
+  function drawLane(y, label) {
+    ctx.fillStyle = '#aaa';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, marginLeft - 12, y + laneH / 2);
+    // lane background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(marginLeft, y, trackW, laneH);
+    ctx.strokeStyle = '#333';
+    ctx.strokeRect(marginLeft, y, trackW, laneH);
+  }
+
+  function drawBlock(block, y, reveal) {
+    const x = marginLeft + block.start * pxPerUs;
+    const w = block.dur * pxPerUs;
+    const revealX = marginLeft + reveal * maxTime * pxPerUs;
+
+    if (x >= revealX) return; // not yet visible
+
+    const visibleW = Math.min(w, revealX - x);
+    ctx.fillStyle = block.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y + 4, visibleW, laneH - 8, 4);
+    ctx.fill();
+
+    // label (only show if block is fully revealed and wide enough)
+    if (visibleW >= w - 1 && w > 20) {
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(block.label, x + w / 2, y + laneH / 2);
+    }
+  }
+
+  function drawIdleGaps(gpuBlocks, y, reveal) {
+    for (let i = 0; i < gpuBlocks.length - 1; i++) {
+      const end = gpuBlocks[i].start + gpuBlocks[i].dur;
+      const nextStart = gpuBlocks[i + 1].start;
+      if (nextStart > end) {
+        const x = marginLeft + end * pxPerUs;
+        const w = (nextStart - end) * pxPerUs;
+        const revealX = marginLeft + reveal * maxTime * pxPerUs;
+        if (x >= revealX) continue;
+        const visibleW = Math.min(w, revealX - x);
+        ctx.fillStyle = '#2a2a2a';
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = '#555';
+        ctx.strokeRect(x, y + 3, visibleW, laneH - 6);
+        ctx.setLineDash([]);
       }
-      bar.style.transition = `width 0.5s ease ${i * 0.12}s`;
-      bar.style.width = bar.getAttribute('data-width');
-    });
-  }, 50);
-}
+    }
+  }
 
-// Store initial widths
-window.addEventListener('load', () => {
-  document.querySelectorAll('.timeline-container .timeline-bar').forEach(bar => {
-    bar.setAttribute('data-width', bar.style.width || '100%');
-  });
-});
+  function drawTimeAxis(y) {
+    ctx.strokeStyle = '#444';
+    ctx.beginPath();
+    ctx.moveTo(marginLeft, y);
+    ctx.lineTo(marginLeft + trackW, y);
+    ctx.stroke();
+    ctx.fillStyle = '#777';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    for (let t = 0; t <= maxTime; t += 20) {
+      const x = marginLeft + t * pxPerUs;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 6); ctx.stroke();
+      ctx.fillText(`${t}μs`, x, y + 18);
+    }
+  }
+
+  function drawTotalTime(label, total, y, color) {
+    ctx.fillStyle = color;
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${label}: ${total}μs`, marginLeft, y);
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+
+    // Title
+    ctx.fillStyle = '#ddd';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Without CUDA Graph', marginLeft, topY - 12);
+
+    // Normal: CPU lane + GPU lane
+    const n_cpuY = topY;
+    const n_gpuY = topY + laneH + laneGap;
+    drawLane(n_cpuY, 'CPU');
+    drawLane(n_gpuY, 'GPU');
+    normalCPU.forEach(b => drawBlock(b, n_cpuY, progress));
+    normalGPU.forEach(b => drawBlock(b, n_gpuY, progress));
+    drawIdleGaps(normalGPU, n_gpuY, progress);
+
+    // Separator
+    const sepY = n_gpuY + laneH + 30;
+    ctx.strokeStyle = '#333';
+    ctx.setLineDash([5, 5]);
+    ctx.beginPath(); ctx.moveTo(marginLeft, sepY); ctx.lineTo(W - marginRight, sepY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Title 2
+    ctx.fillStyle = '#ddd';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('With CUDA Graph', marginLeft, sepY + 30);
+
+    // Graph: CPU lane + GPU lane
+    const g_cpuY = sepY + 40;
+    const g_gpuY = g_cpuY + laneH + laneGap;
+    drawLane(g_cpuY, 'CPU');
+    drawLane(g_gpuY, 'GPU');
+    graphCPU.forEach(b => drawBlock(b, g_cpuY, progress));
+    graphGPU.forEach(b => drawBlock(b, g_gpuY, progress));
+
+    // Time axis
+    drawTimeAxis(g_gpuY + laneH + 20);
+
+    // Total time comparison (show when done)
+    if (progress >= 1) {
+      const summaryY = g_gpuY + laneH + 55;
+      drawTotalTime(`Without Graph`, normalTotal, summaryY, '#ff6b6b');
+      drawTotalTime(`With Graph`, graphTotal, summaryY + 20, '#7b2ff7');
+
+      const speedup = (normalTotal / graphTotal).toFixed(1);
+      ctx.fillStyle = '#76b900';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText(`Speedup: ${speedup}×  (saved ${normalTotal - graphTotal}μs launch + idle overhead)`, marginLeft, summaryY + 45);
+
+      // draw end markers
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.setLineDash([4, 4]);
+      const normalEndX = marginLeft + normalTotal * pxPerUs;
+      ctx.beginPath(); ctx.moveTo(normalEndX, topY); ctx.lineTo(normalEndX, n_gpuY + laneH); ctx.stroke();
+
+      ctx.strokeStyle = '#7b2ff7';
+      const graphEndX = marginLeft + graphTotal * pxPerUs;
+      ctx.beginPath(); ctx.moveTo(graphEndX, g_cpuY); ctx.lineTo(graphEndX, g_gpuY + laneH); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    progress = Math.min((ts - startTime) / duration, 1);
+    render();
+    if (progress < 1) {
+      animId = requestAnimationFrame(animate);
+    }
+  }
+
+  function play() {
+    startTime = null;
+    if (animId) cancelAnimationFrame(animId);
+    animId = requestAnimationFrame(animate);
+  }
+
+  function reset() {
+    if (animId) cancelAnimationFrame(animId);
+    animId = null;
+    progress = 0;
+    render();
+  }
+
+  // Initial render
+  progress = 1;
+  render();
+
+  return { play, reset };
+})();
 
 // ========================
 // Exercise Toggle
@@ -2167,5 +2701,6 @@ document.querySelectorAll('.mem-level').forEach(level => {
 });
 </script>
 
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

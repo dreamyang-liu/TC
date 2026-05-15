@@ -508,6 +508,7 @@ tr:hover { background: #1f1f38; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 
 <div class="scroll-progress" id="scrollProgress"></div>
 
@@ -666,7 +667,7 @@ tr:hover { background: #1f1f38; }
       </div>
 
       <div style="margin: 20px 0; text-align: center;">
-        <img src="../rlhf/sys-design/pics/tp.png" alt="Tensor Parallelism Column Parallel and Row Parallel diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+        <img src="img/tp.png" alt="Tensor Parallelism Column Parallel and Row Parallel diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
         <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Tensor Parallelism: Column Parallel 和 Row Parallel 示意图 (来源: RLHF Sys Design)</div>
       </div>
 
@@ -731,7 +732,7 @@ tr:hover { background: #1f1f38; }
       <p>其中 p = pipeline stages 数, m = micro-batches 数。增加 micro-batch 数可以降低 bubble ratio。</p>
 
       <div style="margin: 20px 0; text-align: center;">
-        <img src="../rlhf/sys-design/pics/1f1b.png" alt="1F1B Pipeline Schedule diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+        <img src="img/1f1b.png" alt="1F1B Pipeline Schedule diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
         <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: 1F1B Pipeline Schedule: 交替执行 forward/backward 减少内存占用</div>
       </div>
 
@@ -818,6 +819,184 @@ tr:hover { background: #1f1f38; }
         <li><strong>PP</strong> 跨节点: 点对点通信量小, 对带宽要求低</li>
         <li><strong>DP</strong> 在剩余维度上扩展: 配合梯度累积进一步隐藏通信</li>
       </ul>
+      <h3>序列并行 (Sequence Parallelism)</h3>
+      <p>当序列长度很长时 (如 128K+ tokens), 即使单层的 activation 也可能撑爆显存。序列并行将序列维度切分到多个 GPU 上。</p>
+
+      <div class="diagram" style="margin-bottom:20px;">
+        <div style="text-align:center;padding:10px;">
+          <div style="margin-bottom:10px;color:#f472b6;font-weight:bold;">Sequence Parallelism: TP ↔ SP 区域切换 (4 GPUs)</div>
+          <canvas id="spCanvas" width="860" height="420" style="width:100%;max-width:860px;border-radius:8px;background:#0a0a1a;"></canvas>
+          <div style="margin-top:10px;">
+            <button onclick="spAnim.reset();spAnim.play();" style="background:linear-gradient(135deg,#f472b6,#667eea);border:none;color:#fff;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;">▶ 播放</button>
+            <button onclick="spAnim.reset();" style="background:#333;border:1px solid #555;color:#ccc;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;margin-left:8px;">↺ 重置</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="diagram">
+        <div style="text-align:left;padding:10px;">
+          <div style="margin-bottom:15px;color:#f472b6;font-weight:bold;">核心思想: 在非 TP 区域沿序列维度切分</div>
+          <div style="background:#1a1a3e;border-radius:8px;padding:15px;margin-bottom:15px;border:1px solid #333;">
+            <div style="font-size:0.9em;color:#ccc;line-height:1.8;">
+              <div style="margin-bottom:8px;">Tensor Parallelism 已经将 <strong>Attention 和 FFN</strong> 切分到多卡。但 LayerNorm、Dropout 等操作仍然在每张卡上保留完整序列的 activation — 这是冗余的。</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0;">
+                <div style="flex:1;min-width:200px;padding:10px;border:1px solid #f472b6;border-radius:6px;">
+                  <div style="color:#f472b6;font-size:0.85em;font-weight:bold;">TP 区域 (已切分)</div>
+                  <div style="color:#aaa;font-size:0.8em;">QKV Proj → Attention → O Proj → FFN</div>
+                </div>
+                <div style="color:#666;">→</div>
+                <div style="flex:1;min-width:200px;padding:10px;border:1px solid #667eea;border-radius:6px;">
+                  <div style="color:#667eea;font-size:0.85em;font-weight:bold;">SP 区域 (序列切分)</div>
+                  <div style="color:#aaa;font-size:0.8em;">LayerNorm, Dropout, Residual Add</div>
+                </div>
+              </div>
+              <div style="color:#888;font-size:0.85em;">TP 到 SP 的转换: AllReduce → ReduceScatter (前向) / AllGather (反向)</div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="border:1px solid #4caf50;border-radius:8px;padding:12px;">
+              <div style="color:#4caf50;font-weight:bold;font-size:0.9em;">显存节省</div>
+              <div style="color:#aaa;font-size:0.85em;margin-top:4px;">activation 内存降为 1/TP_size<br>(如 TP=8 → 节省 87.5% activation)</div>
+            </div>
+            <div style="border:1px solid #ff9800;border-radius:8px;padding:12px;">
+              <div style="color:#ff9800;font-weight:bold;font-size:0.9em;">通信开销</div>
+              <div style="color:#aaa;font-size:0.85em;margin-top:4px;">无额外通信! 将原有 AllReduce<br>拆为 ReduceScatter + AllGather</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4>Megatron-SP 代码示意</h4>
+      <pre><code><span class="comment"># 前向: TP 区域结束 → SP 区域开始</span>
+<span class="comment"># 原本: AllReduce(output)  [通信量 2M]</span>
+<span class="comment"># 改为: ReduceScatter(output) [通信量 M]</span>
+output = reduce_scatter(tp_output, dim=<span class="number">1</span>)  <span class="comment"># seq 维度切分</span>
+
+<span class="comment"># LayerNorm / Dropout 只在 local seq chunk 上计算</span>
+output = layer_norm(output)  <span class="comment"># shape: [batch, seq_len/tp, hidden]</span>
+output = dropout(output)
+
+<span class="comment"># SP 区域结束 → 进入下一个 TP 区域</span>
+output = all_gather(output, dim=<span class="number">1</span>)  <span class="comment"># 恢复完整序列 [通信量 M]</span>
+<span class="comment"># 总通信量 = M + M = 2M, 与 AllReduce 相同!</span></code></pre>
+
+      <h3>专家并行 (Expert Parallelism)</h3>
+      <p>Mixture of Experts (MoE) 模型中, 不同 expert 分布在不同 GPU 上。每个 token 经由 router 选择 top-k expert 处理。</p>
+
+      <div class="diagram" style="margin-bottom:20px;">
+        <div style="text-align:center;padding:10px;">
+          <div style="margin-bottom:10px;color:#fbbf24;font-weight:bold;">Expert Parallelism: Token Routing & All-to-All (4 GPUs, 8 Experts, top-1)</div>
+          <canvas id="epCanvas" width="860" height="460" style="width:100%;max-width:860px;border-radius:8px;background:#0a0a1a;"></canvas>
+          <div style="margin-top:10px;">
+            <button onclick="epAnim.reset();epAnim.play();" style="background:linear-gradient(135deg,#fbbf24,#ff6b6b);border:none;color:#000;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;font-weight:bold;">▶ 播放</button>
+            <button onclick="epAnim.reset();" style="background:#333;border:1px solid #555;color:#ccc;padding:8px 18px;border-radius:6px;cursor:pointer;font-size:0.85rem;margin-left:8px;">↺ 重置</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="diagram">
+        <div style="text-align:left;padding:10px;">
+          <div style="margin-bottom:15px;color:#fbbf24;font-weight:bold;">MoE + Expert Parallelism 执行流程</div>
+          <div style="background:#1a1a3e;border-radius:8px;padding:15px;border:1px solid #333;">
+            <div style="display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:15px;">
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #555;text-align:center;">
+                <div style="color:#ccc;font-size:0.8em;">Input Tokens</div>
+                <div style="color:#fff;font-size:0.9em;margin-top:4px;">[B, S, H]</div>
+              </div>
+              <div style="display:flex;align-items:center;color:#666;">→</div>
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #fbbf24;text-align:center;">
+                <div style="color:#fbbf24;font-size:0.8em;font-weight:bold;">Router</div>
+                <div style="color:#aaa;font-size:0.75em;margin-top:4px;">softmax → top-k</div>
+              </div>
+              <div style="display:flex;align-items:center;color:#666;">→</div>
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #ff6b6b;text-align:center;">
+                <div style="color:#ff6b6b;font-size:0.8em;font-weight:bold;">All-to-All</div>
+                <div style="color:#aaa;font-size:0.75em;margin-top:4px;">dispatch tokens</div>
+              </div>
+              <div style="display:flex;align-items:center;color:#666;">→</div>
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #4caf50;text-align:center;">
+                <div style="color:#4caf50;font-size:0.8em;font-weight:bold;">Expert FFN</div>
+                <div style="color:#aaa;font-size:0.75em;margin-top:4px;">local compute</div>
+              </div>
+              <div style="display:flex;align-items:center;color:#666;">→</div>
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #ff6b6b;text-align:center;">
+                <div style="color:#ff6b6b;font-size:0.8em;font-weight:bold;">All-to-All</div>
+                <div style="color:#aaa;font-size:0.75em;margin-top:4px;">combine results</div>
+              </div>
+              <div style="display:flex;align-items:center;color:#666;">→</div>
+              <div style="padding:10px 14px;background:#2a2a4a;border-radius:6px;border:1px solid #555;text-align:center;">
+                <div style="color:#ccc;font-size:0.8em;">Output</div>
+                <div style="color:#fff;font-size:0.9em;margin-top:4px;">[B, S, H]</div>
+              </div>
+            </div>
+
+            <div style="border-top:1px solid #333;padding-top:12px;margin-top:8px;">
+              <div style="color:#aaa;font-size:0.85em;margin-bottom:8px;">GPU 分布示例 (8 Experts, EP=4):</div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+                <div style="background:#2d2d5a;padding:8px;border-radius:4px;text-align:center;border:1px solid #667eea;">
+                  <div style="color:#667eea;font-size:0.75em;">GPU 0</div>
+                  <div style="color:#fff;font-size:0.8em;">E0, E1</div>
+                </div>
+                <div style="background:#2d2d5a;padding:8px;border-radius:4px;text-align:center;border:1px solid #667eea;">
+                  <div style="color:#667eea;font-size:0.75em;">GPU 1</div>
+                  <div style="color:#fff;font-size:0.8em;">E2, E3</div>
+                </div>
+                <div style="background:#2d2d5a;padding:8px;border-radius:4px;text-align:center;border:1px solid #667eea;">
+                  <div style="color:#667eea;font-size:0.75em;">GPU 2</div>
+                  <div style="color:#fff;font-size:0.8em;">E4, E5</div>
+                </div>
+                <div style="background:#2d2d5a;padding:8px;border-radius:4px;text-align:center;border:1px solid #667eea;">
+                  <div style="color:#667eea;font-size:0.75em;">GPU 3</div>
+                  <div style="color:#fff;font-size:0.8em;">E6, E7</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px;">
+            <div style="border:1px solid #4caf50;border-radius:8px;padding:12px;">
+              <div style="color:#4caf50;font-weight:bold;font-size:0.9em;">优势</div>
+              <ul style="color:#aaa;font-size:0.82em;margin:6px 0 0 16px;line-height:1.7;">
+                <li>参数量可以 10× 扩展, 计算量仅 ~2× (每 token 只激活 top-k expert)</li>
+                <li>每张 GPU 只存部分 expert 参数</li>
+                <li>与 DP/TP/PP 正交组合</li>
+              </ul>
+            </div>
+            <div style="border:1px solid #ff9800;border-radius:8px;padding:12px;">
+              <div style="color:#ff9800;font-weight:bold;font-size:0.9em;">挑战</div>
+              <ul style="color:#aaa;font-size:0.82em;margin:6px 0 0 16px;line-height:1.7;">
+                <li><strong>All-to-All 通信</strong>: 每个 token 需发送到目标 expert 所在的 GPU</li>
+                <li><strong>负载不均衡</strong>: 热门 expert 可能收到过多 token (需 load balancing loss)</li>
+                <li><strong>Token dropping</strong>: expert buffer 满时丢弃 token</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h4>DeepSeek-V3 的 EP 实践</h4>
+      <pre><code><span class="comment"># DeepSeek-V3: 256 Experts, top-8 routing, EP=64</span>
+<span class="comment"># 每张 GPU 存放 256/64 = 4 个 expert</span>
+
+<span class="comment"># Step 1: Router 决定每个 token 去哪些 expert</span>
+router_logits = router(hidden_states)         <span class="comment"># [B*S, num_experts]</span>
+topk_ids, topk_weights = top_k(router_logits, k=<span class="number">8</span>)
+
+<span class="comment"># Step 2: All-to-All dispatch — 把 token 发送到对应 expert 所在 GPU</span>
+<span class="comment"># 每张 GPU: 发出本地 token 中属于远端 expert 的部分</span>
+<span class="comment">#          接收其他 GPU 发来的属于本地 expert 的 token</span>
+dispatched = all_to_all(tokens_by_expert, group=ep_group)
+
+<span class="comment"># Step 3: 本地 expert 计算</span>
+expert_output = local_experts(dispatched)     <span class="comment"># 只算本 GPU 上的 expert</span>
+
+<span class="comment"># Step 4: All-to-All combine — 把结果发回原 GPU</span>
+combined = all_to_all(expert_output, group=ep_group)
+
+<span class="comment"># Step 5: 加权求和</span>
+output = weighted_sum(combined, topk_weights) <span class="comment"># [B*S, hidden]</span></code></pre>
+
     </div>
   </div>
 </div>
@@ -922,45 +1101,51 @@ tr:hover { background: #1f1f38; }
     总通信量 (per GPU) = 2 × (N-1)/N × M ≈ 2M &nbsp;&nbsp;(当 N 很大时)
   </div>
 
-  <h3>动画演示: 4 GPU Ring AllReduce (Reduce-Scatter + AllGather)</h3>
-  <p>每个 GPU 的数据被分为 4 个 chunk。观察每一步中 <strong>谁发送什么给谁</strong>，以及接收方如何累加。</p>
+  <h3>动画演示: 4 GPU Ring AllReduce (具体数值)</h3>
+  <p>每个 GPU 的梯度向量 <code>[g₀, g₁, g₂, g₃]</code> 被切成 4 个 chunk。我们用<strong>具体数值</strong>展示每一步每个 GPU 每个 chunk 的内容变化。</p>
 
-  <div style="background:#12121f; border:1px solid #333; border-radius:8px; padding:20px; margin:15px 0;">
+  <div style="background:#0a0a18; border:1px solid #333; border-radius:10px; padding:25px; margin:15px 0;">
 
-    <!-- Ring topology diagram (small) -->
-    <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:15px; font-size:0.8rem; color:#888;">
-      <span style="color:#f44336; font-weight:bold;">GPU0</span> →
-      <span style="color:#4caf50; font-weight:bold;">GPU1</span> →
-      <span style="color:#2196f3; font-weight:bold;">GPU2</span> →
-      <span style="color:#ff9800; font-weight:bold;">GPU3</span> →
-      <span style="color:#f44336; font-weight:bold;">GPU0</span>
-      <span style="margin-left:10px;">(环形拓扑: 每个 GPU 只和左右邻居通信)</span>
+    <!-- Ring topology -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <svg width="360" height="100" viewBox="0 0 360 100" style="display:inline-block;">
+        <defs>
+          <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0,0 8,3 0,6" fill="#888"/></marker>
+        </defs>
+        <!-- GPU nodes -->
+        <circle cx="60" cy="50" r="24" fill="#f4433620" stroke="#f44336" stroke-width="2"/>
+        <text x="60" y="54" text-anchor="middle" fill="#f44336" font-size="11" font-weight="bold">GPU0</text>
+        <circle cx="150" cy="50" r="24" fill="#4caf5020" stroke="#4caf50" stroke-width="2"/>
+        <text x="150" y="54" text-anchor="middle" fill="#4caf50" font-size="11" font-weight="bold">GPU1</text>
+        <circle cx="240" cy="50" r="24" fill="#2196f320" stroke="#2196f3" stroke-width="2"/>
+        <text x="240" y="54" text-anchor="middle" fill="#2196f3" font-size="11" font-weight="bold">GPU2</text>
+        <circle cx="330" cy="50" r="24" fill="#ff980020" stroke="#ff9800" stroke-width="2"/>
+        <text x="330" y="54" text-anchor="middle" fill="#ff9800" font-size="11" font-weight="bold">GPU3</text>
+        <!-- Arrows -->
+        <line x1="84" y1="50" x2="124" y2="50" stroke="#888" stroke-width="1.5" marker-end="url(#arrowR)"/>
+        <line x1="174" y1="50" x2="214" y2="50" stroke="#888" stroke-width="1.5" marker-end="url(#arrowR)"/>
+        <line x1="264" y1="50" x2="304" y2="50" stroke="#888" stroke-width="1.5" marker-end="url(#arrowR)"/>
+        <!-- Wrap-around arrow -->
+        <path d="M 330 76 C 330 95 60 95 60 76" fill="none" stroke="#888" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowR)"/>
+      </svg>
+      <div style="font-size:0.78rem;color:#666;margin-top:4px;">环形拓扑: 每个 GPU 只向右邻居发送 (GPU3 → GPU0 wrap)</div>
     </div>
 
-    <!-- Main state table -->
-    <div id="ring-state-table" style="overflow-x:auto; margin:10px 0;"></div>
+    <!-- Main visualization -->
+    <div id="ringDetailView" style="margin:10px 0;"></div>
 
-    <!-- Transfer arrows -->
-    <div id="ring-transfer" style="background:#1a1a2e; border-radius:8px; padding:12px; margin:10px 0; font-size:0.85rem; color:#ccc; min-height:40px;"></div>
+    <!-- Transfer description -->
+    <div id="ringDetailTransfer" style="background:#1a1a2e; border-radius:8px; padding:14px; margin:12px 0; font-size:0.88rem; color:#ccc; min-height:45px; line-height:1.7;"></div>
 
-    <!-- Step description -->
-    <div id="ringStepText" style="background:#1a1a2e; border-radius:8px; padding:12px; margin:10px 0; font-size:0.9rem; color:#a78bfa; min-height:50px;">Step 0/6: 初始状态 — 每个 GPU 持有自己的 4 个 chunk (未归约)</div>
+    <!-- Step text -->
+    <div id="ringDetailText" style="background:#12122a; border:1px solid #333; border-radius:8px; padding:14px; margin:12px 0; font-size:0.92rem; color:#a78bfa; min-height:55px; line-height:1.6;"></div>
 
     <!-- Controls -->
-    <div class="anim-controls">
+    <div class="anim-controls" style="margin-top:15px;">
       <button class="anim-btn" id="ringPrev" onclick="ringStep(-1)" disabled>← 上一步</button>
+      <span id="ringStepIndicator" style="color:#888;font-size:0.85rem;min-width:80px;text-align:center;">0 / 6</span>
       <button class="anim-btn" id="ringNext" onclick="ringStep(1)">下一步 →</button>
-      <button class="anim-btn" onclick="ringReset()">重置</button>
-    </div>
-
-    <!-- Legend -->
-    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px; font-size:0.75rem; color:#888;">
-      <span><span style="display:inline-block;width:14px;height:14px;background:#f44336;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU0 的数据</span>
-      <span><span style="display:inline-block;width:14px;height:14px;background:#4caf50;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU1 的数据</span>
-      <span><span style="display:inline-block;width:14px;height:14px;background:#2196f3;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU2 的数据</span>
-      <span><span style="display:inline-block;width:14px;height:14px;background:#ff9800;border-radius:2px;vertical-align:middle;margin-right:3px;"></span> GPU3 的数据</span>
-      <span><span style="display:inline-block;width:14px;height:14px;background:linear-gradient(135deg,#f44336,#4caf50,#2196f3,#ff9800);border-radius:2px;vertical-align:middle;margin-right:3px;"></span> 完整归约 (sum of all)</span>
-      <span>⬆ = 正在发送的 chunk</span>
+      <button class="anim-btn" onclick="ringReset()" style="margin-left:12px;">↺ 重置</button>
     </div>
   </div>
 
@@ -994,8 +1179,104 @@ tr:hover { background: #1f1f38; }
 
     <span class="keyword">return</span> concat(chunks)</code></pre>
 
+  <h3>通信量推导</h3>
+  <div style="background:#12122a;border:1px solid #333;border-radius:10px;padding:20px;margin:15px 0;">
+
+    <h4 style="color:#00d2ff;margin-bottom:12px;">设定</h4>
+    <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:18px;font-size:0.9rem;color:#ccc;line-height:1.9;">
+      <ul style="margin-left:18px;">
+        <li><strong>N</strong> = GPU 数量</li>
+        <li><strong>M</strong> = 每个 GPU 的梯度大小 (bytes)</li>
+        <li>每个 GPU 把梯度切成 <strong>N 个 chunk</strong>, 每个 chunk 大小 = <strong>M/N</strong></li>
+      </ul>
+    </div>
+
+    <h4 style="color:#a78bfa;margin-bottom:10px;">Phase 1: Reduce-Scatter</h4>
+    <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:18px;font-size:0.88rem;color:#ccc;line-height:2;">
+      <div style="margin-bottom:8px;">
+        <strong>每一步</strong>: 每个 GPU 发送 <strong>1 个 chunk</strong> 给右邻居
+      </div>
+      <div style="margin-bottom:8px;">
+        <strong>步数</strong>: N - 1 步 (才能让一个 chunk 经过所有 N 个 GPU 累加)
+      </div>
+      <div style="margin-bottom:8px;padding:10px;background:#1a1a3e;border-radius:4px;border-left:3px solid #a78bfa;">
+        每 GPU 每步发送量 = <code>M/N</code><br>
+        Reduce-Scatter 总发送量 = <code>(N-1) × M/N</code>
+      </div>
+      <div style="color:#888;font-size:0.82rem;">
+        直觉: 一共 N-1 步, 每步发一个 chunk (M/N), 所以 = (N-1) × M/N
+      </div>
+    </div>
+
+    <h4 style="color:#4caf50;margin-bottom:10px;">Phase 2: AllGather</h4>
+    <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:18px;font-size:0.88rem;color:#ccc;line-height:2;">
+      <div style="margin-bottom:8px;">
+        <strong>每一步</strong>: 每个 GPU 发送 <strong>1 个已完成归约的 chunk</strong> 给右邻居
+      </div>
+      <div style="margin-bottom:8px;">
+        <strong>步数</strong>: 同样 N - 1 步 (让每个完整 chunk 广播到所有 GPU)
+      </div>
+      <div style="margin-bottom:8px;padding:10px;background:#1a1a3e;border-radius:4px;border-left:3px solid #4caf50;">
+        每 GPU 每步发送量 = <code>M/N</code><br>
+        AllGather 总发送量 = <code>(N-1) × M/N</code>
+      </div>
+    </div>
+
+    <h4 style="color:#ffd700;margin-bottom:10px;">总通信量</h4>
+    <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:18px;">
+      <div style="font-size:1rem;color:#fff;line-height:2.2;font-family:monospace;">
+        <div>每 GPU 总发送量 = ReduceScatter + AllGather</div>
+        <div style="padding-left:20px;">= (N-1) × M/N + (N-1) × M/N</div>
+        <div style="padding-left:20px;color:#ffd700;font-weight:bold;">= 2 × (N-1)/N × M</div>
+      </div>
+      <div style="margin-top:12px;padding:12px;background:#76b90015;border:1px solid #76b90050;border-radius:6px;">
+        <div style="color:#76b900;font-weight:bold;margin-bottom:6px;">关键性质: 通信量与 GPU 数几乎无关!</div>
+        <div style="color:#aaa;font-size:0.85rem;line-height:1.8;">
+          当 N 很大时, <code>2(N-1)/N ≈ 2</code>, 所以每 GPU 通信量趋近于 <strong>2M</strong>。<br>
+          无论是 4 卡还是 4096 卡, 每张卡发送的总数据量基本一样!
+        </div>
+      </div>
+    </div>
+
+    <h4 style="color:#ff9800;margin-bottom:10px;">对比: Naive AllReduce (树形)</h4>
+    <div style="background:#0a0a15;border-radius:6px;padding:14px;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <thead>
+          <tr style="border-bottom:2px solid #444;">
+            <th style="padding:10px;text-align:left;color:#888;">方法</th>
+            <th style="padding:10px;text-align:center;color:#888;">每 GPU 发送量</th>
+            <th style="padding:10px;text-align:center;color:#888;">N=4</th>
+            <th style="padding:10px;text-align:center;color:#888;">N=64</th>
+            <th style="padding:10px;text-align:center;color:#888;">N=1024</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid #2a2a3e;">
+            <td style="padding:10px;color:#ff9800;">Naive (one-to-all)</td>
+            <td style="padding:10px;text-align:center;color:#ccc;"><code>(N-1) × M</code></td>
+            <td style="padding:10px;text-align:center;color:#ccc;">3M</td>
+            <td style="padding:10px;text-align:center;color:#ff6b6b;">63M</td>
+            <td style="padding:10px;text-align:center;color:#ff6b6b;">1023M</td>
+          </tr>
+          <tr style="border-bottom:1px solid #2a2a3e;">
+            <td style="padding:10px;color:#76b900;">Ring AllReduce</td>
+            <td style="padding:10px;text-align:center;color:#ccc;"><code>2(N-1)/N × M</code></td>
+            <td style="padding:10px;text-align:center;color:#ccc;">1.5M</td>
+            <td style="padding:10px;text-align:center;color:#76b900;">1.97M</td>
+            <td style="padding:10px;text-align:center;color:#76b900;">1.998M</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:12px;color:#888;font-size:0.82rem;line-height:1.7;">
+        <strong>带宽利用率:</strong> Ring AllReduce 中, 每一步每个 GPU 的 NVLink/网卡都在同时收发数据 (全双工),<br>
+        带宽利用率 = <code>(N-1)/N</code> ≈ 100%。而 Naive 方法中, 大部分时间只有根节点在通信, 其他 GPU 空闲。
+      </div>
+    </div>
+
+  </div>
+
   <div style="margin: 20px 0; text-align: center;">
-    <img src="../torch/torch-distributed/complete-allreduce.svg" alt="Ring AllReduce complete process diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+    <img src="img/complete-allreduce.svg" alt="Ring AllReduce complete process diagram" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
     <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Ring AllReduce 完整过程: Reduce-Scatter + AllGather</div>
   </div>
 </div>
@@ -1230,7 +1511,7 @@ mp.spawn(allreduce_example, args=(world_size,), nprocs=world_size)</code></pre>
   </table>
 
   <div style="margin: 20px 0; text-align: center;">
-    <img src="../rlhf/sys-design/pics/ep.png" alt="Expert Parallelism All-to-All communication pattern" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+    <img src="img/ep.png" alt="Expert Parallelism All-to-All communication pattern" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
     <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Expert Parallelism: MoE 模型的 All-to-All 通信模式</div>
   </div>
 
@@ -1238,11 +1519,76 @@ mp.spawn(allreduce_example, args=(world_size,), nprocs=world_size)</code></pre>
     <strong>Trade-off:</strong> FSDP Stage 3 的通信量比 DDP 多 50%, 但内存节省可以让你训练大 N 倍的模型或使用更大的 batch size。
   </div>
 
+  <h3>CUDA Stream 是什么?</h3>
+  <div style="background:#12122a;border:1px solid #333;border-radius:10px;padding:20px;margin-bottom:20px;">
+    <p style="color:#ccc;line-height:1.8;margin-bottom:15px;">
+      <strong style="color:#00d2ff;">CUDA Stream</strong> 是 GPU 上的一个<strong>有序命令队列</strong>。你可以把它想象成一条<strong>流水线传送带</strong>：
+    </p>
+    <ul style="color:#bbb;line-height:2;margin-left:20px;margin-bottom:15px;">
+      <li><strong>同一 stream 内</strong>的操作严格按顺序执行 (FIFO)</li>
+      <li><strong>不同 stream 之间</strong>的操作可以并行 — GPU 硬件会自动调度</li>
+      <li>默认所有操作都在 <code style="color:#fbbf24;">stream 0</code> (default stream) 上, 因此默认是串行的</li>
+    </ul>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+      <div style="background:#0d0d1a;border-radius:8px;padding:15px;border:1px solid #444;">
+        <div style="color:#ff6b6b;font-weight:bold;font-size:0.9em;margin-bottom:8px;">单 Stream (串行)</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <div style="background:#ff6b6b;color:#fff;padding:4px 8px;border-radius:3px;font-size:0.8em;text-align:center;">Kernel A</div>
+          <div style="color:#666;text-align:center;font-size:0.7em;">↓ 等待完成</div>
+          <div style="background:#667eea;color:#fff;padding:4px 8px;border-radius:3px;font-size:0.8em;text-align:center;">memcpy H→D</div>
+          <div style="color:#666;text-align:center;font-size:0.7em;">↓ 等待完成</div>
+          <div style="background:#4caf50;color:#fff;padding:4px 8px;border-radius:3px;font-size:0.8em;text-align:center;">Kernel B</div>
+        </div>
+        <div style="color:#888;font-size:0.75em;margin-top:8px;text-align:center;">总时间 = A + copy + B</div>
+      </div>
+      <div style="background:#0d0d1a;border-radius:8px;padding:15px;border:1px solid #4caf50;">
+        <div style="color:#4caf50;font-weight:bold;font-size:0.9em;margin-bottom:8px;">多 Stream (并行)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div style="text-align:center;">
+            <div style="color:#aaa;font-size:0.7em;margin-bottom:4px;">Stream 1</div>
+            <div style="background:#ff6b6b;color:#fff;padding:4px 6px;border-radius:3px;font-size:0.75em;">Kernel A</div>
+            <div style="margin-top:4px;background:#4caf50;color:#fff;padding:4px 6px;border-radius:3px;font-size:0.75em;">Kernel B</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="color:#aaa;font-size:0.7em;margin-bottom:4px;">Stream 2</div>
+            <div style="background:#667eea;color:#fff;padding:4px 6px;border-radius:3px;font-size:0.75em;">memcpy H→D</div>
+          </div>
+        </div>
+        <div style="color:#4caf50;font-size:0.75em;margin-top:12px;text-align:center;">总时间 = max(A+B, copy) 🚀</div>
+      </div>
+    </div>
+
+    <pre style="background:#0a0a15;border-radius:6px;padding:12px;margin:0;"><code style="color:#ccc;font-size:0.85em;"><span style="color:#888;"># PyTorch 中使用多 stream</span>
+<span style="color:#ff9800;">s1</span> = torch.cuda.Stream()
+<span style="color:#ff9800;">s2</span> = torch.cuda.Stream()
+
+<span style="color:#888;"># Stream 1: 计算</span>
+<span style="color:#a78bfa;">with</span> torch.cuda.stream(<span style="color:#ff9800;">s1</span>):
+    output = model(input_batch)
+
+<span style="color:#888;"># Stream 2: 同时做通信 (与 s1 并行!)</span>
+<span style="color:#a78bfa;">with</span> torch.cuda.stream(<span style="color:#ff9800;">s2</span>):
+    dist.all_reduce(gradients)
+
+<span style="color:#888;"># 需要同步时: 插入 event 依赖</span>
+event = <span style="color:#ff9800;">s2</span>.record_event()
+<span style="color:#ff9800;">s1</span>.wait_event(event)  <span style="color:#888;"># s1 等 s2 的 all_reduce 完成</span></code></pre>
+
+    <div style="margin-top:15px;padding:12px;background:#1a2e1a;border-radius:6px;border:1px solid #4caf5040;">
+      <div style="color:#4caf50;font-weight:bold;font-size:0.85em;margin-bottom:4px;">关键硬件基础</div>
+      <div style="color:#aaa;font-size:0.82em;line-height:1.7;">
+        GPU 有<strong>独立的硬件引擎</strong>：计算用 SM (Streaming Multiprocessor), 数据搬运用 Copy Engine (CE), 跨卡通信用 NVLink/PCIe DMA。
+        多 stream 之所以能并行, 是因为这些引擎物理上就是独立的 — 不是软件模拟的并发, 而是真正的硬件并行。
+      </div>
+    </div>
+  </div>
+
   <h3>通信与计算重叠 (Communication-Computation Overlap)</h3>
   <p>分布式训练的性能瓶颈往往不是通信本身, 而是 <strong>通信阻塞了计算</strong>。核心思想: 让 GPU 在等待数据传输时继续做有用的计算, 从而 "隐藏" 通信延迟。</p>
 
   <h4>为什么可以重叠?</h4>
-  <p>现代 GPU 有独立的计算单元 (SM) 和通信引擎 (NVLink/PCIe DMA), 它们可以同时工作。只要把通信和计算放到不同的 CUDA stream 上, 硬件就能并行执行。</p>
+  <p>有了多 CUDA Stream 的概念, 答案就很自然了: 把通信和计算放到不同的 stream 上, 硬件就能并行执行。</p>
 
   <!-- 无重叠 vs 有重叠 对比 Gantt 图 -->
   <div style="margin: 25px 0;">
@@ -1662,64 +2008,475 @@ handle.wait()  <span class="comment"># 此时通信可能早已完成</span></co
       </ul>
 
       <p><strong>替代方案:</strong> 如果使用 FSDP Stage 3 代替 TP+DP, 则可以 PP=8, FSDP=8, 但通信开销会更大。</p>
+
+      <!-- Detailed layout visualization -->
+      <div style="margin-top:25px;background:#0a0a18;border:1px solid #444;border-radius:10px;padding:20px;">
+        <h4 style="color:#00d2ff;margin-bottom:15px;text-align:center;">64 GPU 物理布局 (8 节点 × 8 卡)</h4>
+
+        <!-- Node grid -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;">
+          <!-- Node 0 (PP Stage 0, DP Group 0) -->
+          <div style="background:#12122a;border:1px solid #667eea;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#667eea;font-weight:bold;margin-bottom:6px;">Node 0</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 0 | DP Group 0</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G0</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G1</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G2</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G3</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G4</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G5</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G6</div>
+              <div style="background:#f4433630;border:1px solid #f44336;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44336;">G7</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <!-- Node 1 (PP Stage 0, DP Group 1) -->
+          <div style="background:#12122a;border:1px solid #667eea;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#667eea;font-weight:bold;margin-bottom:6px;">Node 1</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 0 | DP Group 1</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G8</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G9</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G10</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G11</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G12</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G13</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G14</div>
+              <div style="background:#4caf5030;border:1px solid #4caf50;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G15</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <!-- Node 2 (PP Stage 0, DP Group 2) -->
+          <div style="background:#12122a;border:1px solid #667eea;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#667eea;font-weight:bold;margin-bottom:6px;">Node 2</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 0 | DP Group 2</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G16</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G17</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G18</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G19</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G20</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G21</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G22</div>
+              <div style="background:#2196f330;border:1px solid #2196f3;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G23</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <!-- Node 3 (PP Stage 0, DP Group 3) -->
+          <div style="background:#12122a;border:1px solid #667eea;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#667eea;font-weight:bold;margin-bottom:6px;">Node 3</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 0 | DP Group 3</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G24</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G25</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G26</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G27</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G28</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G29</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G30</div>
+              <div style="background:#ff980030;border:1px solid #ff9800;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G31</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <!-- Node 4-7: PP Stage 1 -->
+          <div style="background:#12122a;border:1px solid #a78bfa;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#a78bfa;font-weight:bold;margin-bottom:6px;">Node 4</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 1 | DP Group 0</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G32</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G33</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G34</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G35</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G36</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G37</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G38</div>
+              <div style="background:#f4433630;border:1px solid #f4434680;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#f44346;">G39</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <div style="background:#12122a;border:1px solid #a78bfa;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#a78bfa;font-weight:bold;margin-bottom:6px;">Node 5</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 1 | DP Group 1</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G40</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G41</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G42</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G43</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G44</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G45</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G46</div>
+              <div style="background:#4caf5030;border:1px solid #4caf5080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#4caf50;">G47</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <div style="background:#12122a;border:1px solid #a78bfa;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#a78bfa;font-weight:bold;margin-bottom:6px;">Node 6</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 1 | DP Group 2</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G48</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G49</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G50</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G51</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G52</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G53</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G54</div>
+              <div style="background:#2196f330;border:1px solid #2196f380;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#2196f3;">G55</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+          <div style="background:#12122a;border:1px solid #a78bfa;border-radius:8px;padding:10px;">
+            <div style="text-align:center;font-size:0.75rem;color:#a78bfa;font-weight:bold;margin-bottom:6px;">Node 7</div>
+            <div style="text-align:center;font-size:0.65rem;color:#888;margin-bottom:4px;">PP Stage 1 | DP Group 3</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:3px;">
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G56</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G57</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G58</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G59</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G60</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G61</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G62</div>
+              <div style="background:#ff980030;border:1px solid #ff980080;border-radius:3px;padding:3px;text-align:center;font-size:0.55rem;color:#ff9800;">G63</div>
+            </div>
+            <div style="text-align:center;font-size:0.55rem;color:#666;margin-top:4px;">← TP=8 (NVLink) →</div>
+          </div>
+        </div>
+
+        <!-- Parallelism dimension annotations -->
+        <div style="display:flex;justify-content:center;gap:20px;margin:15px 0;font-size:0.8rem;flex-wrap:wrap;">
+          <span><span style="display:inline-block;width:12px;height:12px;border:2px solid #667eea;border-radius:2px;vertical-align:middle;margin-right:4px;"></span> PP Stage 0 (Layer 0-39)</span>
+          <span><span style="display:inline-block;width:12px;height:12px;border:2px solid #a78bfa;border-radius:2px;vertical-align:middle;margin-right:4px;"></span> PP Stage 1 (Layer 40-79)</span>
+          <span style="color:#888;">同色 = 同一 DP Group (梯度 AllReduce 在同色节点间)</span>
+        </div>
+
+        <!-- Communication topology -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:15px 0;">
+          <div style="background:#12122a;border:1px solid #ff9800;border-radius:6px;padding:12px;text-align:center;">
+            <div style="color:#ff9800;font-weight:bold;font-size:0.85rem;">TP 通信</div>
+            <div style="color:#aaa;font-size:0.75rem;margin-top:4px;">节点内 8 卡 NVLink</div>
+            <div style="color:#fff;font-size:0.9rem;margin-top:4px;">600 GB/s</div>
+            <div style="color:#666;font-size:0.7rem;margin-top:2px;">每层 2× AllReduce</div>
+          </div>
+          <div style="background:#12122a;border:1px solid #a78bfa;border-radius:6px;padding:12px;text-align:center;">
+            <div style="color:#a78bfa;font-weight:bold;font-size:0.85rem;">PP 通信</div>
+            <div style="color:#aaa;font-size:0.75rem;margin-top:4px;">Node 0↔4, 1↔5... (IB)</div>
+            <div style="color:#fff;font-size:0.9rem;margin-top:4px;">50 GB/s</div>
+            <div style="color:#666;font-size:0.7rem;margin-top:2px;">仅传 activation (小)</div>
+          </div>
+          <div style="background:#12122a;border:1px solid #4caf50;border-radius:6px;padding:12px;text-align:center;">
+            <div style="color:#4caf50;font-weight:bold;font-size:0.85rem;">DP 通信</div>
+            <div style="color:#aaa;font-size:0.75rem;margin-top:4px;">跨 4 个同色节点 (IB)</div>
+            <div style="color:#fff;font-size:0.9rem;margin-top:4px;">50 GB/s</div>
+            <div style="color:#666;font-size:0.7rem;margin-top:2px;">梯度 AllReduce (overlap)</div>
+          </div>
+        </div>
+
+        <!-- Per-GPU memory breakdown -->
+        <h4 style="color:#00d2ff;margin:20px 0 12px;text-align:center;">单卡显存占用明细 (A100 80GB)</h4>
+
+        <div style="background:#0a0a15;border-radius:8px;padding:15px;margin-bottom:15px;">
+          <div style="color:#ccc;font-size:0.85rem;margin-bottom:10px;">
+            70B 模型, TP=8 → 每卡负责 <strong>70B / 8 = 8.75B 参数</strong><br>
+            PP=2 → 每卡只存模型一半的层 → 实际参数 = <strong>8.75B / 2 = 4.375B</strong> (但 TP 切的是 hidden dim, PP 切的是层)
+          </div>
+          <div style="color:#888;font-size:0.8rem;margin-bottom:8px;">
+            更精确: PP=2 切层, 每个 stage 有 ~35B 参数; TP=8 切 hidden dim, 每卡有 35B/8 = <strong>~4.375B 参数</strong>
+          </div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;font-size:0.82rem;margin-bottom:15px;">
+          <thead>
+            <tr style="border-bottom:2px solid #444;">
+              <th style="padding:10px;text-align:left;color:#888;">组件</th>
+              <th style="padding:10px;text-align:center;color:#888;">精度</th>
+              <th style="padding:10px;text-align:center;color:#888;">计算</th>
+              <th style="padding:10px;text-align:right;color:#888;">显存</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">模型参数 (FP16)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">FP16</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">4.375B × 2 bytes</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">8.75 GB</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">梯度 (FP16)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">FP16</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">4.375B × 2 bytes</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">8.75 GB</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">参数 Master Copy (FP32)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">FP32</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">4.375B × 4 bytes</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">17.5 GB</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">Adam Momentum (FP32)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">FP32</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">4.375B × 4 bytes</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">17.5 GB</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">Adam Variance (FP32)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">FP32</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">4.375B × 4 bytes</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">17.5 GB</td>
+            </tr>
+            <tr style="border-bottom:1px solid #2a2a3e;">
+              <td style="padding:8px;color:#ccc;">Activations (+ checkpointing)</td>
+              <td style="padding:8px;text-align:center;color:#aaa;">Mixed</td>
+              <td style="padding:8px;text-align:center;color:#aaa;font-family:monospace;">b=1, s=2048, full ckpt</td>
+              <td style="padding:8px;text-align:right;color:#fff;font-weight:bold;">~1.3 GB</td>
+            </tr>
+            <tr style="border-bottom:2px solid #444;background:#ffffff08;">
+              <td style="padding:10px;color:#fff;font-weight:bold;" colspan="3">总计 (with full activation checkpointing)</td>
+              <td style="padding:10px;text-align:right;color:#76b900;font-weight:bold;font-size:1.1rem;">~71.3 GB</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Visual memory bar -->
+        <div style="margin-top:15px;">
+          <div style="display:flex;align-items:center;margin-bottom:6px;">
+            <span style="font-size:0.75rem;color:#888;width:60px;">A100:</span>
+            <div style="flex:1;height:28px;background:#1a1a2e;border-radius:4px;position:relative;border:1px solid #333;">
+              <div style="position:absolute;left:0;top:0;height:100%;width:10.9%;background:#f44336;border-radius:4px 0 0 4px;" title="参数 FP16"></div>
+              <div style="position:absolute;left:10.9%;top:0;height:100%;width:10.9%;background:#ff6b6b;" title="梯度 FP16"></div>
+              <div style="position:absolute;left:21.8%;top:0;height:100%;width:21.9%;background:#667eea;" title="Master copy FP32"></div>
+              <div style="position:absolute;left:43.7%;top:0;height:100%;width:21.9%;background:#a78bfa;" title="Adam momentum"></div>
+              <div style="position:absolute;left:65.6%;top:0;height:100%;width:21.9%;background:#7c4dff;" title="Adam variance"></div>
+              <div style="position:absolute;left:87.5%;top:0;height:100%;width:7.5%;background:#4caf50;border-radius:0 4px 4px 0;" title="Activations"></div>
+              <!-- 80GB marker -->
+              <div style="position:absolute;right:0;top:-5px;bottom:-5px;border-right:2px dashed #ffd700;"></div>
+            </div>
+            <span style="font-size:0.7rem;color:#ffd700;margin-left:6px;">80GB</span>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;font-size:0.68rem;color:#888;margin-left:60px;">
+            <span><span style="display:inline-block;width:10px;height:10px;background:#f44336;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Param (8.75G)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#ff6b6b;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Grad (8.75G)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#667eea;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Master (17.5G)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#a78bfa;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Mom (17.5G)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#7c4dff;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Var (17.5G)</span>
+            <span><span style="display:inline-block;width:10px;height:10px;background:#4caf50;border-radius:2px;vertical-align:middle;margin-right:3px;"></span>Act (~1.3G w/ ckpt)</span>
+          </div>
+        </div>
+
+        <!-- ZeRO optimization note -->
+        <div style="margin-top:18px;padding:12px;background:#1a2e1a;border:1px solid #4caf5040;border-radius:6px;">
+          <div style="color:#4caf50;font-weight:bold;font-size:0.85rem;margin-bottom:6px;">进一步优化: + ZeRO Stage 1</div>
+          <div style="color:#aaa;font-size:0.8rem;line-height:1.8;">
+            优化器状态 (Master + Momentum + Variance = 52.5GB) 在 DP=4 的 group 内分片:<br>
+            每卡优化器占用 = 52.5 / 4 = <strong>13.1 GB</strong> (节省 ~39 GB!)<br>
+            总显存 = 8.75 (param) + 8.75 (grad) + 13.1 (opt/4) + 1.3 (act w/ ckpt) ≈ <strong>32 GB</strong> → 余量非常充足!
+          </div>
+        </div>
+
+        <!-- Activation memory estimation -->
+        <div style="margin-top:18px;padding:16px;background:#1a1a2e;border:1px solid #00d2ff40;border-radius:6px;">
+          <div style="color:#00d2ff;font-weight:bold;font-size:0.9rem;margin-bottom:10px;">Activation 显存怎么估算?</div>
+
+          <div style="color:#ccc;font-size:0.84rem;line-height:1.9;margin-bottom:14px;">
+            训练时, 前向传播的中间结果 (activation) 需要保留到 backward 用于计算梯度。<br>
+            对于一个标准 Transformer layer, 需要保存的 activation 包括:
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:0.8rem;margin-bottom:14px;">
+            <thead>
+              <tr style="border-bottom:2px solid #444;">
+                <th style="padding:8px;text-align:left;color:#888;">保存的 Activation</th>
+                <th style="padding:8px;text-align:center;color:#888;">Shape</th>
+                <th style="padding:8px;text-align:center;color:#888;">大小 (bytes)</th>
+                <th style="padding:8px;text-align:left;color:#888;">用途 (backward)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">LayerNorm 1 输入</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">2bsh</td>
+                <td style="padding:6px;color:#888;">计算 LayerNorm 梯度</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">QKV 输出</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, 3h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">6bsh</td>
+                <td style="padding:6px;color:#888;">Attention backward</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">Attention score (softmax 输出)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, n_head, s, s]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">2bs²n</td>
+                <td style="padding:6px;color:#888;">Attention backward (V 的梯度)</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">Attention output (O proj 输入)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">2bsh</td>
+                <td style="padding:6px;color:#888;">O projection backward</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">LayerNorm 2 输入 (residual)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">2bsh</td>
+                <td style="padding:6px;color:#888;">计算 LayerNorm 梯度</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">FFN 中间层 (GeLU 输入)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, 4h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">8bsh</td>
+                <td style="padding:6px;color:#888;">GeLU backward (非线性)</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">FFN 输出 (down proj 输入)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, 4h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">8bsh</td>
+                <td style="padding:6px;color:#888;">Down projection backward</td>
+              </tr>
+              <tr style="border-bottom:1px solid #2a2a3e;">
+                <td style="padding:6px;color:#ccc;">Dropout masks (×2)</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">[b, s, h]</td>
+                <td style="padding:6px;text-align:center;color:#aaa;font-family:monospace;">2bs·h/8</td>
+                <td style="padding:6px;color:#888;">重复 dropout pattern (1 bit/elem)</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:14px;">
+            <div style="color:#ffd700;font-weight:bold;font-size:0.85rem;margin-bottom:8px;">每层总 Activation (Megatron 论文公式):</div>
+            <div style="font-family:monospace;font-size:0.9rem;color:#fff;line-height:2;">
+              <div>Act_per_layer = <span style="color:#00d2ff;">sbh</span> × (<span style="color:#ff6b6b;">34</span> + <span style="color:#a78bfa;">5 × s × n_head / h</span>)</div>
+              <div style="padding-left:20px;color:#888;font-size:0.8rem;">
+                ≈ sbh × 34 &nbsp;&nbsp;(当 s 不太大时, attention score 项可忽略)
+              </div>
+            </div>
+            <div style="margin-top:10px;color:#888;font-size:0.78rem;line-height:1.7;">
+              其中: s=seq_len, b=micro_batch_size, h=hidden_dim, n_head=注意力头数<br>
+              34 = 2+6+2+2+8+8+... (上面各项系数之和, FP16 每元素 2 bytes)<br>
+              注意: 这是<strong>不使用</strong> activation checkpointing 的情况
+            </div>
+          </div>
+
+          <div style="background:#0a0a15;border-radius:6px;padding:14px;margin-bottom:14px;">
+            <div style="color:#76b900;font-weight:bold;font-size:0.85rem;margin-bottom:8px;">代入我们的例子: 70B, TP=8, PP=2</div>
+            <div style="font-family:monospace;font-size:0.84rem;color:#ccc;line-height:2.2;">
+              <div>h = 8192 (70B 模型的 hidden dim)</div>
+              <div>n_head = 64</div>
+              <div>L = 80 layers total, 本卡负责 80/PP = 40 layers</div>
+              <div>s = 2048 (seq_len), b = 1 (micro_batch_size)</div>
+              <div style="margin-top:8px;color:#fff;">
+                每层 Act = s × b × h × 34 bytes<br>
+                <span style="padding-left:20px;">= 2048 × 1 × 8192 × 34</span><br>
+                <span style="padding-left:20px;">= <strong>544 MB / layer</strong></span>
+              </div>
+              <div style="margin-top:6px;color:#fff;">
+                40 layers (不考虑 TP 切分) = 544 × 40 = <strong>21.2 GB</strong>
+              </div>
+              <div style="margin-top:10px;color:#fff;">
+                TP=8 可切分哪些?<br>
+                <span style="padding-left:20px;">• 可切分 (h/TP): QKV(6bsh) + attn_out(2bsh) + FFN_up(8bsh) + FFN_down_in(8bsh) = <strong>22bsh</strong></span><br>
+                <span style="padding-left:20px;">• 不可切分 (需完整 h): LayerNorm 输入(2×2bsh) + residual + dropout = <strong>~12bsh</strong></span><br>
+                <span style="padding-left:20px;color:#aaa;">切分比例: 22/34 ≈ 65% 的 activation 可被 TP 切分</span>
+              </div>
+              <div style="margin-top:6px;color:#fff;">
+                每层实际 = 22bsh/TP + 12bsh = 22×2048×8192/8 + 12×2048×8192<br>
+                <span style="padding-left:20px;">= 46 MB (切分部分) + 201 MB (未切分部分)</span><br>
+                <span style="padding-left:20px;">= <strong>~247 MB / layer / GPU</strong></span>
+              </div>
+              <div style="margin-top:6px;color:#ff6b6b;font-weight:bold;">
+                40 layers × 247 MB ≈ <strong>~10 GB / GPU</strong> (不做 checkpointing)
+              </div>
+              <div style="margin-top:10px;padding:10px;background:#1a1a3e;border-radius:4px;border-left:3px solid #ff9800;">
+                <span style="color:#ff9800;font-weight:bold;">注意:</span><span style="color:#ccc;"> 这是处理<strong>1 个 micro-batch (1条序列)</strong> forward 完、等 backward 时的峰值内存。</span><br>
+                <span style="color:#aaa;font-size:0.82rem;">
+                  • 梯度累积不增加 activation 内存 (做完 1 个 micro-batch backward 后即释放)<br>
+                  • 但 1F1B pipeline schedule 中, 同时 in-flight 的 micro-batch 数 = PP stages<br>
+                  • 所以峰值: PP_inflight × 10 GB = 2 × 10 GB = <strong>20 GB</strong> (PP bubble 期间)
+                </span>
+              </div>
+              <div style="margin-top:10px;color:#4caf50;font-weight:bold;">
+                实际工程中必须用 Activation Checkpointing:
+              </div>
+              <div style="margin-top:4px;color:#ccc;">
+                Full checkpointing (只保存每层输入, backward 时重新计算整层):<br>
+                <span style="padding-left:20px;">每层只存 1 个 [b, s, h] tensor = 2bsh = 2×1×2048×8192 = 32 MB</span><br>
+                <span style="padding-left:20px;">40 layers × 32 MB = <strong>1.3 GB</strong></span><br>
+                <span style="padding-left:20px;color:#888;">代价: ~33% 额外计算 (重算每层 forward)</span>
+              </div>
+              <div style="margin-top:6px;color:#ccc;">
+                Selective checkpointing (只重算 attention score, 保留 FFN activation):<br>
+                <span style="padding-left:20px;">节省最大项 attention score (O(s²)), 保留 FFN 中间结果</span><br>
+                <span style="padding-left:20px;">≈ <strong>3-4 GB</strong>, 额外计算 ~10%</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#0a0a15;border-radius:6px;padding:14px;">
+            <div style="color:#ff9800;font-weight:bold;font-size:0.85rem;margin-bottom:8px;">影响 Activation 大小的关键因素</div>
+            <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+              <tbody>
+                <tr style="border-bottom:1px solid #2a2a3e;">
+                  <td style="padding:8px;color:#ff9800;font-weight:bold;width:120px;">seq_len (s)</td>
+                  <td style="padding:8px;color:#ccc;">线性增长 + attention score 是 O(s²)。长序列时 attention 项主导!</td>
+                </tr>
+                <tr style="border-bottom:1px solid #2a2a3e;">
+                  <td style="padding:8px;color:#ff9800;font-weight:bold;">micro_batch (b)</td>
+                  <td style="padding:8px;color:#ccc;">线性增长。训练大 batch 时可用梯度累积降低单步 b</td>
+                </tr>
+                <tr style="border-bottom:1px solid #2a2a3e;">
+                  <td style="padding:8px;color:#ff9800;font-weight:bold;">hidden_dim (h)</td>
+                  <td style="padding:8px;color:#ccc;">线性增长。更大模型 → 更大 h → 更多 activation</td>
+                </tr>
+                <tr style="border-bottom:1px solid #2a2a3e;">
+                  <td style="padding:8px;color:#ff9800;font-weight:bold;">层数 (L)</td>
+                  <td style="padding:8px;color:#ccc;">线性。PP 切层可直接减少本卡负担的层数</td>
+                </tr>
+                <tr style="border-bottom:1px solid #2a2a3e;">
+                  <td style="padding:8px;color:#ff9800;font-weight:bold;">TP degree</td>
+                  <td style="padding:8px;color:#ccc;">部分 activation 被 TP 切分 (QKV output, FFN 中间层), 部分不切 (LayerNorm input)</td>
+                </tr>
+                <tr>
+                  <td style="padding:8px;color:#76b900;font-weight:bold;">Checkpointing</td>
+                  <td style="padding:8px;color:#ccc;">用 ~33% 额外计算换取 ~90% activation 内存节省。只保存每层输入, backward 时重算</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Coding Exercise A -->
+  <!-- Coding Exercises (consolidated, with starter templates) -->
   <div class="exercise">
-    <h4>编程练习 A: 用 torch.distributed 实现 Ring AllReduce</h4>
-    <p>使用 <code>torch.distributed</code> 的 <code>send</code> 和 <code>recv</code> 原语 (不使用 <code>dist.all_reduce</code>), 从零实现完整的 Ring AllReduce 算法。</p>
-    <p><strong>要求:</strong></p>
-    <ul>
-      <li>实现 Reduce-Scatter phase + AllGather phase</li>
-      <li>支持任意 world_size 和任意大小的 tensor</li>
-      <li>测试: 4 进程, 验证结果与 <code>dist.all_reduce</code> 一致 (使用 <code>torch.allclose</code>)</li>
-    </ul>
+    <h4>编程练习 A: Ring AllReduce (完整实现)</h4>
+    <p>用 <code>torch.distributed</code> 的 <code>isend/irecv</code> 原语从零实现 Ring AllReduce。</p>
+    <p><strong>要求:</strong> 实现 Reduce-Scatter + AllGather, 4 进程验证与 <code>dist.all_reduce</code> 一致。</p>
 
-    <button class="hint-toggle" onclick="toggleHint('hintA')">提示</button>
-    <button class="solution-toggle" onclick="toggleSolution('solA')">查看答案</button>
-
-    <div class="hint-content" id="hintA">
-      <p>1. 将 tensor 分成 world_size 个 chunk</p>
-      <p>2. Reduce-Scatter: N-1 步, 每步发送一个 chunk 给右邻居, 从左邻居接收并累加</p>
-      <p>3. AllGather: N-1 步, 每步发送已归约的 chunk 给右邻居, 从左邻居接收覆盖</p>
-      <p>4. 使用 <code>isend/irecv</code> 避免死锁</p>
-    </div>
-
-    <div class="solution-content" id="solA">
+    <div style="margin:12px 0;">
+      <div style="color:#ffd700;font-size:0.85rem;font-weight:bold;margin-bottom:6px;">Starter Template (填空):</div>
       <pre><code><span class="keyword">import</span> torch
 <span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
 <span class="keyword">import</span> torch.multiprocessing <span class="keyword">as</span> mp
 <span class="keyword">import</span> os
 
 <span class="keyword">def</span> <span class="func">ring_allreduce</span>(tensor, rank, world_size):
-    <span class="string">"""
-    从零实现 Ring AllReduce (不使用 dist.all_reduce)
-    Args:
-        tensor: 本地 tensor, shape 可被 world_size 整除
-        rank: 当前进程 rank
-        world_size: 总进程数
-    Returns:
-        全局归约后的 tensor (所有 rank 结果相同)
-    """</span>
-    <span class="comment"># 确保 tensor 可以被均匀切分</span>
     assert tensor.numel() % world_size == <span class="num">0</span>
     chunk_size = tensor.numel() // world_size
-
-    <span class="comment"># 将 tensor 视为 world_size 个 chunk</span>
     chunks = list(tensor.view(world_size, chunk_size).unbind(dim=<span class="num">0</span>))
     chunks = [c.contiguous().clone() <span class="keyword">for</span> c <span class="keyword">in</span> chunks]
 
     left = (rank - <span class="num">1</span>) % world_size
     right = (rank + <span class="num">1</span>) % world_size
-
     send_buf = torch.zeros(chunk_size, device=tensor.device)
     recv_buf = torch.zeros(chunk_size, device=tensor.device)
 
-    <span class="comment"># ===== Phase 1: Reduce-Scatter =====</span>
+    <span class="comment"># ===== Phase 1: Reduce-Scatter (N-1 steps) =====</span>
     <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
-        send_idx = (rank - step) % world_size
-        recv_idx = (rank - step - <span class="num">1</span>) % world_size
+        send_idx = ???  <span class="comment"># TODO: 哪个 chunk 要发出去?</span>
+        recv_idx = ???  <span class="comment"># TODO: 收到的数据累加到哪个 chunk?</span>
 
         send_buf.copy_(chunks[send_idx])
         req_s = dist.isend(send_buf, dst=right)
@@ -1727,15 +2484,12 @@ handle.wait()  <span class="comment"># 此时通信可能早已完成</span></co
         req_s.wait()
         req_r.wait()
 
-        <span class="comment"># 累加接收到的数据</span>
-        chunks[recv_idx] += recv_buf
+        chunks[recv_idx] += recv_buf  <span class="comment"># 关键: 累加!</span>
 
-    <span class="comment"># 此时 chunks[(rank+1)%world_size] 包含该 chunk 的全局和</span>
-
-    <span class="comment"># ===== Phase 2: AllGather =====</span>
+    <span class="comment"># ===== Phase 2: AllGather (N-1 steps) =====</span>
     <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
-        send_idx = (rank - step + <span class="num">1</span>) % world_size
-        recv_idx = (rank - step) % world_size
+        send_idx = ???  <span class="comment"># TODO: 发送已归约的 chunk</span>
+        recv_idx = ???  <span class="comment"># TODO: 覆盖 (不是累加!)</span>
 
         send_buf.copy_(chunks[send_idx])
         req_s = dist.isend(send_buf, dst=right)
@@ -1743,11 +2497,9 @@ handle.wait()  <span class="comment"># 此时通信可能早已完成</span></co
         req_s.wait()
         req_r.wait()
 
-        chunks[recv_idx].copy_(recv_buf)
+        chunks[recv_idx].copy_(recv_buf)  <span class="comment"># 关键: 覆盖!</span>
 
-    <span class="comment"># 重组 tensor</span>
-    result = torch.cat(chunks, dim=<span class="num">0</span>)
-    <span class="keyword">return</span> result
+    <span class="keyword">return</span> torch.cat(chunks, dim=<span class="num">0</span>)
 
 <span class="keyword">def</span> <span class="func">worker</span>(rank, world_size):
     os.environ[<span class="string">'MASTER_ADDR'</span>] = <span class="string">'localhost'</span>
@@ -1755,245 +2507,183 @@ handle.wait()  <span class="comment"># 此时通信可能早已完成</span></co
     dist.init_process_group(<span class="string">'nccl'</span>, rank=rank, world_size=world_size)
     torch.cuda.set_device(rank)
 
-    <span class="comment"># 测试: 每个 rank 创建不同数据</span>
     torch.manual_seed(rank)
     tensor = torch.randn(<span class="num">16</span>, device=f<span class="string">'cuda:{rank}'</span>)
 
-    <span class="comment"># 方法1: 自己实现的 Ring AllReduce</span>
     result_ring = ring_allreduce(tensor.clone(), rank, world_size)
 
-    <span class="comment"># 方法2: 官方 all_reduce 做对照</span>
-    result_official = tensor.clone()
-    dist.all_reduce(result_official, op=dist.ReduceOp.SUM)
+    result_ref = tensor.clone()
+    dist.all_reduce(result_ref, op=dist.ReduceOp.SUM)
 
-    <span class="comment"># 验证一致性</span>
-    <span class="keyword">assert</span> torch.allclose(result_ring, result_official, atol=<span class="num">1e-5</span>), \
-        f<span class="string">"Rank {rank}: mismatch!"</span>
-    print(f<span class="string">"Rank {rank}: PASSED! Ring AllReduce matches official."</span>)
-
+    <span class="keyword">assert</span> torch.allclose(result_ring, result_ref, atol=<span class="num">1e-5</span>)
+    print(f<span class="string">"Rank {rank}: PASSED!"</span>)
     dist.destroy_process_group()
 
 <span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:
-    world_size = <span class="num">4</span>
-    mp.spawn(worker, args=(world_size,), nprocs=world_size)</code></pre>
+    mp.spawn(worker, args=(<span class="num">4</span>,), nprocs=<span class="num">4</span>)</code></pre>
+    </div>
+
+    <button class="hint-toggle" onclick="toggleHint('hintA')">提示: index 计算规律</button>
+    <button class="solution-toggle" onclick="toggleSolution('solA')">查看答案</button>
+
+    <div class="hint-content" id="hintA">
+      <div style="line-height:1.9;">
+        <p><strong>Reduce-Scatter 的 index 规律:</strong></p>
+        <pre style="background:#0a0a15;padding:10px;border-radius:4px;font-size:0.82rem;"><code>send_idx = (rank - step) % world_size
+recv_idx = (rank - step - 1) % world_size</code></pre>
+        <p>直觉: rank=0 第 0 步发 chunk0, 第 1 步发 chunk3 (已被上一步累加过), ...</p>
+        <p><strong>AllGather 的 index 规律:</strong></p>
+        <pre style="background:#0a0a15;padding:10px;border-radius:4px;font-size:0.82rem;"><code>send_idx = (rank - step + 1) % world_size
+recv_idx = (rank - step) % world_size</code></pre>
+        <p>直觉: 从自己持有的那个已归约 chunk 开始发, 每步往前推一格</p>
+      </div>
+    </div>
+
+    <div class="solution-content" id="solA">
+      <pre><code><span class="comment"># 完整答案 — 只需填入正确的 index 即可:</span>
+
+<span class="comment"># Phase 1: Reduce-Scatter</span>
+send_idx = (rank - step) % world_size
+recv_idx = (rank - step - <span class="num">1</span>) % world_size
+
+<span class="comment"># Phase 2: AllGather</span>
+send_idx = (rank - step + <span class="num">1</span>) % world_size
+recv_idx = (rank - step) % world_size
+
+<span class="comment"># 推导过程 (以 4 GPU, Reduce-Scatter 为例):</span>
+<span class="comment"># Step 0: GPU0 发 chunk0 给 GPU1, GPU1 发 chunk1 给 GPU2, ...</span>
+<span class="comment">#         send_idx = (rank - 0) % 4 = rank → GPU0 发 chunk0 ✓</span>
+<span class="comment"># Step 1: GPU0 发 chunk3 给 GPU1, ...</span>
+<span class="comment">#         send_idx = (rank - 1) % 4 → GPU0 发 chunk3 ✓</span>
+<span class="comment"># Step 2: GPU0 发 chunk2 给 GPU1, ...</span>
+<span class="comment">#         send_idx = (rank - 2) % 4 → GPU0 发 chunk2 ✓</span>
+<span class="comment">#</span>
+<span class="comment"># recv_idx: 收到的数据要累加到"下一个"要发出去的 chunk</span>
+<span class="comment">#           = send_idx_of_next_step = (rank - step - 1) % N</span></code></pre>
     </div>
   </div>
 
   <!-- Coding Exercise B -->
   <div class="exercise">
-    <h4>编程练习 B: 模拟 Pipeline Parallelism 的调度</h4>
-    <p>实现 GPipe 和 1F1B 两种调度策略的模拟器, 对比它们的 bubble ratio 和峰值内存。</p>
-    <p><strong>要求:</strong></p>
-    <ul>
-      <li>输入: num_stages (p), num_micro_batches (m)</li>
-      <li>输出: 每个 GPU 每个 time slot 在做什么 (F/B/idle)</li>
-      <li>计算: bubble ratio = idle_slots / total_slots</li>
-      <li>对比: 两种策略的 bubble ratio 和峰值内存 (以 "存储的 activation 数" 衡量)</li>
-    </ul>
+    <h4>编程练习 B: Pipeline Schedule 模拟器 (GPipe vs 1F1B)</h4>
+    <p>模拟两种调度, 对比 bubble ratio 和峰值 activation 内存。</p>
+
+    <div style="margin:12px 0;">
+      <div style="color:#ffd700;font-size:0.85rem;font-weight:bold;margin-bottom:6px;">Starter Template:</div>
+      <pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+
+<span class="keyword">def</span> <span class="func">simulate_gpipe</span>(p, m):
+    <span class="string">"""
+    p: num pipeline stages, m: num micro-batches
+    Returns: (schedule, bubble_ratio, peak_memory)
+    schedule[stage][time] = 'F0'/'B0'/'idle'
+    """</span>
+    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)
+    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
+
+    <span class="comment"># TODO: Forward pass</span>
+    <span class="comment"># stage s 处理 micro-batch mb 的时间 = s + mb</span>
+    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
+        <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
+            schedule[s][???] = f<span class="string">'F{mb}'</span>
+
+    <span class="comment"># TODO: Backward pass</span>
+    <span class="comment"># GPipe: 所有 forward 做完再做 backward</span>
+    <span class="comment"># backward 从最后一个 stage 往前走</span>
+    b_start = ???  <span class="comment"># forward 结束的时间点</span>
+    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
+        <span class="keyword">for</span> s <span class="keyword">in</span> range(p - <span class="num">1</span>, -<span class="num">1</span>, -<span class="num">1</span>):
+            schedule[s][???] = f<span class="string">'B{mb}'</span>
+
+    <span class="comment"># Bubble ratio</span>
+    busy = sum(<span class="num">1</span> <span class="keyword">for</span> row <span class="keyword">in</span> schedule <span class="keyword">for</span> x <span class="keyword">in</span> row <span class="keyword">if</span> x != <span class="string">'idle'</span>)
+    bubble_ratio = <span class="num">1.0</span> - busy / (p * total_time)
+
+    <span class="comment"># Peak memory: GPipe 在开始 backward 之前, 每个 stage 存了 m 个 activation</span>
+    peak_memory = m
+
+    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory
+
+<span class="keyword">def</span> <span class="func">simulate_1f1b</span>(p, m):
+    <span class="string">"""1F1B schedule: warmup → steady (1B1F) → cooldown"""</span>
+    <span class="keyword">assert</span> m >= p
+    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)
+    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
+
+    <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
+        t = s
+        fwd_done, bwd_done = <span class="num">0</span>, <span class="num">0</span>
+
+        <span class="comment"># TODO: Warmup — 做 (p - s) 个 forward 填满 pipeline</span>
+        warmup_count = ???
+        <span class="keyword">for</span> _ <span class="keyword">in</span> range(warmup_count):
+            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
+            fwd_done += <span class="num">1</span>; t += <span class="num">1</span>
+
+        <span class="comment"># TODO: Steady state — 交替 1B + 1F</span>
+        <span class="keyword">while</span> fwd_done < m:
+            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
+            bwd_done += <span class="num">1</span>; t += <span class="num">1</span>
+            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
+            fwd_done += <span class="num">1</span>; t += <span class="num">1</span>
+
+        <span class="comment"># TODO: Cooldown — 做剩余 backward</span>
+        <span class="keyword">while</span> bwd_done < m:
+            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
+            bwd_done += <span class="num">1</span>; t += <span class="num">1</span>
+
+    busy = sum(<span class="num">1</span> <span class="keyword">for</span> row <span class="keyword">in</span> schedule <span class="keyword">for</span> x <span class="keyword">in</span> row <span class="keyword">if</span> x != <span class="string">'idle'</span>)
+    bubble_ratio = <span class="num">1.0</span> - busy / (p * total_time)
+
+    <span class="comment"># 1F1B 峰值内存: stage s 最多同时持有 (p - s) 个 activation</span>
+    peak_memory = p  <span class="comment"># first stage worst case</span>
+
+    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory
+
+<span class="keyword">def</span> <span class="func">print_schedule</span>(schedule, title):
+    print(f<span class="string">"\n{'='*60}\n {title}\n{'='*60}"</span>)
+    <span class="keyword">for</span> s, row <span class="keyword">in</span> enumerate(schedule):
+        cells = [f<span class="string">'{x:4s}'</span> <span class="keyword">if</span> x != <span class="string">'idle'</span> <span class="keyword">else</span> <span class="string">'  . '</span> <span class="keyword">for</span> x <span class="keyword">in</span> row]
+        print(f<span class="string">"  Stage {s}: |{'|'.join(cells)}|"</span>)
+
+<span class="comment"># === 运行 ===</span>
+p, m = <span class="num">4</span>, <span class="num">8</span>
+_, bg, mg = simulate_gpipe(p, m)
+_, b1, m1 = simulate_1f1b(p, m)
+print(f<span class="string">"GPipe:  bubble={bg:.1%}, peak_mem={mg} activations"</span>)
+print(f<span class="string">"1F1B:   bubble={b1:.1%}, peak_mem={m1} activations"</span>)
+print(f<span class="string">"Memory saving: {(1-m1/mg)*100:.0f}% (1F1B vs GPipe)"</span>)</code></pre>
+    </div>
 
     <button class="hint-toggle" onclick="toggleHint('hintB')">提示</button>
     <button class="solution-toggle" onclick="toggleSolution('solB')">查看答案</button>
 
     <div class="hint-content" id="hintB">
-      <p>1. GPipe: 先安排所有 m 个 forward (考虑 stage 间依赖), 再安排所有 backward</p>
-      <p>2. 1F1B: warmup 阶段做 forward 填满 pipeline, 然后交替 1F1B, 最后 cooldown 做剩余 backward</p>
-      <p>3. 峰值内存: 某时刻某 stage 同时 "存着" 的 activation 数量最大值 (forward 产生 activation, 对应的 backward 释放它)</p>
+      <div style="line-height:1.9;">
+        <p><strong>GPipe Forward:</strong> stage s 处理 mb 的时间 = <code>s + mb</code></p>
+        <p><strong>GPipe Backward:</strong> 起始时间 = <code>m + p - 1</code>, stage s 处理 mb 的时间 = <code>b_start + mb + (p-1-s)</code></p>
+        <p><strong>1F1B Warmup count:</strong> <code>min(p - s, m)</code> — 越靠前的 stage warmup 越长</p>
+      </div>
     </div>
 
     <div class="solution-content" id="solB">
-      <pre><code><span class="keyword">import</span> numpy <span class="keyword">as</span> np
+      <pre><code><span class="comment"># GPipe Forward: 每个 stage 依次处理所有 micro-batch</span>
+schedule[s][s + mb] = f<span class="string">'F{mb}'</span>
 
-<span class="keyword">def</span> <span class="func">simulate_gpipe</span>(p, m):
-    <span class="string">"""
-    模拟 GPipe 调度
-    p: pipeline stages 数
-    m: micro-batches 数
-    """</span>
-    <span class="comment"># 总时间槽: forward 阶段 + backward 阶段</span>
-    <span class="comment"># Forward: m + (p-1) 个 slot (第一个 microbatch 经过 p 个 stage 花 p 个 slot,</span>
-    <span class="comment">#          之后每个额外 microbatch +1 slot)</span>
-    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)
-    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
+<span class="comment"># GPipe Backward:</span>
+b_start = m + p - <span class="num">1</span>
+schedule[s][b_start + mb + (p - <span class="num">1</span> - s)] = f<span class="string">'B{mb}'</span>
 
-    <span class="comment"># Forward pass: stage s 在 time (s + mb) 执行 F_mb</span>
-    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
-        <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
-            t = s + mb
-            schedule[s][t] = f<span class="string">'F{mb}'</span>
+<span class="comment"># 1F1B Warmup:</span>
+warmup_count = min(p - s, m)
 
-    <span class="comment"># Backward pass: 从最后一个 stage 开始, 紧接 forward 结束后</span>
-    <span class="comment"># backward 开始时间 = forward 结束时间 = m + p - 1</span>
-    b_start = m + p - <span class="num">1</span>
-    <span class="keyword">for</span> mb <span class="keyword">in</span> range(m):
-        <span class="keyword">for</span> s <span class="keyword">in</span> range(p - <span class="num">1</span>, -<span class="num">1</span>, -<span class="num">1</span>):
-            t = b_start + mb + (p - <span class="num">1</span> - s)
-            schedule[s][t] = f<span class="string">'B{mb}'</span>
-
-    <span class="comment"># 计算 bubble ratio</span>
-    total_slots = p * total_time
-    busy_slots = <span class="num">2</span> * p * m  <span class="comment"># 每个 stage 做 m 次 F + m 次 B</span>
-    bubble_ratio = <span class="num">1.0</span> - busy_slots / total_slots
-
-    <span class="comment"># 计算峰值内存 (每个 stage 同时存储的 activation 数)</span>
-    <span class="comment"># 在 GPipe 中, stage s 在 forward 完成后存储 m 个 activation</span>
-    peak_memory = m  <span class="comment"># 所有 forward 做完才开始 backward</span>
-
-    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory, total_time
-
-<span class="keyword">def</span> <span class="func">simulate_1f1b</span>(p, m):
-    <span class="string">"""
-    模拟 1F1B 调度
-    p: pipeline stages 数
-    m: micro-batches 数 (需要 m >= p)
-    """</span>
-    <span class="keyword">assert</span> m >= p, <span class="string">"1F1B requires m >= p"</span>
-
-    total_time = <span class="num">2</span> * (m + p - <span class="num">1</span>)  <span class="comment"># 与 GPipe 相同的总时间</span>
-    schedule = [[<span class="string">'idle'</span>] * total_time <span class="keyword">for</span> _ <span class="keyword">in</span> range(p)]
-
-    <span class="comment"># 对每个 stage 独立调度</span>
-    <span class="keyword">for</span> s <span class="keyword">in</span> range(p):
-        t = s  <span class="comment"># 该 stage 的起始时间 (等待上游)</span>
-        fwd_done = <span class="num">0</span>  <span class="comment"># 已完成的 forward 数</span>
-        bwd_done = <span class="num">0</span>  <span class="comment"># 已完成的 backward 数</span>
-        warmup = p - s - <span class="num">1</span>  <span class="comment"># warmup 阶段需要的额外 forward 数</span>
-
-        <span class="comment"># Warmup: 做 (p - s - 1 + 1) = p - s 个 forward</span>
-        warmup_count = min(p - s, m)
-        <span class="keyword">for</span> i <span class="keyword">in</span> range(warmup_count):
-            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
-            fwd_done += <span class="num">1</span>
-            t += <span class="num">1</span>
-
-        <span class="comment"># Steady state: 交替 1B + 1F</span>
-        <span class="keyword">while</span> fwd_done < m:
-            <span class="comment"># Backward</span>
-            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
-            bwd_done += <span class="num">1</span>
-            t += <span class="num">1</span>
-            <span class="comment"># Forward</span>
-            schedule[s][t] = f<span class="string">'F{fwd_done}'</span>
-            fwd_done += <span class="num">1</span>
-            t += <span class="num">1</span>
-
-        <span class="comment"># Cooldown: 做剩余 backward</span>
-        <span class="keyword">while</span> bwd_done < m:
-            schedule[s][t] = f<span class="string">'B{bwd_done}'</span>
-            bwd_done += <span class="num">1</span>
-            t += <span class="num">1</span>
-
-    <span class="comment"># 计算 bubble ratio</span>
-    total_slots = p * total_time
-    busy_slots = sum(<span class="num">1</span> <span class="keyword">for</span> s <span class="keyword">in</span> schedule <span class="keyword">for</span> x <span class="keyword">in</span> s <span class="keyword">if</span> x != <span class="string">'idle'</span>)
-    bubble_ratio = <span class="num">1.0</span> - busy_slots / total_slots
-
-    <span class="comment"># 峰值内存: 最多同时保存 (p - s) 个 activation 对于 stage s</span>
-    <span class="comment"># 第一个 stage 最多保存 p 个, 最后一个 stage 保存 1 个</span>
-    <span class="comment"># 但相比 GPipe 的 m 个, 1F1B 的峰值为 p (当 m >> p 时远小于 m)</span>
-    peak_memory = p  <span class="comment"># worst case for first stage</span>
-
-    <span class="keyword">return</span> schedule, bubble_ratio, peak_memory, total_time
-
-<span class="keyword">def</span> <span class="func">print_schedule</span>(schedule, total_time, title):
-    print(f<span class="string">"\n{'='*60}"</span>)
-    print(f<span class="string">" {title}"</span>)
-    print(f<span class="string">"{'='*60}"</span>)
-    <span class="keyword">for</span> s, row <span class="keyword">in</span> enumerate(schedule):
-        slots = []
-        <span class="keyword">for</span> t <span class="keyword">in</span> range(total_time):
-            cell = row[t]
-            <span class="keyword">if</span> cell == <span class="string">'idle'</span>:
-                slots.append(<span class="string">'  . '</span>)
-            <span class="keyword">elif</span> cell.startswith(<span class="string">'F'</span>):
-                slots.append(f<span class="string">' {cell:3s}'</span>)
-            <span class="keyword">else</span>:
-                slots.append(f<span class="string">' {cell:3s}'</span>)
-        print(f<span class="string">"GPU {s}: |{'|'.join(slots)}|"</span>)
-
-<span class="comment"># === 运行对比 ===</span>
-p, m = <span class="num">4</span>, <span class="num">8</span>
-
-sched_g, bubble_g, mem_g, time_g = simulate_gpipe(p, m)
-print_schedule(sched_g, time_g, f<span class="string">"GPipe (p={p}, m={m})"</span>)
-print(f<span class="string">"  Bubble ratio: {bubble_g:.1%}"</span>)
-print(f<span class="string">"  Peak memory (activations): {mem_g}"</span>)
-
-sched_1, bubble_1, mem_1, time_1 = simulate_1f1b(p, m)
-print_schedule(sched_1, time_1, f<span class="string">"1F1B (p={p}, m={m})"</span>)
-print(f<span class="string">"  Bubble ratio: {bubble_1:.1%}"</span>)
-print(f<span class="string">"  Peak memory (activations): {mem_1}"</span>)
-
-print(f<span class="string">"\n--- Comparison ---"</span>)
-print(f<span class="string">"  Bubble ratio: GPipe={bubble_g:.1%} vs 1F1B={bubble_1:.1%}"</span>)
-print(f<span class="string">"  Peak memory:  GPipe={mem_g} vs 1F1B={mem_1}"</span>)
-print(f<span class="string">"  Memory reduction: {(1 - mem_1/mem_g)*100:.0f}%"</span>)</code></pre>
-    </div>
-  </div>
-
-  <!-- Exercise 3 -->
-  <div class="exercise">
-    <h4>练习 3: 用 Send/Recv 实现 Ring AllReduce</h4>
-    <p>使用 <code>torch.distributed</code> 的 <code>send</code> 和 <code>recv</code> 原语, 实现一个简化版的 Ring AllReduce (仅实现 Reduce-Scatter 阶段)。</p>
-    <p><strong>要求:</strong></p>
-    <ul>
-      <li>输入: 每个 rank 持有一个大小为 [world_size] 的 tensor</li>
-      <li>输出: 经过 Reduce-Scatter 后, rank i 持有第 i 个 chunk 的全局求和</li>
-    </ul>
-
-    <button class="hint-toggle" onclick="toggleHint('hint3')">提示</button>
-    <button class="solution-toggle" onclick="toggleSolution('sol3')">查看答案</button>
-
-    <div class="hint-content" id="hint3">
-      <p>关键: 每一步中, 每个 GPU 同时发送和接收。发送的 chunk index 和接收的 chunk index 需要正确计算。使用 <code>isend</code> 和 <code>irecv</code> 避免死锁。</p>
-    </div>
-
-    <div class="solution-content" id="sol3">
-      <pre><code><span class="keyword">import</span> torch
-<span class="keyword">import</span> torch.distributed <span class="keyword">as</span> dist
-
-<span class="keyword">def</span> <span class="func">ring_reduce_scatter</span>(rank, world_size):
-    <span class="string">"""
-    Ring Reduce-Scatter 实现
-    输入: 每个 rank 有 tensor of shape [world_size]
-    输出: rank i 持有所有 rank 第 i 个元素的求和
-    """</span>
-    device = f<span class="string">'cuda:{rank}'</span>
-
-    <span class="comment"># 初始数据: 每个 rank 的 tensor = [rank+1, rank+1, ...]</span>
-    data = torch.full((world_size,), rank + <span class="num">1.0</span>, device=device)
-
-    <span class="comment"># 创建发送和接收 buffer</span>
-    send_buf = torch.zeros(<span class="num">1</span>, device=device)
-    recv_buf = torch.zeros(<span class="num">1</span>, device=device)
-
-    left = (rank - <span class="num">1</span>) % world_size
-    right = (rank + <span class="num">1</span>) % world_size
-
-    <span class="keyword">for</span> step <span class="keyword">in</span> range(world_size - <span class="num">1</span>):
-        <span class="comment"># 要发送的 chunk index</span>
-        send_idx = (rank - step) % world_size
-        <span class="comment"># 要接收并累加的 chunk index</span>
-        recv_idx = (rank - step - <span class="num">1</span>) % world_size
-
-        <span class="comment"># 非阻塞发送和接收 (避免死锁)</span>
-        send_buf.copy_(data[send_idx])
-        req_send = dist.isend(send_buf, dst=right)
-        req_recv = dist.irecv(recv_buf, src=left)
-
-        <span class="comment"># 等待通信完成</span>
-        req_send.wait()
-        req_recv.wait()
-
-        <span class="comment"># 累加到对应位置</span>
-        data[recv_idx] += recv_buf.item()
-
-    <span class="comment"># 最终结果: data[(rank+1)%world_size] 是该 chunk 的全局和</span>
-    result_idx = (rank + <span class="num">1</span>) % world_size
-    print(f<span class="string">"Rank {rank}: chunk {result_idx} = {data[result_idx]}"</span>)
-    <span class="comment"># 如果 world_size=4, 每个 rank 的值为 1,2,3,4</span>
-    <span class="comment"># 则每个 chunk 的全局和 = 1+2+3+4 = 10</span>
-
-    <span class="keyword">return</span> data[result_idx]</code></pre>
+<span class="comment"># 预期输出 (p=4, m=8):</span>
+<span class="comment"># GPipe:  bubble=27.3%, peak_mem=8 activations</span>
+<span class="comment"># 1F1B:   bubble=27.3%, peak_mem=4 activations</span>
+<span class="comment"># Memory saving: 50%</span>
+<span class="comment">#</span>
+<span class="comment"># 注意: bubble ratio 相同! 1F1B 的优势在内存, 不在 bubble。</span>
+<span class="comment"># (实际中 1F1B 允许更大的 m, 从而间接降低 bubble)</span></code></pre>
     </div>
   </div>
 </div>
@@ -2071,38 +2761,52 @@ function switchTab(event, tabId) {
   document.getElementById(tabId).classList.add('active');
 }
 
-// ============ Ring AllReduce Animation (Table-based) ============
+// ============ Ring AllReduce Animation (Detailed with numeric values) ============
 let ringCurrentStep = 0;
 const RING_N = 4;
 const ringGpuColors = ['#f44336','#4caf50','#2196f3','#ff9800'];
 const ringGpuNames = ['GPU0','GPU1','GPU2','GPU3'];
-const ringChunkNames = ['c₀','c₁','c₂','c₃'];
 
-function ringGetState(targetStep) {
-  // Replay from scratch to targetStep to compute state
-  // state[g][c] = Set of GPU indices whose data is summed in GPU g's chunk c
+// Concrete values: each GPU has a gradient vector split into 4 chunks
+// GPU0: [1, 2, 3, 4], GPU1: [5, 6, 7, 8], GPU2: [9, 10, 11, 12], GPU3: [13, 14, 15, 16]
+// After AllReduce, every GPU should have [1+5+9+13, 2+6+10+14, 3+7+11+15, 4+8+12+16] = [28, 32, 36, 40]
+const ringInitValues = [
+  [1, 2, 3, 4],
+  [5, 6, 7, 8],
+  [9, 10, 11, 12],
+  [13, 14, 15, 16]
+];
+const ringFinalValue = [28, 32, 36, 40];
+
+// Compute state at each step: state[gpu][chunk] = { values: [which GPU values are summed], sum: number }
+function ringComputeState(step) {
+  // state[g][c] = { sources: Set<gpuIdx>, sum: number }
   let st = [];
   for (let g = 0; g < RING_N; g++) {
     st[g] = [];
-    for (let c = 0; c < RING_N; c++) st[g][c] = new Set([g]);
+    for (let c = 0; c < RING_N; c++) {
+      st[g][c] = { sources: new Set([g]), sum: ringInitValues[g][c] };
+    }
   }
 
-  for (let s = 1; s <= targetStep; s++) {
+  for (let s = 1; s <= step; s++) {
     if (s <= 3) {
-      // Reduce-Scatter step s: GPU g sends chunk (g - (s-1) + N) % N to (g+1)%N
-      const snapshots = st.map(gpu => gpu.map(ch => new Set(ch)));
+      // Reduce-Scatter step s
+      const prev = st.map(gpu => gpu.map(ch => ({ sources: new Set(ch.sources), sum: ch.sum })));
       for (let g = 0; g < RING_N; g++) {
         const sendChunk = (g - (s - 1) + RING_N) % RING_N;
         const dst = (g + 1) % RING_N;
-        snapshots[g][sendChunk].forEach(v => st[dst][sendChunk].add(v));
+        prev[g][sendChunk].sources.forEach(v => st[dst][sendChunk].sources.add(v));
+        st[dst][sendChunk].sum = prev[dst][sendChunk].sum + prev[g][sendChunk].sum;
       }
     } else {
-      // AllGather step (s-3): GPU g sends chunk (g - (s-4) + 1 + N) % N to (g+1)%N
-      const snapshots = st.map(gpu => gpu.map(ch => new Set(ch)));
+      // AllGather step (s-3)
+      const prev = st.map(gpu => gpu.map(ch => ({ sources: new Set(ch.sources), sum: ch.sum })));
       for (let g = 0; g < RING_N; g++) {
         const sendChunk = (g - (s - 4) + 1 + RING_N) % RING_N;
         const dst = (g + 1) % RING_N;
-        snapshots[g][sendChunk].forEach(v => st[dst][sendChunk].add(v));
+        // AllGather: overwrite (the sent chunk is already fully reduced)
+        st[dst][sendChunk] = { sources: new Set(prev[g][sendChunk].sources), sum: prev[g][sendChunk].sum };
       }
     }
   }
@@ -2125,69 +2829,106 @@ function ringGetSendInfo(step) {
   return info;
 }
 
-function ringCellHtml(gpuSources, chunkIdx, isSending) {
-  const border = isSending ? '2px solid #ffd700' : '1px solid #444';
-  const arrow = isSending ? '<span style="position:absolute;top:-4px;right:-4px;font-size:0.7rem;">⬆</span>' : '';
-  if (gpuSources.size === RING_N) {
-    return `<div style="position:relative;width:34px;height:34px;background:linear-gradient(135deg,${ringGpuColors.join(',')});border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:#fff;box-shadow:0 0 8px rgba(255,215,0,0.3);">${ringChunkNames[chunkIdx]}${arrow}</div>`;
-  } else if (gpuSources.size === 1) {
-    const src = [...gpuSources][0];
-    return `<div style="position:relative;width:34px;height:34px;background:${ringGpuColors[src]}55;border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:${ringGpuColors[src]};font-weight:bold;">${ringChunkNames[chunkIdx]}${arrow}</div>`;
-  } else {
-    const cols = [...gpuSources].sort().map(s => ringGpuColors[s]);
-    return `<div style="position:relative;width:34px;height:34px;background:linear-gradient(135deg,${cols.join(',')});border:${border};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:bold;color:#fff;">${ringChunkNames[chunkIdx]}<span style="font-size:0.5rem;position:absolute;bottom:1px;right:2px;">${gpuSources.size}</span>${arrow}</div>`;
-  }
+function ringValueExpr(sources, chunkIdx) {
+  // Build expression like "1 + 5 + 9" showing which values are summed
+  const parts = [...sources].sort().map(g => ringInitValues[g][chunkIdx]);
+  if (parts.length === 1) return `${parts[0]}`;
+  return parts.join('+');
 }
 
-const ringDescriptions = [
-  'Step 0/6: <strong>初始状态</strong> — 每个 GPU 持有自己的 4 个 chunk。GPU0 有 [A₀,A₁,A₂,A₃], GPU1 有 [B₀,B₁,B₂,B₃] 等。<br><em>目标: 让每个 chunk 都变成所有 GPU 对应 chunk 的 sum。</em>',
-  'Step 1/6: <strong>Reduce-Scatter ①</strong> — GPU0 发送 c₀ 给 GPU1, GPU1 发送 c₁ 给 GPU2, ...<br>接收方<strong>累加</strong>: 如 GPU1 的 c₀ 现在 = B₀ + A₀ (2 个 GPU 的和)',
-  'Step 2/6: <strong>Reduce-Scatter ②</strong> — 继续传递已累加的 chunk。如 GPU2 收到 GPU1 的 c₀ (含 A₀+B₀), 累加得 C₀+A₀+B₀ (3 个 GPU 的和)',
-  'Step 3/6: <strong>Reduce-Scatter ③ 完成!</strong> — 每个 GPU 恰好有 <strong>1 个 chunk 达到了全局归约</strong> (4 色渐变)。<br>GPU0: c₁=Σ, GPU1: c₂=Σ, GPU2: c₃=Σ, GPU3: c₀=Σ',
-  'Step 4/6: <strong>AllGather ①</strong> — 每个 GPU 将自己持有的「完整归约 chunk」发送给右邻居。<br>接收方直接<strong>覆盖</strong>（因为发送的已经是最终结果）',
-  'Step 5/6: <strong>AllGather ②</strong> — 继续传递, 每个 GPU 逐步收集到更多完整归约的 chunk',
-  'Step 6/6: <strong>AllGather ③ 完成! ✓</strong> — 所有 GPU 的所有 chunk 都是全局归约结果!<br><em>总通信量 per GPU = 2 × (N-1)/N × M = 1.5M (与 GPU 数无关!)</em>'
-];
+function ringCellHtml(cellState, chunkIdx, isSending, isReceiving) {
+  const { sources, sum } = cellState;
+  const isComplete = sources.size === RING_N;
+  const borderColor = isSending ? '#ffd700' : isReceiving ? '#00e5ff' : (isComplete ? '#76b900' : '#444');
+  const borderWidth = (isSending || isReceiving) ? '2px' : isComplete ? '2px' : '1px';
+  const bgColor = isComplete ? '#76b90020' : (sources.size > 1 ? '#ffffff08' : `${ringGpuColors[[...sources][0]]}18`);
+  const glow = isComplete ? 'box-shadow:0 0 10px #76b90040;' : '';
+  const sendIcon = isSending ? '<div style="position:absolute;top:-8px;right:-8px;font-size:0.65rem;background:#ffd700;color:#000;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;">↗</div>' : '';
+  const recvIcon = isReceiving ? '<div style="position:absolute;top:-8px;left:-8px;font-size:0.65rem;background:#00e5ff;color:#000;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;">↙</div>' : '';
+
+  // Expression
+  const expr = ringValueExpr(sources, chunkIdx);
+  const exprColor = isComplete ? '#76b900' : '#bbb';
+
+  // Source indicators (colored dots)
+  const dots = [...sources].sort().map(g =>
+    `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${ringGpuColors[g]};margin:0 1px;"></span>`
+  ).join('');
+
+  return `<div style="position:relative;min-width:80px;padding:8px 6px;background:${bgColor};border:${borderWidth} solid ${borderColor};border-radius:6px;text-align:center;${glow}">
+    ${sendIcon}${recvIcon}
+    <div style="font-size:0.75rem;color:${exprColor};margin-bottom:3px;font-family:monospace;white-space:nowrap;">${expr}</div>
+    <div style="font-size:1.1rem;font-weight:bold;color:${isComplete ? '#76b900' : '#fff'};">${sum}</div>
+    <div style="margin-top:3px;">${dots}</div>
+  </div>`;
+}
 
 function ringRender() {
-  const state = ringGetState(ringCurrentStep);
+  const state = ringComputeState(ringCurrentStep);
   const sendInfo = ringGetSendInfo(ringCurrentStep);
   const sendingSet = new Set(sendInfo.map(si => `${si.from}-${si.chunk}`));
+  const receivingSet = new Set(sendInfo.map(si => `${si.to}-${si.chunk}`));
 
-  // Render table
-  let html = '<table style="border-collapse:collapse;width:100%;font-size:0.82rem;">';
-  html += '<thead><tr style="border-bottom:2px solid #444;">';
-  html += '<th style="padding:8px;text-align:left;color:#888;width:60px;">GPU</th>';
-  for (let c = 0; c < RING_N; c++) html += `<th style="padding:8px;text-align:center;color:#888;">Chunk ${c}</th>`;
-  html += '</tr></thead><tbody>';
+  // Build the main view
+  let html = '<table style="border-collapse:separate;border-spacing:8px;width:100%;font-size:0.82rem;">';
+  // Header row
+  html += '<tr>';
+  html += '<th style="padding:8px;text-align:left;color:#888;width:70px;"></th>';
+  for (let c = 0; c < RING_N; c++) {
+    html += `<th style="padding:8px;text-align:center;color:#888;font-size:0.8rem;">Chunk ${c}<br><span style="font-size:0.7rem;color:#555;">目标: ${ringFinalValue[c]}</span></th>`;
+  }
+  html += '</tr>';
+
   for (let g = 0; g < RING_N; g++) {
-    html += `<tr style="border-bottom:1px solid #2a2a3e;">`;
-    html += `<td style="padding:8px;color:${ringGpuColors[g]};font-weight:bold;">${ringGpuNames[g]}</td>`;
+    html += '<tr>';
+    html += `<td style="padding:8px;vertical-align:middle;">
+      <div style="color:${ringGpuColors[g]};font-weight:bold;font-size:0.9rem;">${ringGpuNames[g]}</div>
+      <div style="color:#666;font-size:0.7rem;">初始: [${ringInitValues[g].join(', ')}]</div>
+    </td>`;
     for (let c = 0; c < RING_N; c++) {
-      html += `<td style="padding:6px;text-align:center;">${ringCellHtml(state[g][c], c, sendingSet.has(`${g}-${c}`))}</td>`;
+      const sending = sendingSet.has(`${g}-${c}`);
+      const receiving = receivingSet.has(`${g}-${c}`);
+      html += `<td style="padding:4px;">${ringCellHtml(state[g][c], c, sending, receiving)}</td>`;
     }
     html += '</tr>';
   }
-  html += '</tbody></table>';
-  document.getElementById('ring-state-table').innerHTML = html;
+  html += '</table>';
+  document.getElementById('ringDetailView').innerHTML = html;
 
-  // Transfer arrows
-  const transferEl = document.getElementById('ring-transfer');
+  // Transfer description
+  const transferEl = document.getElementById('ringDetailTransfer');
   if (sendInfo.length > 0) {
-    const phase = ringCurrentStep <= 3 ? 'Reduce-Scatter (累加)' : 'AllGather (覆盖)';
-    const arrows = sendInfo.map(si =>
-      `<span style="color:${ringGpuColors[si.from]};font-weight:bold;">${ringGpuNames[si.from]}</span>` +
-      ` <span style="color:#ffd700;">→</span> ` +
-      `<span style="color:${ringGpuColors[si.to]};font-weight:bold;">${ringGpuNames[si.to]}</span>` +
-      `: <strong>${ringChunkNames[si.chunk]}</strong>`
-    ).join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
-    transferEl.innerHTML = `<strong style="color:#ffd700;">[${phase}]</strong> ${arrows}`;
+    const phase = ringCurrentStep <= 3 ? 'Reduce-Scatter' : 'AllGather';
+    const action = ringCurrentStep <= 3 ? '接收方: <strong>累加</strong> (sum += received)' : '接收方: <strong>覆盖</strong> (已是最终值)';
+    const prevState = ringComputeState(ringCurrentStep - 1);
+
+    const arrows = sendInfo.map(si => {
+      const sentValue = prevState[si.from][si.chunk].sum;
+      const sentExpr = ringValueExpr(prevState[si.from][si.chunk].sources, si.chunk);
+      return `<span style="color:${ringGpuColors[si.from]};font-weight:bold;">${ringGpuNames[si.from]}</span>` +
+        ` <span style="color:#ffd700;">→</span> ` +
+        `<span style="color:${ringGpuColors[si.to]};font-weight:bold;">${ringGpuNames[si.to]}</span>` +
+        `: chunk${si.chunk} = <code style="background:#1a1a3e;padding:2px 5px;border-radius:3px;font-size:0.8rem;">${sentExpr} = ${sentValue}</code>`;
+    }).join('<br>');
+    transferEl.innerHTML = `<div style="margin-bottom:6px;"><strong style="color:#ffd700;">[${phase}]</strong> ${action}</div>${arrows}`;
   } else {
-    transferEl.innerHTML = '<span style="color:#888;">点击 "下一步" 开始 Ring AllReduce</span>';
+    transferEl.innerHTML = '<span style="color:#888;">点击 "下一步" 开始。每 GPU 初始持有自己的梯度, 目标是让所有 GPU 都持有全局 sum。</span>';
   }
 
-  // Description
-  document.getElementById('ringStepText').innerHTML = ringDescriptions[ringCurrentStep];
+  // Step description
+  const descriptions = [
+    '<strong>初始状态</strong> — 每个 GPU 持有自己的梯度, 切成 4 个 chunk。<br>GPU0=[1,2,3,4], GPU1=[5,6,7,8], GPU2=[9,10,11,12], GPU3=[13,14,15,16]<br>目标: 每个 chunk 位置都变成所有 GPU 的 sum → [28, 32, 36, 40]',
+    '<strong>Reduce-Scatter Step 1</strong> — 每 GPU 发送一个 chunk 给右邻居, 接收方<strong>累加</strong>。<br>例: GPU0 发 chunk0 (值=1) 给 GPU1, GPU1 的 chunk0 变成 5+1=6',
+    '<strong>Reduce-Scatter Step 2</strong> — 继续发送<strong>已经累加过的</strong> chunk。<br>例: GPU1 发 chunk0 (已=6, 即 1+5) 给 GPU2, GPU2 的 chunk0 变成 9+6=15 (三个 GPU 的和)',
+    '<strong>Reduce-Scatter Step 3 完成!</strong> — 每个 GPU 有且仅有 <strong>1 个 chunk 达到全局 sum</strong>。<br>这就是 "Reduce-Scatter" 的含义: reduce(归约) + scatter(分散到不同 GPU)',
+    '<strong>AllGather Step 1</strong> — 每 GPU 将已经<strong>完整归约</strong>的 chunk 发给右邻居。<br>接收方直接覆盖 (因为收到的就是最终值, 不需要再加)',
+    '<strong>AllGather Step 2</strong> — 继续广播。每个 GPU 逐步收集到更多完整 chunk。',
+    '<strong>AllGather Step 3 完成! ✓</strong> — 所有 GPU 的所有 chunk 都是 [28, 32, 36, 40]!<br><em>总通信: 每步每 GPU 发 1 chunk, 共 6 步 → 每 GPU 发送量 = 6/4 × chunk_size = 1.5 × chunk_size = 1.5M (与 GPU 数无关!)</em>'
+  ];
+  document.getElementById('ringDetailText').innerHTML = descriptions[ringCurrentStep];
+
+  // Step indicator
+  document.getElementById('ringStepIndicator').textContent = `${ringCurrentStep} / 6`;
   document.getElementById('ringPrev').disabled = (ringCurrentStep === 0);
   document.getElementById('ringNext').disabled = (ringCurrentStep === 6);
 }
@@ -2828,7 +3569,517 @@ document.addEventListener('DOMContentLoaded', () => {
   dpReset();
   tpReset();
 });
+
+// ============ Sequence Parallelism Animation ============
+const spAnim = (() => {
+  const canvas = document.getElementById('spCanvas');
+  if (!canvas) return { play(){}, reset(){} };
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const N = 4; // GPUs / TP size
+  const gpuColors = ['#ff6b6b', '#4caf50', '#667eea', '#fbbf24'];
+  let progress = 0, animId = null, startTime = null;
+  const duration = 7000;
+
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+  function lerp(a,b,t) { return a+(b-a)*t; }
+
+  // Layout: horizontal pipeline showing one Transformer layer
+  // [LayerNorm] → [Attention (TP)] → [LayerNorm] → [FFN (TP)]
+  // SP region     TP region          SP region      TP region
+  // The animation shows how the sequence tensor flows through these stages
+
+  const stageW = 160, stageH = 260, stageGap = 30;
+  const startX = 50;
+  const stageY = 100;
+
+  const stages = [
+    { label: 'LayerNorm', type: 'sp', x: startX },
+    { label: 'Attention', type: 'tp', x: startX + stageW + stageGap },
+    { label: 'LayerNorm', type: 'sp', x: startX + 2*(stageW + stageGap) },
+    { label: 'FFN', type: 'tp', x: startX + 3*(stageW + stageGap) },
+  ];
+
+  // Phases (progress ranges):
+  // 0.00-0.05: setup
+  // 0.05-0.25: SP stage 1 (each GPU processes its chunk)
+  // 0.25-0.40: AllGather transition (chunks merge)
+  // 0.40-0.60: TP Attention (full seq, split by hidden dim)
+  // 0.60-0.75: ReduceScatter transition (split seq again)
+  // 0.75-0.90: SP stage 2 (each GPU processes its chunk)
+  // 0.90-1.00: AllGather → next TP
+
+  function drawStageBox(stage, active, phaseLabel) {
+    const { x, label, type } = stage;
+    const isSP = type === 'sp';
+
+    // Box
+    ctx.fillStyle = active ? (isSP ? '#1a2e1a' : '#1a1a3e') : '#111118';
+    ctx.beginPath();
+    ctx.roundRect(x, stageY, stageW, stageH, 8);
+    ctx.fill();
+    ctx.strokeStyle = active ? (isSP ? '#4caf50' : '#667eea') : '#333';
+    ctx.lineWidth = active ? 2.5 : 1;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+
+    // Header
+    ctx.fillStyle = isSP ? '#4caf50' : '#667eea';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, x + stageW/2, stageY - 12);
+
+    // Type badge
+    ctx.font = '10px monospace';
+    ctx.fillStyle = isSP ? '#4caf50' : '#667eea';
+    const badge = isSP ? 'SP 区域' : 'TP 区域';
+    ctx.fillText(badge, x + stageW/2, stageY - 28);
+  }
+
+  function drawSeqBar(x, y, w, h, gpuIdx, alpha, label) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = gpuColors[gpuIdx];
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 3);
+    ctx.fill();
+    if (label) {
+      ctx.fillStyle = '#fff';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, x + w/2, y + h/2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawArrow(fromX, toX, y, label, color) {
+    const midY = y;
+    ctx.strokeStyle = color || '#888';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(fromX, midY);
+    ctx.lineTo(toX, midY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 1;
+    // arrowhead
+    ctx.fillStyle = color || '#888';
+    ctx.beginPath();
+    ctx.moveTo(toX, midY);
+    ctx.lineTo(toX - 6, midY - 4);
+    ctx.lineTo(toX - 6, midY + 4);
+    ctx.fill();
+    // label
+    if (label) {
+      ctx.fillStyle = color || '#888';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, (fromX + toX)/2, midY - 10);
+    }
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    const p = progress;
+
+    // Title
+    ctx.fillStyle = '#ddd';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('一个 Transformer Layer 内的数据流', W/2, 30);
+
+    // Subtitle with current phase
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = '#aaa';
+    let subtitle = '';
+    if (p < 0.05) subtitle = '序列被切分到 4 个 GPU, 每 GPU 持有 1/4 序列';
+    else if (p < 0.25) subtitle = 'SP 区域: 每 GPU 独立计算自己的序列 chunk (无通信!)';
+    else if (p < 0.40) subtitle = 'AllGather: 收集完整序列, 准备进入 TP 区域';
+    else if (p < 0.60) subtitle = 'TP 区域: 完整序列, 按 hidden dim 切分计算';
+    else if (p < 0.75) subtitle = 'ReduceScatter: reduce 并切分回各 GPU 的序列 chunk';
+    else if (p < 0.90) subtitle = 'SP 区域: 再次独立计算 (LayerNorm 2)';
+    else subtitle = 'AllGather → 进入下一个 TP 区域 (FFN)';
+    ctx.fillText(subtitle, W/2, 52);
+
+    // Draw stage boxes
+    const activeIdx = p < 0.25 ? 0 : p < 0.60 ? 1 : p < 0.90 ? 2 : 3;
+    stages.forEach((s, i) => drawStageBox(s, i === activeIdx));
+
+    // Draw sequence content inside active stages
+    const barH = 14, barGap = 4;
+    const innerPad = 15;
+
+    // SP Stage 0 content: 4 GPUs each with their own chunk
+    if (p >= 0.05 && p < 0.40) {
+      const s = stages[0];
+      const fadeIn = p < 0.10 ? (p - 0.05)/0.05 : 1;
+      const fadeOut = p > 0.25 ? 1 - (p - 0.25)/0.15 : 1;
+      const alpha = Math.min(fadeIn, fadeOut);
+      for (let g = 0; g < N; g++) {
+        const y = stageY + 30 + g * (barH + barGap + 40);
+        // GPU label
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gpuColors[g];
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`GPU${g}`, s.x + 8, y + barH/2 + 3);
+        ctx.globalAlpha = 1;
+        // Only own chunk highlighted
+        drawSeqBar(s.x + 45, y, stageW - 55, barH, g, alpha * 0.9, `seq[${g}/4]`);
+      }
+    }
+
+    // AllGather transition arrow (between stage 0 and 1)
+    if (p >= 0.25 && p < 0.40) {
+      const t = (p - 0.25) / 0.15;
+      drawArrow(stages[0].x + stageW + 5, stages[1].x - 5, stageY + stageH/2, 'AllGather', `rgba(76,175,80,${t})`);
+    }
+
+    // TP Stage content: full sequence on each GPU (but hidden dim split)
+    if (p >= 0.35 && p < 0.75) {
+      const s = stages[1];
+      const fadeIn = p < 0.40 ? (p - 0.35)/0.05 : 1;
+      const fadeOut = p > 0.60 ? 1 - (p - 0.60)/0.15 : 1;
+      const alpha = Math.min(fadeIn, fadeOut);
+      for (let g = 0; g < N; g++) {
+        const y = stageY + 30 + g * (barH + barGap + 40);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gpuColors[g];
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`GPU${g}`, s.x + 8, y + barH/2 + 3);
+        ctx.globalAlpha = 1;
+        // Full sequence bar (all colors merged)
+        for (let c = 0; c < N; c++) {
+          const cw = (stageW - 55) / N;
+          drawSeqBar(s.x + 45 + c * cw, y, cw - 1, barH, c, alpha * 0.7);
+        }
+        // Hidden dim indicator
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = '#667eea';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`h[${g}/4]`, s.x + stageW/2, y + barH + 10);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    // ReduceScatter transition arrow
+    if (p >= 0.60 && p < 0.75) {
+      const t = (p - 0.60) / 0.15;
+      drawArrow(stages[1].x + stageW + 5, stages[2].x - 5, stageY + stageH/2, 'ReduceScatter', `rgba(102,126,234,${t})`);
+    }
+
+    // SP Stage 2 content
+    if (p >= 0.70 && p < 1.0) {
+      const s = stages[2];
+      const fadeIn = p < 0.75 ? (p - 0.70)/0.05 : 1;
+      const fadeOut = p > 0.90 ? 1 - (p - 0.90)/0.10 : 1;
+      const alpha = Math.min(fadeIn, fadeOut);
+      for (let g = 0; g < N; g++) {
+        const y = stageY + 30 + g * (barH + barGap + 40);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = gpuColors[g];
+        ctx.font = '10px monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`GPU${g}`, s.x + 8, y + barH/2 + 3);
+        ctx.globalAlpha = 1;
+        drawSeqBar(s.x + 45, y, stageW - 55, barH, g, alpha * 0.9, `seq[${g}/4]`);
+      }
+    }
+
+    // AllGather to FFN
+    if (p >= 0.90) {
+      const t = (p - 0.90) / 0.10;
+      drawArrow(stages[2].x + stageW + 5, stages[3].x - 5, stageY + stageH/2, 'AllGather', `rgba(76,175,80,${t})`);
+    }
+
+    // Memory comparison bar at bottom
+    const memY = stageY + stageH + 30;
+    ctx.fillStyle = '#888';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('Activation 内存 / GPU:', startX, memY);
+
+    const barStartX = startX + 170;
+    const maxBarW = 300;
+
+    // Without SP
+    ctx.fillStyle = '#ff6b6b30';
+    ctx.fillRect(barStartX, memY - 12, maxBarW, 16);
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.strokeRect(barStartX, memY - 12, maxBarW, 16);
+    ctx.fillStyle = '#ff6b6b';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('Without SP: 完整 seq × hidden (100%)', barStartX + maxBarW/2, memY);
+
+    // With SP
+    const spBarW = maxBarW / N;
+    ctx.fillStyle = '#4caf5050';
+    ctx.fillRect(barStartX, memY + 12, spBarW, 16);
+    ctx.strokeStyle = '#4caf50';
+    ctx.strokeRect(barStartX, memY + 12, spBarW, 16);
+    ctx.fillStyle = '#4caf50';
+    ctx.fillText(`With SP: seq/${N} × hidden (${Math.round(100/N)}%)`, barStartX + maxBarW/2, memY + 24);
+  }
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    progress = Math.min((ts - startTime) / duration, 1);
+    render();
+    if (progress < 1) animId = requestAnimationFrame(animate);
+  }
+
+  function play() { startTime = null; if (animId) cancelAnimationFrame(animId); animId = requestAnimationFrame(animate); }
+  function reset() { if (animId) cancelAnimationFrame(animId); animId = null; progress = 0; render(); }
+
+  progress = 0; render();
+  return { play, reset };
+})();
+
+// ============ Expert Parallelism Animation ============
+const epAnim = (() => {
+  const canvas = document.getElementById('epCanvas');
+  if (!canvas) return { play(){}, reset(){} };
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const N = 4; // GPUs
+  const gpuColors = ['#ff6b6b', '#4caf50', '#667eea', '#fbbf24'];
+  const expertColors = ['#ff6b6b', '#ff8e8e', '#4caf50', '#81c784', '#667eea', '#8e99f3', '#fbbf24', '#fdd835'];
+
+  // 8 tokens, each routed to one expert (top-1 for simplicity)
+  const tokens = [
+    { id: 0, src: 0, expert: 5, label: 't0' }, // GPU0 → Expert5 (on GPU2)
+    { id: 1, src: 0, expert: 7, label: 't1' }, // GPU0 → Expert7 (on GPU3)
+    { id: 2, src: 1, expert: 0, label: 't2' }, // GPU1 → Expert0 (on GPU0)
+    { id: 3, src: 1, expert: 2, label: 't3' }, // GPU1 → Expert2 (on GPU1, local!)
+    { id: 4, src: 2, expert: 1, label: 't4' }, // GPU2 → Expert1 (on GPU0)
+    { id: 5, src: 2, expert: 4, label: 't5' }, // GPU2 → Expert4 (on GPU2, local!)
+    { id: 6, src: 3, expert: 3, label: 't6' }, // GPU3 → Expert3 (on GPU1)
+    { id: 7, src: 3, expert: 6, label: 't7' }, // GPU3 → Expert6 (on GPU3, local!)
+  ];
+  // Expert i is on GPU floor(i/2)
+  const expertGPU = (e) => Math.floor(e / 2);
+
+  let progress = 0, animId = null, startTime = null;
+  const duration = 8000;
+
+  function ease(t) { return t < 0.5 ? 2*t*t : -1+(4-2*t)*t; }
+  function lerp(a,b,t) { return a+(b-a)*t; }
+
+  // Layout: 4 GPUs as columns, tokens as circles
+  const colW = 180, colStart = 70;
+  const gpuX = (g) => colStart + g * colW;
+  const headerY = 60;
+  const tokenStartY = 120;
+  const expertY = 310;
+
+  function drawGPUColumn(g, highlightTop, highlightBot) {
+    const x = gpuX(g);
+    // Top zone: token source
+    ctx.fillStyle = highlightTop ? gpuColors[g] + '15' : '#0d0d1a';
+    ctx.beginPath();
+    ctx.roundRect(x, headerY, colW - 20, 160, 8);
+    ctx.fill();
+    ctx.strokeStyle = highlightTop ? gpuColors[g] + '80' : '#2a2a3a';
+    ctx.stroke();
+
+    // Bottom zone: experts
+    ctx.fillStyle = highlightBot ? gpuColors[g] + '15' : '#0d0d1a';
+    ctx.beginPath();
+    ctx.roundRect(x, expertY, colW - 20, 100, 8);
+    ctx.fill();
+    ctx.strokeStyle = highlightBot ? gpuColors[g] + '80' : '#2a2a3a';
+    ctx.stroke();
+
+    // GPU header
+    ctx.fillStyle = gpuColors[g];
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`GPU ${g}`, x + (colW-20)/2, headerY - 10);
+
+    // Expert labels inside bottom zone
+    ctx.font = '11px monospace';
+    ctx.fillStyle = '#aaa';
+    const e0 = g * 2, e1 = g * 2 + 1;
+    ctx.fillText(`E${e0}  E${e1}`, x + (colW-20)/2, expertY + 20);
+  }
+
+  function tokenPos(tok, phase) {
+    // Returns {x, y} for a token based on animation phase
+    const srcCol = gpuX(tok.src);
+    const dstCol = gpuX(expertGPU(tok.expert));
+    const tokenIdx = tokens.filter(t => t.src === tok.src).indexOf(tok);
+    const srcX = srcCol + 35 + tokenIdx * 55;
+    const srcTY = tokenStartY + 40;
+
+    const dstIdx = tokens.filter(t => expertGPU(t.expert) === expertGPU(tok.expert)).indexOf(tok);
+    const dstX = dstCol + 25 + dstIdx * 45;
+    const dstTY = expertY + 50;
+
+    if (phase === 'src') return { x: srcX, y: srcTY };
+    if (phase === 'dst') return { x: dstX, y: dstTY };
+    return { x: srcX, y: srcTY };
+  }
+
+  function drawTokenCircle(x, y, tok, scale, showRoute) {
+    const r = 16 * scale;
+    // Glow for remote tokens
+    if (showRoute && expertGPU(tok.expert) !== tok.src) {
+      ctx.beginPath();
+      ctx.arc(x, y, r + 4, 0, Math.PI * 2);
+      ctx.fillStyle = gpuColors[expertGPU(tok.expert)] + '40';
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = gpuColors[tok.src];
+    ctx.fill();
+    ctx.strokeStyle = '#fff3';
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.round(10*scale)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tok.label, x, y - 2);
+    // Show expert target
+    if (showRoute) {
+      ctx.font = `${Math.round(8*scale)}px monospace`;
+      ctx.fillStyle = '#fff9';
+      ctx.fillText(`→E${tok.expert}`, x, y + 10);
+    }
+  }
+
+  function drawCurvedArrow(x1, y1, x2, y2, progress, color) {
+    const cp1x = x1, cp1y = (y1 + y2) / 2;
+    const cp2x = x2, cp2y = (y1 + y2) / 2;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, lerp(x1, x2, progress), lerp(y1, y2, progress));
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1;
+  }
+
+  function render() {
+    ctx.clearRect(0, 0, W, H);
+    const p = progress;
+
+    // Phase title
+    ctx.fillStyle = '#eee';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    let title = '';
+    if (p < 0.12) title = '① 初始状态: 每 GPU 持有 2 个 token';
+    else if (p < 0.25) title = '② Router: 决定每个 token 发往哪个 expert';
+    else if (p < 0.50) title = '③ All-to-All Dispatch: token 发送到目标 expert 所在 GPU';
+    else if (p < 0.70) title = '④ Expert 本地计算 (每 GPU 只算自己的 expert)';
+    else if (p < 0.90) title = '⑤ All-to-All Combine: 结果返回原 GPU';
+    else title = '⑥ 完成: weighted sum 输出';
+    ctx.fillText(title, W/2, 30);
+
+    // Draw GPU columns
+    for (let g = 0; g < N; g++) {
+      const topHL = p < 0.50 || p >= 0.90;
+      const botHL = p >= 0.25 && p < 0.90;
+      drawGPUColumn(g, topHL, botHL);
+    }
+
+    // Draw tokens based on phase
+    tokens.forEach(tok => {
+      const src = tokenPos(tok, 'src');
+      const dst = tokenPos(tok, 'dst');
+
+      if (p < 0.12) {
+        drawTokenCircle(src.x, src.y, tok, 1, false);
+      } else if (p < 0.25) {
+        // Show routing info
+        drawTokenCircle(src.x, src.y, tok, 1, true);
+      } else if (p < 0.50) {
+        // Flying to destination
+        const t = ease((p - 0.25) / 0.25);
+        const cx = lerp(src.x, dst.x, t);
+        const cy = lerp(src.y, dst.y, t);
+        drawTokenCircle(cx, cy, tok, 1, false);
+        // Trail
+        if (expertGPU(tok.expert) !== tok.src) {
+          ctx.strokeStyle = gpuColors[tok.src] + '30';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([3, 5]);
+          ctx.beginPath();
+          ctx.moveTo(src.x, src.y);
+          ctx.lineTo(cx, cy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineWidth = 1;
+        }
+      } else if (p < 0.70) {
+        // Computing — gentle bounce
+        const t = (p - 0.50) / 0.20;
+        const bounce = 1 + 0.08 * Math.sin(t * Math.PI * 6);
+        drawTokenCircle(dst.x, dst.y, tok, bounce, false);
+      } else if (p < 0.90) {
+        // Flying back
+        const t = ease((p - 0.70) / 0.20);
+        const cx = lerp(dst.x, src.x, t);
+        const cy = lerp(dst.y, src.y, t);
+        drawTokenCircle(cx, cy, tok, 1, false);
+      } else {
+        // Back home
+        drawTokenCircle(src.x, src.y, tok, 1, false);
+      }
+    });
+
+    // Communication label
+    if (p >= 0.25 && p < 0.50) {
+      ctx.fillStyle = '#ff6b6b';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('All-to-All (dispatch)', W/2, (tokenStartY + expertY) / 2 + 30);
+      // Show which tokens are remote
+      ctx.font = '10px monospace';
+      ctx.fillStyle = '#888';
+      ctx.fillText('彩色光环 = 需要跨 GPU 通信', W/2, (tokenStartY + expertY) / 2 + 48);
+    }
+    if (p >= 0.70 && p < 0.90) {
+      ctx.fillStyle = '#667eea';
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('All-to-All (combine)', W/2, (tokenStartY + expertY) / 2 + 30);
+    }
+
+    // Stats at bottom
+    const statsY = H - 30;
+    ctx.fillStyle = '#666';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    const localCount = tokens.filter(t => expertGPU(t.expert) === t.src).length;
+    const remoteCount = tokens.length - localCount;
+    ctx.fillText(`8 tokens | ${localCount} local (无通信) | ${remoteCount} remote (需 All-to-All) | 8 experts across 4 GPUs`, W/2, statsY);
+  }
+
+  function animate(ts) {
+    if (!startTime) startTime = ts;
+    progress = Math.min((ts - startTime) / duration, 1);
+    render();
+    if (progress < 1) animId = requestAnimationFrame(animate);
+  }
+
+  function play() { startTime = null; if (animId) cancelAnimationFrame(animId); animId = requestAnimationFrame(animate); }
+  function reset() { if (animId) cancelAnimationFrame(animId); animId = null; progress = 0; render(); }
+
+  progress = 0; render();
+  return { play, reset };
+})();
 </script>
 
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

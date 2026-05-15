@@ -102,6 +102,7 @@ details[open] summary { margin-bottom: 10px; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 
 <div class="progress-bar" id="progressBar"></div>
 
@@ -1642,6 +1643,317 @@ all_match = <span class="builtin">True</span>
   </details>
 </div>
 
+<div class="exercise">
+  <h4>Interview Exercise A：MHA 参数量和计算量推导</h4>
+  <p>给定以下模型配置：hidden_dim=4096, n_heads=32, head_dim=128, seq_len=2048。请回答：</p>
+  <ol style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>QKV projection + O projection 的总参数量是多少？</li>
+    <li>Attention 的 FLOPs breakdown: projection vs attention score vs softmax×V 各是多少？</li>
+    <li>当 seq_len 达到多少时，attention score 的 O(s²) 计算量超过 projection 的 O(s·h) 计算量？</li>
+  </ol>
+
+  <details class="exercise-solution">
+    <summary>完整解答</summary>
+    <div class="content">
+      <pre><code><span class="comment"># MHA 参数量和计算量推导</span>
+<span class="comment"># 配置: hidden_dim (h) = 4096, n_heads = 32, head_dim = 128, seq_len (s) = 2048</span>
+
+<span class="comment">## Part 1: 参数量</span>
+<span class="comment"># Q projection: h × h = 4096 × 4096 = 16,777,216 (16.7M)</span>
+<span class="comment"># K projection: h × h = 4096 × 4096 = 16.7M</span>
+<span class="comment"># V projection: h × h = 4096 × 4096 = 16.7M</span>
+<span class="comment"># O projection: h × h = 4096 × 4096 = 16.7M</span>
+<span class="comment"># 总参数量 = 4 × 4096² = 67,108,864 ≈ 67M params</span>
+
+total_params = <span class="number">4</span> * <span class="number">4096</span>**<span class="number">2</span>
+<span class="comment"># = 67,108,864 ≈ 67M</span>
+
+<span class="comment">## Part 2: FLOPs Breakdown</span>
+<span class="comment"># 矩阵乘法 FLOPs = 2 × M × N × K (乘加各算一次)</span>
+
+<span class="comment"># Projection FLOPs (QKV + O, 共 4 个 [s, h] × [h, h] 的 GEMM):</span>
+proj_flops = <span class="number">2</span> * <span class="number">4</span> * <span class="number">4096</span>**<span class="number">2</span> * <span class="number">2048</span>
+<span class="comment"># = 2 × 4 × h² × s = 137,438,953,472 ≈ 137 GFLOP</span>
+
+<span class="comment"># Attention Score FLOPs (Q @ K^T: [s, h] × [h, s] per head, 但总维度不变):</span>
+<span class="comment"># 等价于 [s, h_total] × [h_total, s] = 2 × s × h × s = 2 × s² × h</span>
+attn_score_flops = <span class="number">2</span> * <span class="number">2048</span>**<span class="number">2</span> * <span class="number">4096</span>
+<span class="comment"># = 34,359,738,368 ≈ 34 GFLOP</span>
+
+<span class="comment"># Softmax × V FLOPs (同样是 [s, s] × [s, h] = 2 × s² × h):</span>
+softmax_v_flops = <span class="number">2</span> * <span class="number">2048</span>**<span class="number">2</span> * <span class="number">4096</span>
+<span class="comment"># = 34 GFLOP</span>
+
+<span class="comment"># 汇总: Projection 137G vs Attention (score + softmax×V) 68G</span>
+<span class="comment"># 在 seq_len=2048 时, projection 占主导!</span>
+
+<span class="comment">## Part 3: Crossover point</span>
+<span class="comment"># Attention 计算量: 2 × s² × h × 2 = 4s²h (score + softmax×V)</span>
+<span class="comment"># Projection 计算量: 2 × 4 × h² × s = 8h²s</span>
+<span class="comment"># Crossover: 4s²h = 8h²s → 4s = 8h → s = 2h</span>
+<span class="comment"># 但更精确地: attention score alone vs projection:</span>
+<span class="comment"># 2s²h > 2×4×h²×s → s² > 4h×s → s > 4h = 4 × 4096 = 16,384</span>
+
+crossover_seq_len = <span class="number">4</span> * <span class="number">4096</span>
+<span class="comment"># = 16,384</span>
+<span class="comment"># 当 seq_len > 16384 时, attention score 的计算量超过 projection</span>
+<span class="comment"># 这就是为什么长序列场景下 Flash Attention 如此重要</span></code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <h4>Interview Exercise B：GQA/MQA 的带宽节省量化分析</h4>
+  <p>给定 70B 模型配置：80 layers, 64 Q heads, head_dim=128。比较三种 attention 变体：</p>
+  <ul style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>MHA: 64 KV heads</li>
+    <li>GQA: 8 KV heads</li>
+    <li>MQA: 1 KV head</li>
+  </ul>
+  <ol style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>每种 attention 的 KV cache size per token 是多少？</li>
+    <li>在 H100 (3.35 TB/s bandwidth) 上 decode 时，读 KV cache 对 TPOT (time per output token) 的额外贡献是多少？(seq=8192)</li>
+    <li>GQA 减少的不只是内存 — 计算 Attention Score 的 FLOPs 减少了吗？</li>
+  </ol>
+
+  <details class="exercise-solution">
+    <summary>完整解答</summary>
+    <div class="content">
+      <pre><code><span class="comment"># GQA/MQA 带宽节省量化分析</span>
+<span class="comment"># 配置: 80 layers, 64 Q heads, head_dim=128, FP16 (2 bytes)</span>
+
+<span class="comment">## Part 1: KV Cache Size per Token</span>
+<span class="comment"># 公式: 2 (K+V) × num_layers × num_kv_heads × head_dim × dtype_bytes</span>
+
+<span class="comment"># MHA (64 KV heads):</span>
+mha_per_token = <span class="number">2</span> * <span class="number">80</span> * <span class="number">64</span> * <span class="number">128</span> * <span class="number">2</span>
+<span class="comment"># = 2,621,440 bytes = 2.5 MB/token</span>
+
+<span class="comment"># GQA (8 KV heads):</span>
+gqa_per_token = <span class="number">2</span> * <span class="number">80</span> * <span class="number">8</span> * <span class="number">128</span> * <span class="number">2</span>
+<span class="comment"># = 327,680 bytes = 320 KB/token</span>
+
+<span class="comment"># MQA (1 KV head):</span>
+mqa_per_token = <span class="number">2</span> * <span class="number">80</span> * <span class="number">1</span> * <span class="number">128</span> * <span class="number">2</span>
+<span class="comment"># = 40,960 bytes = 40 KB/token</span>
+
+<span class="comment">## Part 2: TPOT 贡献 (seq=8192, H100 bandwidth=3.35 TB/s)</span>
+<span class="comment"># Decode 时需要读取所有 past tokens 的 KV cache</span>
+
+seq_len = <span class="number">8192</span>
+bandwidth = <span class="number">3.35e12</span>  <span class="comment"># bytes/s</span>
+
+<span class="comment"># MHA: total KV read = 2.5 MB/tok × 8192 tok = 20.5 GB</span>
+mha_kv_read = mha_per_token * seq_len  <span class="comment"># 20.5 GB</span>
+mha_tpot_add = mha_kv_read / bandwidth  <span class="comment"># 20.5e9 / 3.35e12 = 6.1 ms</span>
+
+<span class="comment"># GQA: total KV read = 320 KB/tok × 8192 tok = 2.56 GB</span>
+gqa_kv_read = gqa_per_token * seq_len  <span class="comment"># 2.56 GB</span>
+gqa_tpot_add = gqa_kv_read / bandwidth  <span class="comment"># 2.56e9 / 3.35e12 = 0.76 ms</span>
+
+<span class="comment"># MQA: total KV read = 40 KB/tok × 8192 tok = 0.32 GB</span>
+mqa_kv_read = mqa_per_token * seq_len  <span class="comment"># 0.32 GB</span>
+mqa_tpot_add = mqa_kv_read / bandwidth  <span class="comment"># 0.32e9 / 3.35e12 = 0.095 ms (negligible)</span>
+
+<span class="comment">## Part 3: GQA 是否减少 Attention Score 的 FLOPs?</span>
+<span class="comment"># 答案: 不减少!</span>
+<span class="comment">#</span>
+<span class="comment"># Attention score 计算: Q @ K^T</span>
+<span class="comment"># Q 仍然有 64 heads (每个 head 都需要计算 attention score)</span>
+<span class="comment"># GQA 将 8 个 KV heads broadcast 给 64 个 Q heads (每 8 个 Q head 共享 1 个 KV head)</span>
+<span class="comment"># 但每个 Q head 仍然要与对应的 K head 做 dot product</span>
+<span class="comment">#</span>
+<span class="comment"># FLOPs for attention score (per layer):</span>
+<span class="comment">#   MHA: 2 × seq × seq × head_dim × 64 heads</span>
+<span class="comment">#   GQA: 2 × seq × seq × head_dim × 64 heads  (同样! Q heads 数量没变)</span>
+<span class="comment">#</span>
+<span class="comment"># GQA 节省的是:</span>
+<span class="comment">#   1. KV cache 内存 (8x less than MHA)</span>
+<span class="comment">#   2. KV cache 带宽 (8x less reads during decode)</span>
+<span class="comment">#   3. KV projection 计算量 (只需要投影 8 个 KV heads 而不是 64)</span>
+<span class="comment">#      K projection: h × (8×128) vs h × (64×128), 节省 8x</span>
+<span class="comment">#</span>
+<span class="comment"># 但 Attention Score 本身的 FLOPs 不变, 因为 Q heads 数量不变!</span></code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <h4>Interview Exercise C：Flash Attention 为什么能省内存</h4>
+  <p>回答以下关于 Flash Attention 内存优势的问题：</p>
+  <ol style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>标准 attention 的峰值内存是多少？写出需要 materialize 的中间 tensor 及其 shape。</li>
+    <li>Flash Attention 的峰值内存是多少？</li>
+    <li>如果 seq_len=32768, batch=4, n_heads=32，标准 vs Flash Attention 各需要多少 GB 存 attention matrix？</li>
+  </ol>
+
+  <details class="exercise-solution">
+    <summary>完整解答</summary>
+    <div class="content">
+      <pre><code><span class="comment"># Flash Attention 内存分析</span>
+
+<span class="comment">## Part 1: 标准 Attention 需要 materialize 的中间 tensor</span>
+<span class="comment">#</span>
+<span class="comment"># 1. S = Q @ K^T  →  shape: [batch, n_heads, seq_len, seq_len]</span>
+<span class="comment">#    这是 attention score matrix, 大小为 O(batch × heads × seq²)</span>
+<span class="comment">#</span>
+<span class="comment"># 2. P = softmax(S)  →  shape: [batch, n_heads, seq_len, seq_len]</span>
+<span class="comment">#    softmax 后的 attention weights, 同样 O(batch × heads × seq²)</span>
+<span class="comment">#</span>
+<span class="comment"># 3. dP (backward 时需要保留 P)  →  同上 shape</span>
+<span class="comment">#</span>
+<span class="comment"># 峰值内存 (forward): 至少 2 × batch × n_heads × seq² × sizeof(dtype)</span>
+<span class="comment"># (S 和 P 可能同时存在, 或者 P 需要保留给 backward)</span>
+
+<span class="comment">## Part 2: Flash Attention 的峰值内存</span>
+<span class="comment">#</span>
+<span class="comment"># Flash Attention 从不 materialize 完整的 S 或 P 矩阵!</span>
+<span class="comment"># 它在 SRAM 中以 block 为单位计算:</span>
+<span class="comment">#   - 每次只加载 Q_block [block_size, head_dim]</span>
+<span class="comment">#   - 和 K_block, V_block [block_size, head_dim]</span>
+<span class="comment">#   - 计算局部 S_block [block_size, block_size]</span>
+<span class="comment">#   - 用 online softmax 累积结果</span>
+<span class="comment">#</span>
+<span class="comment"># 峰值内存: O(block_size² × n_heads × batch) ≈ 几 MB</span>
+<span class="comment"># 只需额外存储: O(batch × n_heads × seq_len) 用于 softmax 的 logsumexp</span>
+<span class="comment"># (每行一个 scalar, 不是每个 element)</span>
+
+<span class="comment">## Part 3: 具体数值计算</span>
+<span class="comment"># seq_len=32768, batch=4, n_heads=32, FP32 (4 bytes)</span>
+
+seq_len = <span class="number">32768</span>
+batch = <span class="number">4</span>
+n_heads = <span class="number">32</span>
+dtype_bytes = <span class="number">4</span>  <span class="comment"># FP32</span>
+
+<span class="comment"># 标准 Attention: attention matrix size</span>
+standard_mem = batch * n_heads * seq_len * seq_len * dtype_bytes
+<span class="comment"># = 4 × 32 × 32768 × 32768 × 4</span>
+<span class="comment"># = 4 × 32 × 1,073,741,824 × 4</span>
+<span class="comment"># = 549,755,813,888 bytes</span>
+<span class="comment"># ≈ 512 GB  (!!! 完全不可能放入任何 GPU)</span>
+
+standard_gb = standard_mem / (<span class="number">1024</span>**<span class="number">3</span>)
+<span class="comment"># = 512 GB</span>
+
+<span class="comment"># Flash Attention: 从不存储完整 attention matrix</span>
+<span class="comment"># 只需要 logsumexp: [batch, n_heads, seq_len] × 4 bytes</span>
+flash_logsumexp = batch * n_heads * seq_len * dtype_bytes
+<span class="comment"># = 4 × 32 × 32768 × 4 = 16 MB</span>
+
+<span class="comment"># block_size 通常为 128 或 256, 局部 S block:</span>
+block_size = <span class="number">128</span>
+flash_sram = batch * n_heads * block_size * block_size * dtype_bytes
+<span class="comment"># = 4 × 32 × 128 × 128 × 4 = 8 MB (在 SRAM 中, 不占 HBM)</span>
+
+<span class="comment"># 结论:</span>
+<span class="comment"># 标准 Attention: 512 GB — 完全不可能! 即使 8×H100 也只有 640 GB 总 HBM</span>
+<span class="comment"># Flash Attention: ~16 MB (logsumexp) + 几 MB SRAM — 轻松放下</span>
+<span class="comment">#</span>
+<span class="comment"># 这就是为什么 Flash Attention 对长序列是 mandatory 的:</span>
+<span class="comment"># 没有 Flash Attention, seq_len=32K 根本无法运行!</span></code></pre>
+    </div>
+  </details>
+</div>
+
+<div class="exercise">
+  <h4>Interview Exercise D：KV Cache 的 "增量" 本质</h4>
+  <p>回答以下关于 KV Cache 工作原理和故障恢复的问题：</p>
+  <ol style="margin-left: 20px; margin-bottom: 1rem;">
+    <li>为什么 decode 时不需要重新计算之前所有 token 的 K 和 V？写出 decode step t 的完整计算过程。</li>
+    <li>如果因为 preemption 丢失了 KV cache，re-prefill 的计算量是多少？（以 FLOPs 表示，给出 70B 模型、4096 tokens 的具体数值）</li>
+    <li>设计一个 "partial re-prefill" 策略：只恢复最近 W 个 token 的 KV，利用 sliding window attention 的近似。分析其 trade-off。</li>
+  </ol>
+
+  <details class="exercise-solution">
+    <summary>完整解答</summary>
+    <div class="content">
+      <pre><code><span class="comment"># KV Cache 的 "增量" 本质</span>
+
+<span class="comment">## Part 1: Decode Step t 的完整计算</span>
+<span class="comment">#</span>
+<span class="comment"># 核心观察: K = X @ W_K, V = X @ W_V 是逐 token 独立的线性变换</span>
+<span class="comment"># token i 的 K_i = x_i @ W_K 只依赖 x_i, 与其他 token 无关</span>
+<span class="comment"># 因此, 之前 token 的 K, V 值永远不会改变, 可以安全缓存</span>
+<span class="comment">#</span>
+<span class="comment"># Decode step t 的计算:</span>
+<span class="comment"># ─────────────────────────────────────────────</span>
+<span class="comment"># 输入: x_t (当前新 token 的 embedding)</span>
+<span class="comment"># 已有: K_cache = [K_0, K_1, ..., K_{t-1}]  shape: [t, head_dim]</span>
+<span class="comment">#        V_cache = [V_0, V_1, ..., V_{t-1}]  shape: [t, head_dim]</span>
+<span class="comment">#</span>
+<span class="comment"># Step 1: 计算新 token 的 Q, K, V (只需要 1 个 token!)</span>
+<span class="comment">#   q_t = x_t @ W_Q    # shape: [1, head_dim]</span>
+<span class="comment">#   k_t = x_t @ W_K    # shape: [1, head_dim]</span>
+<span class="comment">#   v_t = x_t @ W_V    # shape: [1, head_dim]</span>
+<span class="comment">#</span>
+<span class="comment"># Step 2: 更新 cache</span>
+<span class="comment">#   K_cache.append(k_t)  → shape: [t+1, head_dim]</span>
+<span class="comment">#   V_cache.append(v_t)  → shape: [t+1, head_dim]</span>
+<span class="comment">#</span>
+<span class="comment"># Step 3: 计算 attention (q_t attend to ALL cached keys)</span>
+<span class="comment">#   scores = q_t @ K_cache.T  # [1, head_dim] × [head_dim, t+1] → [1, t+1]</span>
+<span class="comment">#   scores = scores / sqrt(head_dim)</span>
+<span class="comment">#   weights = softmax(scores)  # [1, t+1]</span>
+<span class="comment">#</span>
+<span class="comment"># Step 4: 加权求和</span>
+<span class="comment">#   output = weights @ V_cache  # [1, t+1] × [t+1, head_dim] → [1, head_dim]</span>
+<span class="comment">#</span>
+<span class="comment"># 关键: 不需要重新计算 K_0..K_{t-1}, 因为它们已经在 cache 中!</span>
+
+<span class="comment">## Part 2: Re-prefill 计算量</span>
+<span class="comment">#</span>
+<span class="comment"># Prefill N tokens 的 FLOPs ≈ 2 × N × model_params</span>
+<span class="comment"># (每个参数对每个 token 做一次乘法和一次加法)</span>
+<span class="comment">#</span>
+<span class="comment"># 70B model, N=4096 tokens:</span>
+N = <span class="number">4096</span>
+params = <span class="number">70e9</span>
+re_prefill_flops = <span class="number">2</span> * N * params
+<span class="comment"># = 2 × 4096 × 70×10^9</span>
+<span class="comment"># = 573,703,577,600 ≈ 574 TFLOP</span>
+
+<span class="comment"># H100 峰值 FP16 算力: ~990 TFLOPS (with sparsity), 实际利用率 ~60%</span>
+<span class="comment"># 有效算力 ≈ 600 TFLOPS</span>
+re_prefill_time = re_prefill_flops / <span class="number">600e12</span>
+<span class="comment"># = 574e12 / 600e12 ≈ 0.96 秒</span>
+<span class="comment">#</span>
+<span class="comment"># 这意味着: 丢失 KV cache 后, 需要花 ~1 秒重新 prefill</span>
+<span class="comment"># 对实时服务来说这是非常大的延迟!</span>
+
+<span class="comment">## Part 3: Partial Re-prefill with Sliding Window</span>
+<span class="comment">#</span>
+<span class="comment"># 策略: 只恢复最近 W 个 token 的 KV cache</span>
+<span class="comment"># ─────────────────────────────────────────────</span>
+<span class="comment"># 假设原始 context 有 N=4096 tokens, 选择 W=1024</span>
+<span class="comment">#</span>
+<span class="comment"># Re-prefill 计算量: 2 × W × params = 2 × 1024 × 70e9 ≈ 143 TFLOP</span>
+<span class="comment"># 时间: 143e12 / 600e12 ≈ 0.24 秒 (节省 75%)</span>
+<span class="comment">#</span>
+<span class="comment"># 工作原理:</span>
+<span class="comment">#   - 将 token[0..N-W-1] 的 KV 视为丢失 (attention weight 设为 0)</span>
+<span class="comment">#   - 只对 token[N-W..N-1] 做 prefill, 恢复局部 KV cache</span>
+<span class="comment">#   - 后续 decode 时, 新 token 只能 attend 到最近 W 个位置</span>
+<span class="comment">#</span>
+<span class="comment"># 适用场景:</span>
+<span class="comment">#   - Mistral 等使用 sliding window attention 的模型 (天然只看最近 W 个)</span>
+<span class="comment">#   - 对话场景中, 最近的 context 通常最重要</span>
+<span class="comment">#</span>
+<span class="comment"># Trade-offs:</span>
+<span class="comment">#   ✓ 恢复时间从 O(N) 降到 O(W)</span>
+<span class="comment">#   ✓ 恢复后的 KV cache 内存也更小</span>
+<span class="comment">#   ✗ 丢失长距离依赖 (如果模型依赖早期 token 的信息)</span>
+<span class="comment">#   ✗ 对非 sliding-window 模型, 输出质量会下降</span>
+<span class="comment">#   ✗ 无法恢复 "全局" 信息 (如 system prompt 在最开头时)</span>
+<span class="comment">#</span>
+<span class="comment"># 改进: Hybrid 策略</span>
+<span class="comment">#   - 始终保留 system prompt 的 KV (前 S 个 token)</span>
+<span class="comment">#   - 加上最近 W 个 token 的 KV</span>
+<span class="comment">#   - Re-prefill 量: 2 × (S + W) × params</span></code></pre>
+    </div>
+  </details>
+</div>
+
 </section>
 
 <!-- Summary -->
@@ -2350,5 +2662,6 @@ document.querySelectorAll('.toc-item a').forEach(link => {
   });
 });
 </script>
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

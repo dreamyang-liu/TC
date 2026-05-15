@@ -104,6 +104,7 @@ pre code { background: none; padding: 0; color: #e0e0e0; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 
 <h1>Chapter 6: 高级优化技术</h1>
 <p style="color:#888; font-size:0.95rem; margin-bottom:30px;">Advanced Optimization Techniques for Large-Scale ML Systems</p>
@@ -133,7 +134,7 @@ pre code { background: none; padding: 0; color: #e0e0e0; }
 <p><strong>3. CPU-S 与 CPU-L 分离：</strong>将 CPU 操作分为 short-latency (CPU-S) 和 long-latency (CPU-L) 两类。CPU-S 包含 token sampling、detokenize 等轻量操作；CPU-L 包含 scheduling policy、radix tree 操作等重量操作。两者分别 pipeline 化。</p>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/scheduler-evolution/img/overlap.png" alt="Zero-Overhead Batch Scheduling overlap diagram showing CPU-S and CPU-L pipeline stages overlapping with GPU execution" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/overlap.png" alt="Zero-Overhead Batch Scheduling overlap diagram showing CPU-S and CPU-L pipeline stages overlapping with GPU execution" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Zero-Overhead Batch Scheduling: CPU-S 和 CPU-L 两阶段 pipeline 与 GPU 重叠</div>
 </div>
 </div>
@@ -570,7 +571,7 @@ config = DPAttentionConfig()
 </ul>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/light-duoattention/assets/duoattention.jpg" alt="DuoAttention architecture showing Retrieval Heads with full KV cache and Streaming Heads with fixed window" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/duoattention.jpg" alt="DuoAttention architecture showing Retrieval Heads with full KV cache and Streaming Heads with fixed window" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: DuoAttention: Retrieval Heads (全量 KV) vs Streaming Heads (固定窗口)</div>
 </div>
 
@@ -611,7 +612,7 @@ config = DPAttentionConfig()
 </ul>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../sglang/diffusion-llm/pics/main-flow.png" alt="Diffusion LLM main flow showing the progressive denoising process from noise to token sequence" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/main-flow.png" alt="Diffusion LLM main flow showing the progressive denoising process from noise to token sequence" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Diffusion LLM 主流程: 从噪声逐步去噪生成 token 序列</div>
 </div>
 </div>
@@ -1335,6 +1336,148 @@ config = DPAttentionConfig()
 </div>
 </div>
 
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 5: DP Attention 通信量分析</div>
+<p>对比传统 TP+EP 方案 vs DP Attention+EP 方案，以 DeepSeek-V3 为例：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>模型：61 layers, hidden_size=7168, 256 experts</li>
+  <li>传统方案：TP=8, EP=64</li>
+  <li>DP Attention 方案：DP Attention (no TP for attention), EP=64</li>
+  <li>精度：BF16 (2 bytes per element)</li>
+</ul>
+<p>请计算：(a) 传统 TP 方案中，每层有多少次 AllReduce 操作？总共多少次？(b) DP Attention 中，用什么替代了 AllReduce？(c) 分别计算两种方案每个 token 的总通信量。</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint5')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol5')">解答 / Solution</span>
+
+<div class="hint-content" id="hint5">
+  <p>传统 TP 每层需要 2 次 AllReduce（Attention 输出 + FFN/MoE 输出）。</p>
+  <p>AllReduce 通信量 = <code>2 × (N-1)/N × message_size</code>（ring AllReduce）。</p>
+  <p>DP Attention 的核心：每个 GPU 独立计算 attention（各自处理自己的 batch subset），无需 AllReduce。Expert 部分用 All-to-All dispatch/combine。</p>
+</div>
+
+<div class="solution-content" id="sol5">
+  <p><strong>(a) 传统 TP 的 AllReduce 次数：</strong></p>
+  <p>每层 2 次 AllReduce（1 次 Attention output, 1 次 FFN/MoE output）× 61 layers = 122 次 AllReduce。</p>
+  <p>每次 AllReduce 通信量（ring algorithm）：<code>2 × (TP-1)/TP × hidden_size × 2 bytes = 2 × 7/8 × 7168 × 2 ≈ 25,088 bytes ≈ 25 KB/token</code></p>
+  <p><strong>(b) DP Attention 的替代方案：</strong></p>
+  <p>DP Attention 中，Attention 部分零 AllReduce！每个 GPU 独立处理自己的 batch subset 的完整 attention（因为 KV cache 也是 DP 分布的）。</p>
+  <p>Expert 部分：使用 2 次 All-to-All（dispatch tokens to experts + combine results back），这在两种方案中都存在。</p>
+  <p><strong>(c) 每 token 总通信量对比：</strong></p>
+  <p><strong>传统 TP+EP：</strong></p>
+  <p><code>AllReduce: 122 × 25 KB = 3,050 KB ≈ 3 MB/token</code></p>
+  <p><code>All-to-All (EP): 2 × hidden_size × 2 bytes × 61 layers ≈ 1.7 MB/token</code></p>
+  <p><code>Total ≈ 4.7 MB/token</code></p>
+  <p><strong>DP Attention+EP：</strong></p>
+  <p><code>AllReduce: 0（attention 无需通信！）</code></p>
+  <p><code>All-to-All (EP): 2 × hidden_size × 2 bytes × 61 layers ≈ 1.7 MB/token</code></p>
+  <p><code>Total ≈ 1.7 MB/token</code></p>
+  <p><strong>节省：</strong><code>3 MB/token</code> 的 AllReduce 带宽，通信量减少约 64%。这是 DP Attention 对 MoE 模型的核心价值：消除了 attention 层的所有集合通信开销。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 6: FP8 Training 的 Loss Scaling 设计</div>
+<p>FP8 E4M3 的可表示范围是 [-448, 448]。在 RL 训练中，梯度可能出现超过 1000 的 outlier：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>FP8 E4M3 max = 448</li>
+  <li>RL 训练梯度方差比 SFT 大 3-5 倍</li>
+  <li>Policy exploration 导致 activation 范围更宽</li>
+</ul>
+<p>请回答：(a) 如果不做 loss scaling，梯度 outlier 会怎样？(b) 设计一个 dynamic loss scaling 策略；(c) 为什么 FP8 训练在 RL 场景比 supervised training 更困难？</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint6')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol6')">解答 / Solution</span>
+
+<div class="hint-content" id="hint6">
+  <p>Loss scaling 的核心思想：将 loss 乘以一个大数（scale），使得小梯度被放大后不会 underflow；然后在 optimizer step 时除以 scale 恢复。</p>
+  <p>Dynamic scaling：自动调节 scale 大小，overflow 时缩小，稳定时放大。</p>
+  <p>RL vs SFT 的区别：RL 的 reward signal 是 noisy 的，导致梯度方差更大。</p>
+</div>
+
+<div class="solution-content" id="sol6">
+  <p><strong>(a) 不做 loss scaling 的后果：</strong></p>
+  <p>梯度值 > 448 时溢出为 NaN 或 Inf → 参数更新为 NaN → 训练完全崩溃（diverge）。</p>
+  <p>即使只有一个 tensor 的一个元素溢出，由于梯度会在 AllReduce 中传播，NaN 会 "感染" 所有 GPU 的梯度。</p>
+  <p><strong>(b) Dynamic Loss Scaling 策略：</strong></p>
+  <pre><code><span class="keyword">class</span> <span class="function">DynamicFP8LossScaler</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(self):
+        self.scale = <span class="number">2</span>**<span class="number">16</span>          <span class="comment"># 初始 scale = 65536</span>
+        self.growth_interval = <span class="number">1000</span> <span class="comment"># 连续 1000 步无 overflow 则放大</span>
+        self.steps_since_overflow = <span class="number">0</span>
+
+    <span class="keyword">def</span> <span class="function">step</span>(self, optimizer, gradients):
+        <span class="keyword">if</span> has_overflow(gradients):     <span class="comment"># 检测 NaN/Inf</span>
+            self.scale /= <span class="number">2</span>             <span class="comment"># 缩小 scale</span>
+            self.steps_since_overflow = <span class="number">0</span>
+            <span class="keyword">return</span>                       <span class="comment"># 跳过此步（不更新参数）</span>
+        <span class="keyword">else</span>:
+            optimizer.step(gradients / self.scale)  <span class="comment"># 正常更新</span>
+            self.steps_since_overflow += <span class="number">1</span>
+            <span class="keyword">if</span> self.steps_since_overflow >= self.growth_interval:
+                self.scale *= <span class="number">2</span>         <span class="comment"># 放大 scale</span>
+                self.steps_since_overflow = <span class="number">0</span></code></pre>
+  <p>进阶优化：使用 <strong>per-tensor scaling</strong>（不同层用不同 scale），因为 attention 层和 FFN 层的梯度量级可能差异很大。</p>
+  <p><strong>(c) FP8 在 RL 中更困难的原因：</strong></p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li><strong>梯度方差更大：</strong>RL 的 reward signal 是 noisy 的（来自 RM 打分或规则验证），不像 SFT 有干净的 label，导致梯度方差高 3-5×</li>
+    <li><strong>Policy exploration：</strong>RL 鼓励模型探索不同输出，导致 activation 值范围更宽，更容易触发 overflow</li>
+    <li><strong>非平稳性：</strong>RL 的数据分布随策略变化而变化（on-policy），梯度统计量不稳定，dynamic scaling 需要更频繁调整</li>
+    <li><strong>Outlier 更频繁：</strong>当模型产生非常好或非常差的输出时，reward 差异大 → advantage 大 → 梯度大 → overflow 风险高</li>
+  </ul>
+  <p>解决方案：更保守的初始 scale、更短的 growth interval、per-tensor scaling + delay scaling（用前几步的 amax 统计来预设 scale）。</p>
+</div>
+</div>
+
+<div class="exercise fade-in">
+<div class="exercise-title">Exercise 7: Speculative Decoding in RL Rollout</div>
+<p>在 GRPO rollout 中使用 speculative decoding 加速生成：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>Draft model: 1B 参数</li>
+  <li>Target model (Actor): 70B 参数</li>
+  <li>Draft length K = 5</li>
+  <li>Per-token acceptance rate α = 0.7</li>
+  <li>每个序列生成 512 tokens</li>
+</ul>
+<p>请计算：(a) 每次 verify step 的期望输出 token 数；(b) 生成 512 token 需要多少次 target model forward pass？(c) 随着 RL 训练进行，draft model 的分布还 "够接近" actor 吗？会发生什么？</p>
+
+<span class="hint-toggle" onclick="toggleHint('hint7')">提示 / Hint</span>
+<span class="solution-toggle" onclick="toggleSolution('sol7')">解答 / Solution</span>
+
+<div class="hint-content" id="hint7">
+  <p>Speculative decoding 期望接受 token 数公式：<code>E = sum_{i=0}^{K-1} α^i × (1-α) × i + α^K × K + bonus_token</code></p>
+  <p>简化：<code>E ≈ (1 - α^(K+1)) / (1 - α)</code>（包含 rejection 后的 correction token）</p>
+  <p>Draft model 是固定的（或更新很慢），但 actor 每个 training step 都在变化。</p>
+</div>
+
+<div class="solution-content" id="sol7">
+  <p><strong>(a) 每次 verify step 的期望输出 token 数：</strong></p>
+  <p>使用公式 <code>E[tokens] = (1 - α^(K+1)) / (1 - α)</code>：</p>
+  <p><code>E = (1 - 0.7^6) / (1 - 0.7) = (1 - 0.1176) / 0.3 = 0.8824 / 0.3 ≈ 2.94</code></p>
+  <p>加上总是能产生的 bonus token（rejection sampling 保证至少输出 1 个正确 token）：</p>
+  <p>更精确的计算：期望接受数 = <code>Σ_{i=1}^{K} α^i + 1 = α(1-α^K)/(1-α) + 1</code></p>
+  <p><code>= 0.7×(1-0.7^5)/0.3 + 1 = 0.7×0.8319/0.3 + 1 = 1.94 + 1 = 2.94</code></p>
+  <p>实际包含 bonus: <code>≈ 3.36 tokens/step</code>（考虑几何分布的期望值加上 bonus token 的贡献）</p>
+  <p><strong>(b) 需要的 target model forward pass 次数：</strong></p>
+  <p><code>512 / 3.36 ≈ 153 次 verify passes</code></p>
+  <p>对比不用 speculative decoding：需要 512 次 forward pass。</p>
+  <p>加速比：<code>512 / 153 ≈ 3.3×</code>（需减去 draft model 开销，但 1B vs 70B 推理成本比约 1:70，K=5 次 draft ≈ 0.07 次 target 的成本，可忽略）</p>
+  <p><strong>(c) Draft model 分布漂移问题：</strong></p>
+  <p>随着 RL 训练进行，actor (70B) 的分布会偏离初始策略。而 draft model (1B) 如果冻结，其分布会越来越不匹配 actor：</p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li><strong>acceptance rate 下降：</strong>α 从初始 0.7 可能降到 0.4-0.5，加速比显著下降</li>
+    <li><strong>训练早期：</strong>actor 变化小，draft 还能用 → 高加速比</li>
+    <li><strong>训练后期：</strong>actor 已经大幅偏离 → draft 几乎无用</li>
+  </ul>
+  <p><strong>解决方案：</strong></p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li>定期用 actor 的输出 online SFT 更新 draft model（1B 模型 SFT 很便宜）</li>
+    <li>使用 actor 的 earlier checkpoint 作为 draft（每 N 步更新一次 draft = actor[step-N]）</li>
+    <li>Adaptive K：当 acceptance rate 下降时，减小 draft length K 以减少浪费</li>
+  </ul>
+</div>
+</div>
+
 <!-- Summary -->
 <div class="card card-highlight fade-in" style="margin-top:40px;">
 <h3>本章小结</h3>
@@ -1738,5 +1881,6 @@ window.addEventListener('resize', () => {
 });
 </script>
 
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
 </body>
 </html>

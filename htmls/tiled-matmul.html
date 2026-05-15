@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiled Matrix Multiplication Visualization</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+  padding: 40px;
+  min-height: 100vh;
+}
+h1 { text-align: center; margin-bottom: 10px; color: #76b900; }
+.subtitle { text-align: center; color: #888; margin-bottom: 30px; font-size: 14px; }
+
+.container { display: flex; flex-direction: column; align-items: center; gap: 30px; }
+
+.matrices {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.matrix-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-label {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ccc;
+}
+.matrix-dims {
+  font-size: 12px;
+  color: #666;
+}
+
+canvas { border-radius: 4px; }
+
+.controls {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button {
+  background: #76b900;
+  color: #000;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover { background: #8ed100; }
+button:disabled { background: #333; color: #666; cursor: not-allowed; }
+
+.info {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 700px;
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.info code {
+  background: #2a2a3e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: #76b900;
+}
+.step-label {
+  font-size: 16px;
+  color: #76b900;
+  font-weight: bold;
+}
+
+.legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+}
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.slider-group label { font-size: 12px; color: #888; }
+input[type="range"] { width: 120px; }
+</style>
+</head>
+<body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
+
+<h1>Tiled Matrix Multiplication</h1>
+<p class="subtitle">C[M×N] = A[M×K] × B[K×N] — Output-Stationary Tiling</p>
+
+<div class="container">
+  <div class="legend">
+    <div class="legend-item"><div class="legend-color" style="background:#76b900"></div> Current A tile (BLOCK_M × BLOCK_K)</div>
+    <div class="legend-item"><div class="legend-color" style="background:#00d4aa"></div> Current B tile (BLOCK_K × BLOCK_N)</div>
+    <div class="legend-item"><div class="legend-color" style="background:#ff6b6b"></div> Output C tile (BLOCK_M × BLOCK_N) in registers</div>
+    <div class="legend-item"><div class="legend-color" style="background:#444"></div> Previously loaded tiles</div>
+  </div>
+
+  <div class="matrices">
+    <div class="matrix-wrapper">
+      <span class="matrix-label">A <span class="matrix-dims">[M × K]</span></span>
+      <canvas id="matA" width="240" height="240"></canvas>
+    </div>
+    <div class="matrix-wrapper">
+      <span class="matrix-label">B <span class="matrix-dims">[K × N]</span></span>
+      <canvas id="matB" width="240" height="240"></canvas>
+    </div>
+    <div class="matrix-wrapper">
+      <span class="matrix-label">C <span class="matrix-dims">[M × N]</span></span>
+      <canvas id="matC" width="240" height="240"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="prevBtn" disabled>← Prev</button>
+    <span class="step-label" id="stepLabel">Step 0 / 0</span>
+    <button id="nextBtn">Next →</button>
+    <button id="autoBtn">▶ Auto Play</button>
+  </div>
+
+  <div class="info" id="infoBox">
+    Press <strong>Next</strong> or <strong>Auto Play</strong> to begin the visualization.
+  </div>
+</div>
+
+<script>
+const M = 8, N = 8, K = 8;
+const BLOCK_M = 2, BLOCK_N = 2, BLOCK_K = 2;
+const numBlocksM = M / BLOCK_M;
+const numBlocksN = N / BLOCK_N;
+const numBlocksK = K / BLOCK_K;
+
+const totalPrograms = numBlocksM * numBlocksN;
+const stepsPerProgram = numBlocksK;
+const totalSteps = totalPrograms * stepsPerProgram;
+
+let currentStep = -1;
+let autoInterval = null;
+
+const canvasA = document.getElementById('matA');
+const canvasB = document.getElementById('matB');
+const canvasC = document.getElementById('matC');
+const ctxA = canvasA.getContext('2d');
+const ctxB = canvasB.getContext('2d');
+const ctxC = canvasC.getContext('2d');
+
+const cellSize = 30;
+
+function getStepInfo(step) {
+  const programIdx = Math.floor(step / stepsPerProgram);
+  const kStep = step % stepsPerProgram;
+  const pid_m = Math.floor(programIdx / numBlocksN);
+  const pid_n = programIdx % numBlocksN;
+  return { pid_m, pid_n, kStep, programIdx };
+}
+
+function drawGrid(ctx, rows, cols, w, h) {
+  const cw = w / cols, ch = h / rows;
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 1;
+  for (let r = 0; r <= rows; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * ch); ctx.lineTo(w, r * ch); ctx.stroke();
+  }
+  for (let c = 0; c <= cols; c++) {
+    ctx.beginPath(); ctx.moveTo(c * cw, 0); ctx.lineTo(c * cw, h); ctx.stroke();
+  }
+}
+
+function fillBlock(ctx, startRow, startCol, blockRows, blockCols, totalRows, totalCols, color, w, h) {
+  const cw = w / totalCols, ch = h / totalRows;
+  ctx.fillStyle = color;
+  ctx.fillRect(startCol * cw, startRow * ch, blockCols * cw, blockRows * ch);
+}
+
+function draw() {
+  const w = 240, h = 240;
+  ctxA.clearRect(0, 0, w, h);
+  ctxB.clearRect(0, 0, w, h);
+  ctxC.clearRect(0, 0, w, h);
+
+  // Background
+  ctxA.fillStyle = '#1a1a2e'; ctxA.fillRect(0, 0, w, h);
+  ctxB.fillStyle = '#1a1a2e'; ctxB.fillRect(0, 0, w, h);
+  ctxC.fillStyle = '#1a1a2e'; ctxC.fillRect(0, 0, w, h);
+
+  if (currentStep >= 0) {
+    const { pid_m, pid_n, kStep, programIdx } = getStepInfo(currentStep);
+
+    // Draw previously visited tiles (gray)
+    for (let s = 0; s < currentStep; s++) {
+      const prev = getStepInfo(s);
+      fillBlock(ctxA, prev.pid_m * BLOCK_M, prev.kStep * BLOCK_K, BLOCK_M, BLOCK_K, M, K, 'rgba(68,68,68,0.3)', w, h);
+      fillBlock(ctxB, prev.kStep * BLOCK_K, prev.pid_n * BLOCK_N, BLOCK_K, BLOCK_N, K, N, 'rgba(68,68,68,0.3)', w, h);
+    }
+
+    // Draw completed output tiles
+    for (let p = 0; p < programIdx; p++) {
+      const pm = Math.floor(p / numBlocksN);
+      const pn = p % numBlocksN;
+      fillBlock(ctxC, pm * BLOCK_M, pn * BLOCK_N, BLOCK_M, BLOCK_N, M, N, 'rgba(255,107,107,0.25)', w, h);
+    }
+
+    // Current A tile
+    fillBlock(ctxA, pid_m * BLOCK_M, kStep * BLOCK_K, BLOCK_M, BLOCK_K, M, K, 'rgba(118,185,0,0.7)', w, h);
+
+    // Current B tile
+    fillBlock(ctxB, kStep * BLOCK_K, pid_n * BLOCK_N, BLOCK_K, BLOCK_N, K, N, 'rgba(0,212,170,0.7)', w, h);
+
+    // Current C output tile (accumulating)
+    const alpha = 0.4 + 0.15 * (kStep + 1);
+    fillBlock(ctxC, pid_m * BLOCK_M, pid_n * BLOCK_N, BLOCK_M, BLOCK_N, M, N, `rgba(255,107,107,${Math.min(alpha, 0.9)})`, w, h);
+  }
+
+  // Draw grids
+  drawGrid(ctxA, M, K, w, h);
+  drawGrid(ctxB, K, N, w, h);
+  drawGrid(ctxC, M, N, w, h);
+
+  // Draw block boundaries (thicker lines)
+  [ctxA, ctxB, ctxC].forEach((ctx, i) => {
+    const rows = i === 1 ? K : M;
+    const cols = i === 0 ? K : N;
+    const bRows = i === 1 ? BLOCK_K : BLOCK_M;
+    const bCols = i === 0 ? BLOCK_K : BLOCK_N;
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 2;
+    for (let r = 0; r <= rows; r += bRows) {
+      ctx.beginPath(); ctx.moveTo(0, r * h / rows); ctx.lineTo(w, r * h / rows); ctx.stroke();
+    }
+    for (let c = 0; c <= cols; c += bCols) {
+      ctx.beginPath(); ctx.moveTo(c * w / cols, 0); ctx.lineTo(c * w / cols, h); ctx.stroke();
+    }
+  });
+
+  updateInfo();
+}
+
+function updateInfo() {
+  const label = document.getElementById('stepLabel');
+  const info = document.getElementById('infoBox');
+
+  if (currentStep < 0) {
+    label.textContent = `Ready`;
+    info.innerHTML = `Press <strong>Next</strong> or <strong>Auto Play</strong> to begin.<br><br>
+      Matrix dimensions: M=${M}, N=${N}, K=${K}<br>
+      Block sizes: BLOCK_M=${BLOCK_M}, BLOCK_N=${BLOCK_N}, BLOCK_K=${BLOCK_K}<br>
+      Total programs (thread blocks): ${totalPrograms}<br>
+      K-loop iterations per program: ${stepsPerProgram}`;
+    return;
+  }
+
+  const { pid_m, pid_n, kStep, programIdx } = getStepInfo(currentStep);
+  label.textContent = `Step ${currentStep + 1} / ${totalSteps}`;
+
+  info.innerHTML = `
+    <strong>Program ${programIdx}</strong> — <code>pid_m=${pid_m}, pid_n=${pid_n}</code><br>
+    K-loop iteration: <code>k=${kStep * BLOCK_K}</code> (step ${kStep + 1}/${stepsPerProgram})<br><br>
+    <strong>Actions:</strong><br>
+    1. Load <code>A[${pid_m * BLOCK_M}:${pid_m * BLOCK_M + BLOCK_M}, ${kStep * BLOCK_K}:${kStep * BLOCK_K + BLOCK_K}]</code> from Global Memory → registers<br>
+    2. Load <code>B[${kStep * BLOCK_K}:${kStep * BLOCK_K + BLOCK_K}, ${pid_n * BLOCK_N}:${pid_n * BLOCK_N + BLOCK_N}]</code> from Global Memory → registers<br>
+    3. <code>acc += tl.dot(a, b)</code> — accumulate in registers (Tensor Core MMA)<br>
+    ${kStep === stepsPerProgram - 1 ? '<br>4. <strong style="color:#ff6b6b">K-loop done → tl.store(C[' + pid_m * BLOCK_M + ':' + (pid_m * BLOCK_M + BLOCK_M) + ', ' + pid_n * BLOCK_N + ':' + (pid_n * BLOCK_N + BLOCK_N) + '])</strong> — write acc back to Global Memory' : '<br><em style="color:#888">acc stays in registers, no global memory write yet...</em>'}
+  `;
+}
+
+document.getElementById('nextBtn').addEventListener('click', () => {
+  if (currentStep < totalSteps - 1) { currentStep++; draw(); }
+  updateButtons();
+});
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (currentStep >= 0) { currentStep--; draw(); }
+  updateButtons();
+});
+
+document.getElementById('autoBtn').addEventListener('click', () => {
+  if (autoInterval) {
+    clearInterval(autoInterval);
+    autoInterval = null;
+    document.getElementById('autoBtn').textContent = '▶ Auto Play';
+  } else {
+    document.getElementById('autoBtn').textContent = '⏸ Pause';
+    autoInterval = setInterval(() => {
+      if (currentStep < totalSteps - 1) {
+        currentStep++;
+        draw();
+        updateButtons();
+      } else {
+        clearInterval(autoInterval);
+        autoInterval = null;
+        document.getElementById('autoBtn').textContent = '▶ Auto Play';
+      }
+    }, 800);
+  }
+});
+
+function updateButtons() {
+  document.getElementById('prevBtn').disabled = currentStep < 0;
+  document.getElementById('nextBtn').disabled = currentStep >= totalSteps - 1;
+}
+
+draw();
+</script>
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
+</body>
+</html>

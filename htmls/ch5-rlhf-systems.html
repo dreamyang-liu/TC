@@ -114,6 +114,7 @@ td { background: #1a1a2e; }
 </style>
 </head>
 <body>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#0f0f23ee;backdrop-filter:blur(8px);border-bottom:1px solid #333;padding:8px 20px;display:flex;align-items:center;gap:12px;" id="nav-home"><a href="index.html" style="color:#76b900;text-decoration:none;font-size:0.9rem;font-weight:bold;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">&larr;</span> ML Systems Tutorial</a><span style="color:#444;">|</span><span style="color:#888;font-size:0.8rem;" id="nav-title"></span></nav><div style="height:44px;"></div>
 <div class="container">
 
 <h1>Chapter 5: RLHF 系统</h1>
@@ -403,7 +404,7 @@ A<sub>GRPO</sub>(y<sub>i</sub>) = (r(y<sub>i</sub>) - mean(r(y<sub>1</sub>...y<s
 </div>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../rlhf/GRPO/grpo-main.png" alt="GRPO Algorithm Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/grpo-main.png" alt="GRPO Algorithm Overview" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: GRPO 算法: 用 group 内相对 reward 作为 advantage, 无需 Critic model</div>
 </div>
 
@@ -504,7 +505,7 @@ A<sub>GRPO</sub>(y<sub>i</sub>) = (r(y<sub>i</sub>) - mean(r(y<sub>1</sub>...y<s
 </div>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../rlhf/slime/mismatch/pics/training-inference-mismatch.png" alt="Training-Inference Mismatch" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/training-inference-mismatch.png" alt="Training-Inference Mismatch" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: Training-Inference Mismatch: Rollout 和 Training 使用不同 kernel 导致数值差异</div>
 </div>
 
@@ -583,7 +584,7 @@ A<sub>GRPO</sub>(y<sub>i</sub>) = (r(y<sub>i</sub>) - mean(r(y<sub>1</sub>...y<s
 </div>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../rlhf/slime/code-walk-through/overall_workflow.png" alt="SLIME Overall Workflow" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/overall_workflow.png" alt="SLIME Overall Workflow" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: SLIME 完整工作流: Ray 编排 + SGLang Rollout + Megatron/FSDP Training</div>
 </div>
 
@@ -620,7 +621,7 @@ Node 5: Reference Model (TP=2) — 计算 KL penalty
 </div>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../rlhf/OpenRLHF/learning-stage.png" alt="OpenRLHF Learning Stage" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/learning-stage.png" alt="OpenRLHF Learning Stage" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: OpenRLHF 训练阶段: vLLM/SGLang 推理 + DeepSpeed/Ray 训练编排</div>
 </div>
 
@@ -696,7 +697,7 @@ Node 5: Reference Model (TP=2) — 计算 KL penalty
 </div>
 
 <div style="margin: 20px 0; text-align: center;">
-  <img src="../rlhf/verl/multi-turn/imgs/agentLoop.png" alt="veRL Agent Loop" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+  <img src="img/agentloop.png" alt="veRL Agent Loop" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
   <div style="font-size: 0.8rem; color: #888; margin-top: 8px;">图: veRL Agent Loop: 异步多轮交互架构, 支持 tool calling 和 environment step</div>
 </div>
 
@@ -1797,5 +1798,153 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     resetBtn.addEventListener('click', resetAnimation);
 })();
 </script>
+<script id="nav-title-script">document.getElementById("nav-title").textContent=document.title;</script>
+
+<!-- Exercises Section -->
+<div class="container">
+<h2 id="sec-exercises">练习 / Exercises</h2>
+
+<div class="exercise fade-in">
+<h4>Exercise 1: PPO vs GRPO 显存对比</h4>
+<p>给定一个 70B 参数的模型，进行 RL 训练时：</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>PPO 需要同时维护：Actor + Critic + Reference + Reward Model（4 个模型）</li>
+  <li>GRPO 需要同时维护：Actor + Reference（2 个模型）</li>
+  <li>使用 Adam 优化器 + BF16 训练精度</li>
+  <li>每个 H100 GPU 显存为 80GB</li>
+</ul>
+<p>请计算：(a) PPO 和 GRPO 各自的总显存需求；(b) 各自最少需要多少张 H100；(c) 如果 GRPO 使用 <code>group_size=16</code>，每个 prompt 需要生成多少个 rollout 序列？相比 PPO 的额外采样开销是什么？</p>
+
+<details class="exercise-solution">
+<summary>解答 / Solution</summary>
+<div>
+  <p><strong>(a) 总显存需求：</strong></p>
+  <p>对于可训练模型（Actor/Critic），使用 Adam BF16：每个参数需要 2B（权重）+ 2B（梯度）+ 4B+4B（Adam states m, v）= 约 16 bytes/param（混合精度训练的标准估算）。</p>
+  <p>对于冻结模型（Reference/Reward），仅推理：每个参数 2B（BF16 权重）。</p>
+  <p><strong>PPO：</strong></p>
+  <p><code>Actor (trainable): 16B × 70B = 1.12 TB</code></p>
+  <p><code>Critic (trainable): 16B × 70B = 1.12 TB</code></p>
+  <p><code>Reference (frozen): 2B × 70B = 140 GB</code></p>
+  <p><code>Reward (frozen): 2B × 70B = 140 GB</code></p>
+  <p><code>Total ≈ 2.52 TB</code></p>
+  <p><strong>GRPO：</strong></p>
+  <p><code>Actor (trainable): 16B × 70B = 1.12 TB</code></p>
+  <p><code>Reference (frozen): 2B × 70B = 140 GB</code></p>
+  <p><code>Total ≈ 1.26 TB</code></p>
+  <p><strong>(b) 最少 H100 数量：</strong></p>
+  <p><code>PPO: 2520 GB / 80 GB = 31.5 → 至少 32 张 H100</code></p>
+  <p><code>GRPO: 1260 GB / 80 GB = 15.75 → 至少 16 张 H100</code></p>
+  <p><strong>(c) GRPO 采样开销：</strong></p>
+  <p>GRPO 使用 <code>group_size=16</code>，意味着每个 prompt 需要采样 16 个 response（用于组内相对排序计算 advantage）。PPO 通常每个 prompt 只采样 1 个 response。</p>
+  <p>额外采样开销：GRPO 需要 16× 的推理量。但这是纯推理（不需要反向传播），且可以用 vLLM 等高效推理引擎批量生成。关键 insight：推理的计算成本远低于训练一个 Critic 模型，这就是 GRPO 的优势所在——用廉价的推理替代昂贵的 Critic 训练。</p>
+</div>
+</details>
+</div>
+
+<div class="exercise fade-in">
+<h4>Exercise 2: On-Policy vs Off-Policy 的系统影响</h4>
+<p>在线 RL（如 PPO/GRPO）要求 rollout 数据必须来自当前策略（on-policy），这在系统层面产生了 "training-inference pipeline bubble"。</p>
+<p>请回答：(a) 解释为什么 on-policy 会产生 pipeline bubble，画出时间线；(b) Slime/AReal 等系统如何解决这个问题？(c) 计算：如果 rollout 占总时间的 60%，training 占 40%，不做 overlap 时 GPU 利用率是多少？做 overlap 后呢？</p>
+
+<details class="exercise-solution">
+<summary>解答 / Solution</summary>
+<div>
+  <p><strong>(a) Pipeline Bubble 产生原因：</strong></p>
+  <p>On-policy 要求：训练 step N 必须使用 step N 当前策略生成的数据。因此：</p>
+  <pre><code><span class="comment">Without overlap (sequential):</span>
+|--Rollout (gen batch N)--|--Train (on batch N)--|--Rollout (gen batch N+1)--|--Train--|
+     60% time                  40% time               60% time                 40% time
+
+<span class="comment">Training GPUs idle during rollout → "bubble"</span>
+<span class="comment">Inference GPUs idle during training → "bubble"</span></code></pre>
+  <p><strong>(b) Slime/AReal 的解决方案：Disaggregated + Pipelined</strong></p>
+  <p>将训练集群和推理集群分离（disaggregate），然后做流水线重叠：</p>
+  <pre><code><span class="comment">With overlap (pipelined):</span>
+<span class="comment">Training cluster:</span>  |--Train batch N--|--Train batch N+1--|--Train batch N+2--|
+<span class="comment">Inference cluster:</span> |--Rollout N+1--|--Rollout N+2--|--Rollout N+3--|
+                          ↑ overlap ↑       ↑ overlap ↑</code></pre>
+  <p>核心思想：当 training cluster 在训练 batch N 时，inference cluster 同时用（略微过时的）权重生成 batch N+1。</p>
+  <p><strong>(c) GPU 利用率计算：</strong></p>
+  <p><strong>不做 overlap（同一组 GPU 做 rollout + training）：</strong></p>
+  <p>Training GPU 利用率 = 40%（训练时工作，rollout 时闲置）</p>
+  <p>或者换个角度：如果分开两组 GPU，training cluster 在 rollout 期间完全空闲 → 有效利用率 40/(60+40) = 40%。</p>
+  <p><strong>做 overlap（disaggregated + pipeline）：</strong></p>
+  <p>Training cluster：连续训练（一个 batch 接一个 batch），利用率接近 ~90-95%（只在 weight sync 时有小 bubble）。</p>
+  <p>Inference cluster：连续生成 rollout，利用率接近 ~90-95%。</p>
+  <p>关键 insight：bubble 来自 "训练 GPU 等待 rollout 完成"。通过异步流水线，两个集群都保持忙碌。</p>
+</div>
+</details>
+</div>
+
+<div class="exercise fade-in">
+<h4>Exercise 3: Weight Update Propagation 延迟分析</h4>
+<p>在 disaggregated RL 系统中，Actor 更新权重后，rollout 推理集群需要获取新权重。</p>
+<ul style="margin:10px 0 10px 20px; color:#ccc;">
+  <li>模型大小：70B 参数，BF16 存储 = 140 GB</li>
+  <li>网络带宽：InfiniBand 400 Gbps (= 50 GB/s)</li>
+  <li>训练 step 时间：每个 gradient step 约 10 秒</li>
+</ul>
+<p>请计算：(a) 传输全部权重需要多长时间？(b) 传输速度是否跟得上训练速度？(c) 如果跳过某些 step 的权重同步（使用 stale weights），会产生什么影响？</p>
+
+<details class="exercise-solution">
+<summary>解答 / Solution</summary>
+<div>
+  <p><strong>(a) 权重传输时间：</strong></p>
+  <p><code>Transfer time = 140 GB / 50 GB/s = 2.8 秒</code></p>
+  <p><strong>(b) 能否跟上训练速度：</strong></p>
+  <p><code>2.8s < 10s (step time)</code> → 可以跟上。</p>
+  <p>在一个 training step（10s）内完成权重传输，还有 7.2s 的余量。可以做 pipeline：在训练 step N+1 时，异步传输 step N 的权重给推理集群。</p>
+  <p><strong>(c) Stale weights 的影响：</strong></p>
+  <p>如果使用过时的权重做 rollout，产生的数据就不是严格 on-policy 的，这引入 "off-policy error"：</p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li><strong>1-step stale：</strong>质量损失极小，实践中几乎可以忽略。大多数系统采用这种策略。</li>
+    <li><strong>N-step stale：</strong>误差近似线性增长。当 KL(π_current || π_stale) 超过阈值时，数据质量显著下降。</li>
+  </ul>
+  <p>系统设计方案：使用 "async weight update" — 开始 rollout 时使用略微过时的权重，同时在后台传输新权重。传输完成后，后续 rollout 切换到新权重。这样将 2.8s 的传输延迟完全隐藏在计算中。</p>
+</div>
+</details>
+</div>
+
+<div class="exercise fade-in">
+<h4>Exercise 4: Reward Hacking 的系统级检测</h4>
+<p>在 GRPO 训练过程中，模型可能学会 "hack" reward model（获得高 reward 但实际质量下降）。</p>
+<p>请设计：(a) 一个实时监控系统，列出你会跟踪哪些指标；(b) 什么条件下触发暂停训练？(c) 暂停后的恢复策略是什么？</p>
+
+<details class="exercise-solution">
+<summary>解答 / Solution</summary>
+<div>
+  <p><strong>(a) 监控指标：</strong></p>
+  <ol style="margin:10px 0 10px 20px; color:#ccc;">
+    <li><strong>KL divergence 趋势：</strong>KL(π_current || π_ref) — reward hacking 时 KL 会急剧上升（模型偏离参考策略过远）</li>
+    <li><strong>Reward-KL 相关性：</strong>正常训练应该 reward 上升且 KL 平缓增长。Hacking 时 reward 上升但 KL 暴涨</li>
+    <li><strong>输出多样性指标：</strong>unique n-gram ratio, distinct-N — hacking 往往导致输出 collapse（重复固定模式）</li>
+    <li><strong>特定模式检测器：</strong>重复度（repetition ratio）、格式游戏（过度使用 bullet points/markdown）、长度异常（输出越来越长或越来越短）</li>
+    <li><strong>Reward model score vs ground truth 采样评估：</strong>定期抽样做 human eval 或 LLM-as-judge，检测 RM 分数与真实质量的偏差</li>
+  </ol>
+  <p><strong>(b) 暂停触发条件：</strong></p>
+  <pre><code><span class="keyword">if</span> (KL_current > <span class="number">2.0</span> * KL_moving_average) <span class="keyword">AND</span> (reward_still_increasing):
+    <span class="comment"># KL spike + reward increasing = strong signal of hacking</span>
+    trigger_pause()
+
+<span class="keyword">if</span> (output_diversity < <span class="number">0.3</span> * baseline_diversity):
+    <span class="comment"># Output collapse detected</span>
+    trigger_pause()
+
+<span class="keyword">if</span> (reward_model_score - human_eval_score > threshold):
+    <span class="comment"># RM and human evaluation diverging</span>
+    trigger_pause()</code></pre>
+  <p><strong>(c) 恢复策略：</strong></p>
+  <ul style="margin:10px 0 10px 20px; color:#ccc;">
+    <li>回滚到最近的 "健康" checkpoint（KL 和 diversity 正常的最后一个 checkpoint）</li>
+    <li>增大 KL penalty 系数（β），限制策略偏离</li>
+    <li>更新/重新训练 Reward Model（如果发现 RM 有明显被利用的模式）</li>
+    <li>添加 diversity bonus 到 reward function</li>
+  </ul>
+</div>
+</details>
+</div>
+
+</div>
+
 </body>
 </html>
