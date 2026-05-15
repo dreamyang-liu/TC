@@ -152,6 +152,372 @@ pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; }
     </div>
 
     <div class="card">
+      <h3>GPU 全局架构总览 (Blackwell Architecture)</h3>
+      <p>下图展示了一个现代 GPU 的完整硬件结构, 从芯片级到 SM 内部, 涵盖所有关键计算和存储单元:</p>
+
+      <!-- Full GPU Architecture Diagram -->
+      <div style="background: #0a0a1a; border-radius: 12px; padding: 30px; margin: 20px 0; border: 1px solid #333; position: relative; overflow: hidden;">
+
+        <!-- Title -->
+        <div style="text-align: center; margin-bottom: 20px;">
+          <span style="font-size: 1.1em; font-weight: bold; color: #fff; background: linear-gradient(90deg, #00d2ff, #7b2ff7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">GPU Die Overview</span>
+        </div>
+
+        <!-- Main layout: GPC array + Memory -->
+        <div style="display: flex; gap: 20px; align-items: stretch;">
+
+          <!-- Left: GPU Compute Side -->
+          <div style="flex: 3; display: flex; flex-direction: column; gap: 15px;">
+
+            <!-- GPC Array -->
+            <div style="border: 2px solid #444; border-radius: 10px; padding: 18px; position: relative; background: #0f0f20;">
+              <div style="position: absolute; top: -11px; left: 16px; background: #0a0a1a; padding: 0 10px; color: #00d2ff; font-weight: bold; font-size: 0.85em;">GPC × 12 (Graphics Processing Clusters)</div>
+
+              <!-- GPC grid showing SM clusters -->
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px;">
+
+                <!-- One detailed GPC -->
+                <div style="border: 1.5px solid #7b2ff7; border-radius: 8px; padding: 10px; background: #12122a; grid-column: span 2; grid-row: span 2;">
+                  <div style="color: #7b2ff7; font-size: 0.72em; font-weight: bold; margin-bottom: 8px; text-align: center;">GPC 0 (详细展开)</div>
+
+                  <!-- SM Units inside GPC -->
+                  <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;">
+                    <!-- Detailed SM -->
+                    <div style="border: 1px solid #00d2ff; border-radius: 6px; padding: 6px; background: #1a1a30; grid-column: span 3;">
+                      <div style="color: #00d2ff; font-size: 0.65em; font-weight: bold; text-align: center; margin-bottom: 6px;">SM (Streaming Multiprocessor)</div>
+                      <div style="display: flex; gap: 4px; flex-wrap: wrap; justify-content: center;">
+                        <!-- CUDA Cores -->
+                        <div style="background: #4caf5025; border: 1px solid #4caf50; border-radius: 4px; padding: 4px 6px; text-align: center;">
+                          <div style="font-size: 0.55em; color: #81c784; white-space: nowrap;">CUDA Cores</div>
+                          <div style="display: grid; grid-template-columns: repeat(8, 6px); gap: 1px; margin-top: 3px;">
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#4caf50;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                            <div style="width:6px;height:6px;background:#66bb6a;border-radius:1px;"></div>
+                          </div>
+                          <div style="font-size: 0.5em; color: #666; margin-top: 2px;">128 FP32</div>
+                        </div>
+                        <!-- Tensor Cores -->
+                        <div style="background: #7b2ff725; border: 1px solid #7b2ff7; border-radius: 4px; padding: 4px 6px; text-align: center;">
+                          <div style="font-size: 0.55em; color: #b388ff; white-space: nowrap;">Tensor Cores</div>
+                          <div style="display: grid; grid-template-columns: repeat(2, 12px); gap: 2px; margin-top: 3px; justify-content: center;">
+                            <div style="width:12px;height:12px;background:linear-gradient(135deg,#7b2ff7,#a855f7);border-radius:2px;"></div>
+                            <div style="width:12px;height:12px;background:linear-gradient(135deg,#7b2ff7,#a855f7);border-radius:2px;"></div>
+                            <div style="width:12px;height:12px;background:linear-gradient(135deg,#7b2ff7,#a855f7);border-radius:2px;"></div>
+                            <div style="width:12px;height:12px;background:linear-gradient(135deg,#7b2ff7,#a855f7);border-radius:2px;"></div>
+                          </div>
+                          <div style="font-size: 0.5em; color: #666; margin-top: 2px;">4× 5th Gen</div>
+                        </div>
+                        <!-- RT Cores -->
+                        <div style="background: #f9ca2425; border: 1px solid #f9ca24; border-radius: 4px; padding: 4px 6px; text-align: center;">
+                          <div style="font-size: 0.55em; color: #f9ca24; white-space: nowrap;">RT Core</div>
+                          <div style="display: flex; justify-content: center; margin-top: 3px;">
+                            <div style="width:14px;height:14px;background:linear-gradient(135deg,#f9ca24,#f0932b);border-radius:2px;"></div>
+                          </div>
+                          <div style="font-size: 0.5em; color: #666; margin-top: 2px;">4th Gen</div>
+                        </div>
+                        <!-- SRAM / Shared Memory -->
+                        <div style="background: #ff6b6b20; border: 1px solid #ff6b6b; border-radius: 4px; padding: 4px 6px; text-align: center;">
+                          <div style="font-size: 0.55em; color: #ff8a80; white-space: nowrap;">Shared Mem / L1</div>
+                          <div style="width: 100%; height: 10px; background: linear-gradient(90deg, #ff6b6b, #ff6b6b88); border-radius: 2px; margin-top: 4px;"></div>
+                          <div style="font-size: 0.5em; color: #666; margin-top: 2px;">228 KB SRAM</div>
+                        </div>
+                      </div>
+                      <!-- Register File -->
+                      <div style="margin-top: 6px; background: #ff980020; border: 1px solid #ff980066; border-radius: 3px; padding: 3px; text-align: center;">
+                        <span style="font-size: 0.5em; color: #ffcc80;">Register File: 256 KB (65536 × 32-bit)</span>
+                      </div>
+                    </div>
+
+                    <!-- Other SMs in this GPC (simplified) -->
+                    <div style="border: 1px solid #444; border-radius: 4px; padding: 4px; background: #1a1a30; text-align: center;">
+                      <div style="font-size: 0.55em; color: #888;">SM 1</div>
+                      <div style="display: grid; grid-template-columns: repeat(4, 4px); gap: 1px; margin: 3px auto; width: fit-content;">
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#7b2ff7;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#f9ca24;border-radius:1px;"></div>
+                      </div>
+                    </div>
+                    <div style="border: 1px solid #444; border-radius: 4px; padding: 4px; background: #1a1a30; text-align: center;">
+                      <div style="font-size: 0.55em; color: #888;">SM 2</div>
+                      <div style="display: grid; grid-template-columns: repeat(4, 4px); gap: 1px; margin: 3px auto; width: fit-content;">
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#7b2ff7;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#f9ca24;border-radius:1px;"></div>
+                      </div>
+                    </div>
+                    <div style="border: 1px solid #444; border-radius: 4px; padding: 4px; background: #1a1a30; text-align: center;">
+                      <div style="font-size: 0.55em; color: #888;">SM 3</div>
+                      <div style="display: grid; grid-template-columns: repeat(4, 4px); gap: 1px; margin: 3px auto; width: fit-content;">
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#4caf50;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#7b2ff7;border-radius:1px;"></div>
+                        <div style="width:4px;height:4px;background:#f9ca24;border-radius:1px;"></div>
+                      </div>
+                    </div>
+                    <div style="border: 1px solid #444; border-radius: 4px; padding: 4px; background: #1a1a30; text-align: center; font-size: 0.55em; color: #666;">... ×12 SMs/GPC</div>
+                  </div>
+                </div>
+
+                <!-- Other GPCs (simplified) -->
+                <div style="border: 1px solid #444; border-radius: 6px; padding: 8px; background: #12122a; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <div style="color: #888; font-size: 0.7em;">GPC 1</div>
+                  <div style="display: grid; grid-template-columns: repeat(3, 8px); gap: 2px; margin-top: 6px;">
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                  </div>
+                </div>
+                <div style="border: 1px solid #444; border-radius: 6px; padding: 8px; background: #12122a; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <div style="color: #888; font-size: 0.7em;">GPC 2</div>
+                  <div style="display: grid; grid-template-columns: repeat(3, 8px); gap: 2px; margin-top: 6px;">
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                  </div>
+                </div>
+                <div style="border: 1px solid #444; border-radius: 6px; padding: 8px; background: #12122a; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <div style="color: #888; font-size: 0.7em;">GPC 3</div>
+                  <div style="display: grid; grid-template-columns: repeat(3, 8px); gap: 2px; margin-top: 6px;">
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                    <div style="width:8px;height:8px;background:#1e3a5f;border:1px solid #444;border-radius:1px;"></div>
+                  </div>
+                </div>
+                <div style="border: 1px solid #444; border-radius: 6px; padding: 8px; background: #12122a; text-align: center; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <div style="color: #888; font-size: 0.7em;">GPC 4-11</div>
+                  <div style="color: #555; font-size: 1.2em; margin-top: 4px;">...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Interconnect: L2 Cache + Crossbar -->
+            <div style="display: flex; gap: 10px;">
+              <!-- L2 Cache -->
+              <div style="flex: 2; border: 2px solid #6ab04c; border-radius: 8px; padding: 12px; background: #0f1f0f; position: relative;">
+                <div style="position: absolute; top: -11px; left: 12px; background: #0a0a1a; padding: 0 8px; color: #6ab04c; font-weight: bold; font-size: 0.8em;">L2 Cache</div>
+                <div style="display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; margin-top: 4px;">
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                  <div style="height: 14px; flex: 1; min-width: 30px; background: linear-gradient(90deg, #6ab04c, #009432); border-radius: 2px;"></div>
+                </div>
+                <div style="text-align: center; font-size: 0.68em; color: #aaa; margin-top: 6px;">96 MB | ~12 TB/s | All SMs share</div>
+              </div>
+              <!-- GigaThread Engine -->
+              <div style="flex: 1; border: 2px solid #ff9800; border-radius: 8px; padding: 12px; background: #1a1208; position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                <div style="position: absolute; top: -11px; left: 12px; background: #0a0a1a; padding: 0 8px; color: #ff9800; font-weight: bold; font-size: 0.72em; white-space: nowrap;">GigaThread Engine</div>
+                <div style="font-size: 0.62em; color: #ffcc80; text-align: center; margin-top: 4px;">Block 调度<br>Warp 分配<br>负载均衡</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right: Memory Subsystem -->
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+
+            <!-- HBM -->
+            <div style="border: 2px solid #00d2ff; border-radius: 8px; padding: 14px; background: #001a2e; position: relative; flex: 1;">
+              <div style="position: absolute; top: -11px; left: 12px; background: #0a0a1a; padding: 0 8px; color: #00d2ff; font-weight: bold; font-size: 0.8em;">HBM3e (GDDR7)</div>
+              <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 8px;">
+                <div style="display: flex; gap: 3px;">
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 0</div>
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 1</div>
+                </div>
+                <div style="display: flex; gap: 3px;">
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 2</div>
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 3</div>
+                </div>
+                <div style="display: flex; gap: 3px;">
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 4</div>
+                  <div style="flex:1; height: 22px; background: linear-gradient(180deg, #004466, #001a2e); border: 1px solid #006699; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55em; color: #66ccff;">Stack 5</div>
+                </div>
+              </div>
+              <div style="text-align: center; font-size: 0.65em; color: #88ccee; margin-top: 8px; line-height: 1.5;">
+                96 GB 总容量<br>
+                1792 GB/s 带宽<br>
+                512-bit 接口
+              </div>
+            </div>
+
+            <!-- NVLink -->
+            <div style="border: 2px solid #76ff03; border-radius: 8px; padding: 10px; background: #0a1a0a; position: relative;">
+              <div style="position: absolute; top: -11px; left: 12px; background: #0a0a1a; padding: 0 8px; color: #76ff03; font-weight: bold; font-size: 0.75em;">NVLink 5.0</div>
+              <div style="display: flex; gap: 3px; margin-top: 4px; justify-content: center;">
+                <div style="width: 4px; height: 30px; background: linear-gradient(180deg, #76ff03, #33691e); border-radius: 2px; animation: nvlinkPulse 1.5s ease-in-out infinite;"></div>
+                <div style="width: 4px; height: 30px; background: linear-gradient(180deg, #76ff03, #33691e); border-radius: 2px; animation: nvlinkPulse 1.5s ease-in-out infinite 0.2s;"></div>
+                <div style="width: 4px; height: 30px; background: linear-gradient(180deg, #76ff03, #33691e); border-radius: 2px; animation: nvlinkPulse 1.5s ease-in-out infinite 0.4s;"></div>
+                <div style="width: 4px; height: 30px; background: linear-gradient(180deg, #76ff03, #33691e); border-radius: 2px; animation: nvlinkPulse 1.5s ease-in-out infinite 0.6s;"></div>
+              </div>
+              <div style="text-align: center; font-size: 0.6em; color: #a5d6a7; margin-top: 6px;">1800 GB/s<br>GPU↔GPU</div>
+            </div>
+
+            <!-- PCIe -->
+            <div style="border: 2px solid #888; border-radius: 8px; padding: 10px; background: #111; position: relative;">
+              <div style="position: absolute; top: -11px; left: 12px; background: #0a0a1a; padding: 0 8px; color: #aaa; font-weight: bold; font-size: 0.75em;">PCIe 5.0 x16</div>
+              <div style="text-align: center; font-size: 0.62em; color: #999; margin-top: 4px;">128 GB/s<br>CPU↔GPU</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom: Data flow legend -->
+        <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding-top: 15px; border-top: 1px solid #333;">
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: #4caf50; border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">CUDA Core (FP32/INT32)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: linear-gradient(135deg, #7b2ff7, #a855f7); border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">Tensor Core (FP4/FP8/BF16/TF32)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: linear-gradient(135deg, #f9ca24, #f0932b); border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">RT Core (Ray Tracing)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: #ff6b6b; border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">SRAM (Shared Mem + L1)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: linear-gradient(135deg, #00d2ff, #006699); border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">HBM (Global Memory)</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;">
+            <div style="width: 12px; height: 12px; background: #6ab04c; border-radius: 2px;"></div>
+            <span style="font-size: 0.72em; color: #aaa;">L2 Cache</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Specs Table -->
+      <div style="margin-top: 20px;">
+        <table style="width:100%; border-collapse: collapse; font-size: 0.85em;">
+          <thead>
+            <tr style="border-bottom: 2px solid #444;">
+              <th style="text-align: left; padding: 10px; color: #00d2ff;">组件</th>
+              <th style="text-align: left; padding: 10px; color: #00d2ff;">数量/规格</th>
+              <th style="text-align: left; padding: 10px; color: #00d2ff;">功能</th>
+              <th style="text-align: left; padding: 10px; color: #00d2ff;">峰值性能</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #4caf50; font-weight: bold;">CUDA Cores</span></td>
+              <td style="padding: 8px;">24,064 (128/SM × 188 SMs)</td>
+              <td style="padding: 8px;">标量浮点/整数运算 (FP32, FP64, INT32)</td>
+              <td style="padding: 8px;">125 TFLOPS (FP32)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #7b2ff7; font-weight: bold;">Tensor Cores</span></td>
+              <td style="padding: 8px;">752 (4/SM × 188 SMs), 5th Gen</td>
+              <td style="padding: 8px;">矩阵 FMA: D = A×B + C (支持 FP4/FP8/BF16/TF32)</td>
+              <td style="padding: 8px;">4000 TOPS (FP4) / ~500 TFLOPS (BF16)</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #f9ca24; font-weight: bold;">RT Cores</span></td>
+              <td style="padding: 8px;">188 (1/SM), 4th Gen</td>
+              <td style="padding: 8px;">硬件光线追踪 (BVH traversal, 三角形求交)</td>
+              <td style="padding: 8px;">380 TFLOPS</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #ff6b6b; font-weight: bold;">SRAM (Shared/L1)</span></td>
+              <td style="padding: 8px;">228 KB/SM (可配置分配比例)</td>
+              <td style="padding: 8px;">Block 内线程共享的高速暂存, 手动管理</td>
+              <td style="padding: 8px;">~19 TB/s 聚合带宽</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #6ab04c; font-weight: bold;">L2 Cache</span></td>
+              <td style="padding: 8px;">96 MB</td>
+              <td style="padding: 8px;">全 GPU 共享, 硬件自动管理, 减少 HBM 访问</td>
+              <td style="padding: 8px;">~12 TB/s</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #333;">
+              <td style="padding: 8px;"><span style="color: #00d2ff; font-weight: bold;">HBM (GDDR7)</span></td>
+              <td style="padding: 8px;">96 GB, 512-bit interface</td>
+              <td style="padding: 8px;">全局显存, 存放 model weights / activations / KV cache</td>
+              <td style="padding: 8px;">1792 GB/s</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px;"><span style="color: #ff9800; font-weight: bold;">Register File</span></td>
+              <td style="padding: 8px;">256 KB/SM (65536 × 32-bit)</td>
+              <td style="padding: 8px;">每个 thread 的私有存储, 最快的存储层级</td>
+              <td style="padding: 8px;">~20 TB/s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Data flow: how a matmul moves through the hierarchy -->
+      <div style="margin-top: 25px; background: #12122a; border-radius: 8px; padding: 20px; border: 1px solid #333;">
+        <div style="color: #00d2ff; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">一次 GEMM 的数据流动路径</div>
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 6px; justify-content: center;">
+          <div style="background: linear-gradient(135deg, #00d2ff22, #00668833); border: 1px solid #00d2ff; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #66ccff; font-weight: 500;">HBM</div>
+            <div style="font-size: 0.58em; color: #888;">Weight Matrix</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #6ab04c22, #00943233); border: 1px solid #6ab04c; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #6ab04c; font-weight: 500;">L2 Cache</div>
+            <div style="font-size: 0.58em; color: #888;">auto cache</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #ff6b6b22, #ff6b6b33); border: 1px solid #ff6b6b; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #ff8a80; font-weight: 500;">Shared Memory</div>
+            <div style="font-size: 0.58em; color: #888;">tiled block</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #ff980022, #ff980033); border: 1px solid #ff9800; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #ffcc80; font-weight: 500;">Registers</div>
+            <div style="font-size: 0.58em; color: #888;">fragments</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #7b2ff722, #7b2ff733); border: 1px solid #7b2ff7; border-radius: 6px; padding: 8px 14px; text-align: center;">
+            <div style="font-size: 0.7em; color: #b388ff; font-weight: 500;">Tensor Core</div>
+            <div style="font-size: 0.58em; color: #888;">D = A×B + C</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #ff980022, #ff980033); border: 1px solid #ff9800; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #ffcc80; font-weight: 500;">Registers</div>
+            <div style="font-size: 0.58em; color: #888;">accumulator</div>
+          </div>
+          <div style="color: #444; font-size: 1.2em;">&#10132;</div>
+          <div style="background: linear-gradient(135deg, #00d2ff22, #00668833); border: 1px solid #00d2ff; border-radius: 6px; padding: 8px 12px; text-align: center;">
+            <div style="font-size: 0.7em; color: #66ccff; font-weight: 500;">HBM</div>
+            <div style="font-size: 0.58em; color: #888;">Output Matrix</div>
+          </div>
+        </div>
+        <div style="text-align: center; font-size: 0.72em; color: #888; margin-top: 10px;">
+          性能关键: 最大化数据在 SRAM (Shared Mem + Registers) 的复用, 最小化 HBM 访问 → 这就是 Tiling 的核心思想
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <h3>交互式 GPU 架构图（点击 SM 查看内部结构）</h3>
       <div class="gpu-arch-container" id="gpuArch">
         <div class="gpu-chip" id="gpuChip">

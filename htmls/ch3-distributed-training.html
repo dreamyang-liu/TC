@@ -1239,12 +1239,347 @@ mp.spawn(allreduce_example, args=(world_size,), nprocs=world_size)</code></pre>
   </div>
 
   <h3>通信与计算重叠 (Communication-Computation Overlap)</h3>
-  <p>现代框架通过以下技术隐藏通信延迟:</p>
+  <p>分布式训练的性能瓶颈往往不是通信本身, 而是 <strong>通信阻塞了计算</strong>。核心思想: 让 GPU 在等待数据传输时继续做有用的计算, 从而 "隐藏" 通信延迟。</p>
+
+  <h4>为什么可以重叠?</h4>
+  <p>现代 GPU 有独立的计算单元 (SM) 和通信引擎 (NVLink/PCIe DMA), 它们可以同时工作。只要把通信和计算放到不同的 CUDA stream 上, 硬件就能并行执行。</p>
+
+  <!-- 无重叠 vs 有重叠 对比 Gantt 图 -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 15px; font-size: 1.05em;">无重叠 (Naive): 通信和计算串行</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px; position: relative;">
+      <!-- 时间轴刻度 -->
+      <div style="position: relative; margin-left: 120px; margin-bottom: 8px; height: 20px;">
+        <div style="position: absolute; left: 0; color: #666; font-size: 0.75em;">0</div>
+        <div style="position: absolute; left: 16.6%; color: #666; font-size: 0.75em;">t1</div>
+        <div style="position: absolute; left: 33.3%; color: #666; font-size: 0.75em;">t2</div>
+        <div style="position: absolute; left: 50%; color: #666; font-size: 0.75em;">t3</div>
+        <div style="position: absolute; left: 66.6%; color: #666; font-size: 0.75em;">t4</div>
+        <div style="position: absolute; left: 83.3%; color: #666; font-size: 0.75em;">t5</div>
+        <div style="position: absolute; left: 100%; color: #666; font-size: 0.75em;">t6</div>
+      </div>
+      <!-- Compute Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 120px; color: #f78c6c; font-size: 0.85em; font-weight: 500; flex-shrink: 0;">Compute</div>
+        <div style="flex: 1; height: 36px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 0; width: 16.6%; height: 100%; background: linear-gradient(135deg, #4caf50, #66bb6a); border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L3</div>
+          <div style="position: absolute; left: 16.6%; width: 16.6%; height: 100%; background: linear-gradient(135deg, #43a047, #4caf50); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L2</div>
+          <div style="position: absolute; left: 33.3%; width: 16.6%; height: 100%; background: linear-gradient(135deg, #388e3c, #43a047); border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L1</div>
+        </div>
+      </div>
+      <!-- Comm Stream -->
+      <div style="display: flex; align-items: center;">
+        <div style="width: 120px; color: #42a5f5; font-size: 0.85em; font-weight: 500; flex-shrink: 0;">Communication</div>
+        <div style="flex: 1; height: 36px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 50%; width: 16.6%; height: 100%; background: linear-gradient(135deg, #1e88e5, #42a5f5); border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L3)</div>
+          <div style="position: absolute; left: 66.6%; width: 16.6%; height: 100%; background: linear-gradient(135deg, #1976d2, #1e88e5); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L2)</div>
+          <div style="position: absolute; left: 83.3%; width: 16.6%; height: 100%; background: linear-gradient(135deg, #1565c0, #1976d2); border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L1)</div>
+        </div>
+      </div>
+      <!-- Total time indicator -->
+      <div style="margin-left: 120px; margin-top: 10px; position: relative; height: 20px;">
+        <div style="position: absolute; left: 0; right: 0; top: 8px; border-top: 2px solid #ef5350; opacity: 0.7;"></div>
+        <div style="position: absolute; right: 0; top: 0; color: #ef5350; font-size: 0.75em;">Total = T_compute + T_comm</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 15px; font-size: 1.05em;">有重叠 (Overlap): 通信与计算并行执行</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px; position: relative;">
+      <!-- 时间轴刻度 -->
+      <div style="position: relative; margin-left: 120px; margin-bottom: 8px; height: 20px;">
+        <div style="position: absolute; left: 0; color: #666; font-size: 0.75em;">0</div>
+        <div style="position: absolute; left: 25%; color: #666; font-size: 0.75em;">t1</div>
+        <div style="position: absolute; left: 50%; color: #666; font-size: 0.75em;">t2</div>
+        <div style="position: absolute; left: 75%; color: #666; font-size: 0.75em;">t3</div>
+        <div style="position: absolute; left: 100%; color: #666; font-size: 0.75em;">t4</div>
+      </div>
+      <!-- Compute Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 120px; color: #f78c6c; font-size: 0.85em; font-weight: 500; flex-shrink: 0;">Compute</div>
+        <div style="flex: 1; height: 36px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 0; width: 33%; height: 100%; background: linear-gradient(135deg, #4caf50, #66bb6a); border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L3</div>
+          <div style="position: absolute; left: 33%; width: 33%; height: 100%; background: linear-gradient(135deg, #43a047, #4caf50); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L2</div>
+          <div style="position: absolute; left: 66%; width: 33%; height: 100%; background: linear-gradient(135deg, #388e3c, #43a047); border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd L1</div>
+        </div>
+      </div>
+      <!-- Comm Stream -->
+      <div style="display: flex; align-items: center;">
+        <div style="width: 120px; color: #42a5f5; font-size: 0.85em; font-weight: 500; flex-shrink: 0;">Communication</div>
+        <div style="flex: 1; height: 36px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 25%; width: 28%; height: 100%; background: linear-gradient(135deg, #1e88e5, #42a5f5); border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L3)</div>
+          <div style="position: absolute; left: 53%; width: 22%; height: 100%; background: linear-gradient(135deg, #1976d2, #1e88e5); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L2)</div>
+          <div style="position: absolute; left: 75%; width: 22%; height: 100%; background: linear-gradient(135deg, #1565c0, #1976d2); border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">AR(L1)</div>
+        </div>
+      </div>
+      <!-- Overlap indicator -->
+      <div style="margin-left: 120px; margin-top: 8px; position: relative; height: 28px;">
+        <div style="position: absolute; left: 25%; width: 50%; top: 4px; height: 16px; background: rgba(156, 39, 176, 0.15); border: 1px dashed #ab47bc; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 0.7em; color: #ce93d8;">overlap region</div>
+      </div>
+      <!-- Total time indicator -->
+      <div style="margin-left: 120px; margin-top: 4px; position: relative; height: 20px;">
+        <div style="position: absolute; left: 0; width: 97%; top: 8px; border-top: 2px solid #4caf50; opacity: 0.7;"></div>
+        <div style="position: absolute; right: 0; top: 0; color: #4caf50; font-size: 0.75em;">Total = max(T_compute, T_comm)</div>
+      </div>
+    </div>
+  </div>
+
+  <h4>技术 1: Gradient Bucketing (DDP)</h4>
+  <p>DDP 不会每算完一个梯度就立刻通信, 而是将多个梯度打包成 "bucket" (默认 25MB), 从最后一层开始:</p>
+  <ol>
+    <li>Backward 算完 Layer N 的梯度 → 放入 Bucket 1</li>
+    <li>Bucket 1 满了 → 触发异步 AllReduce (通信 stream)</li>
+    <li>同时, 计算 stream 继续算 Layer N-1, N-2... 的梯度</li>
+    <li>等所有 backward 做完, 前面的 AllReduce 也早已完成</li>
+  </ol>
+
+  <!-- DDP Bucketing Gantt -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">DDP Gradient Bucketing (6 层网络, 3 个 Bucket)</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px;">
+      <!-- Compute Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #f78c6c; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">Compute</div>
+        <div style="flex: 1; height: 40px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 0; width: 14%; height: 100%; background: linear-gradient(135deg, #4caf50, #66bb6a); border-radius: 4px 0 0 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500; border-right: 1px solid #2e7d32;">∇L6</div>
+          <div style="position: absolute; left: 14%; width: 14%; height: 100%; background: linear-gradient(135deg, #43a047, #4caf50); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500; border-right: 1px solid #2e7d32;">∇L5</div>
+          <div style="position: absolute; left: 28%; width: 14%; height: 100%; background: linear-gradient(135deg, #66bb6a, #81c784); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500; border-right: 1px solid #2e7d32;">∇L4</div>
+          <div style="position: absolute; left: 42%; width: 14%; height: 100%; background: linear-gradient(135deg, #43a047, #66bb6a); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500; border-right: 1px solid #2e7d32;">∇L3</div>
+          <div style="position: absolute; left: 56%; width: 14%; height: 100%; background: linear-gradient(135deg, #388e3c, #43a047); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500; border-right: 1px solid #2e7d32;">∇L2</div>
+          <div style="position: absolute; left: 70%; width: 14%; height: 100%; background: linear-gradient(135deg, #2e7d32, #388e3c); border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.7em; font-weight: 500;">∇L1</div>
+        </div>
+      </div>
+      <!-- Comm Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #42a5f5; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">Communication</div>
+        <div style="flex: 1; height: 40px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 28%; width: 24%; height: 100%; background: linear-gradient(135deg, #1e88e5, #42a5f5); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AllReduce Bucket1 (∇L6+∇L5)</div>
+          <div style="position: absolute; left: 54%; width: 24%; height: 100%; background: linear-gradient(135deg, #1976d2, #1e88e5); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AllReduce Bucket2 (∇L4+∇L3)</div>
+          <div style="position: absolute; left: 80%; width: 20%; height: 100%; background: linear-gradient(135deg, #1565c0, #1976d2); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AR Bucket3 (∇L2+∇L1)</div>
+        </div>
+      </div>
+      <!-- Bucket trigger arrows -->
+      <div style="display: flex; align-items: center;">
+        <div style="width: 100px; flex-shrink: 0;"></div>
+        <div style="flex: 1; position: relative; height: 30px; font-size: 0.7em; color: #888;">
+          <div style="position: absolute; left: 28%; top: 0;">
+            <span style="color: #ff9800;">&#9650;</span> ∇L5 完成 → Bucket1 满 → 触发
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h4>技术 2: FSDP Prefetching</h4>
+  <p>FSDP 在计算当前层时, 提前 AllGather 下一层的参数。Forward 和 Backward 都有 prefetch:</p>
+
+  <!-- FSDP Prefetch Gantt -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">FSDP Forward Pass: 参数预取 (AllGather Prefetch)</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px;">
+      <!-- Compute Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #f78c6c; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">Compute</div>
+        <div style="flex: 1; height: 40px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 5%; width: 28%; height: 100%; background: linear-gradient(135deg, #4caf50, #66bb6a); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Forward Layer 1</div>
+          <div style="position: absolute; left: 36%; width: 28%; height: 100%; background: linear-gradient(135deg, #43a047, #4caf50); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Forward Layer 2</div>
+          <div style="position: absolute; left: 67%; width: 28%; height: 100%; background: linear-gradient(135deg, #388e3c, #43a047); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Forward Layer 3</div>
+        </div>
+      </div>
+      <!-- Comm Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #ff9800; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">AllGather</div>
+        <div style="flex: 1; height: 40px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 0; width: 12%; height: 100%; background: linear-gradient(135deg, #f57c00, #ff9800); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AG L1</div>
+          <div style="position: absolute; left: 14%; width: 18%; height: 100%; background: linear-gradient(135deg, #ef6c00, #f57c00); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AG L2 (prefetch)</div>
+          <div style="position: absolute; left: 42%; width: 18%; height: 100%; background: linear-gradient(135deg, #e65100, #ef6c00); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AG L3 (prefetch)</div>
+          <div style="position: absolute; left: 72%; width: 18%; height: 100%; background: linear-gradient(135deg, #bf360c, #e65100); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.68em; font-weight: 500;">AG L4 (prefetch)</div>
+        </div>
+      </div>
+      <!-- Free memory -->
+      <div style="display: flex; align-items: center;">
+        <div style="width: 100px; color: #ef5350; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">Free params</div>
+        <div style="flex: 1; height: 28px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 34%; width: 5%; height: 100%; background: rgba(244, 67, 54, 0.6); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.6em;">L1</div>
+          <div style="position: absolute; left: 65%; width: 5%; height: 100%; background: rgba(244, 67, 54, 0.6); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.6em;">L2</div>
+          <div style="position: absolute; left: 95%; width: 5%; height: 100%; background: rgba(244, 67, 54, 0.6); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.6em;">L3</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; font-size: 0.78em; color: #888; margin-left: 100px;">
+        AG = AllGather (从其他 GPU 收集完整参数) &nbsp;|&nbsp; 计算完一层后立即释放该层参数, 节省显存
+      </div>
+    </div>
+  </div>
+
+  <!-- FSDP Backward Gantt -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">FSDP Backward Pass: 预取 + 梯度异步 ReduceScatter</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px;">
+      <!-- Compute Stream -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #f78c6c; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">Compute</div>
+        <div style="flex: 1; height: 40px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 5%; width: 28%; height: 100%; background: linear-gradient(135deg, #4caf50, #66bb6a); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd Layer 3</div>
+          <div style="position: absolute; left: 36%; width: 28%; height: 100%; background: linear-gradient(135deg, #43a047, #4caf50); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd Layer 2</div>
+          <div style="position: absolute; left: 67%; width: 28%; height: 100%; background: linear-gradient(135deg, #388e3c, #43a047); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.72em; font-weight: 500;">Bwd Layer 1</div>
+        </div>
+      </div>
+      <!-- AllGather prefetch -->
+      <div style="display: flex; align-items: center; margin-bottom: 12px;">
+        <div style="width: 100px; color: #ff9800; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">AllGather</div>
+        <div style="flex: 1; height: 32px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 0; width: 10%; height: 100%; background: linear-gradient(135deg, #f57c00, #ff9800); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">AG L3</div>
+          <div style="position: absolute; left: 20%; width: 14%; height: 100%; background: linear-gradient(135deg, #ef6c00, #f57c00); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">AG L2 (pre)</div>
+          <div style="position: absolute; left: 52%; width: 14%; height: 100%; background: linear-gradient(135deg, #e65100, #ef6c00); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">AG L1 (pre)</div>
+        </div>
+      </div>
+      <!-- ReduceScatter -->
+      <div style="display: flex; align-items: center;">
+        <div style="width: 100px; color: #ab47bc; font-size: 0.82em; font-weight: 500; flex-shrink: 0;">ReduceScatter</div>
+        <div style="flex: 1; height: 32px; position: relative; background: #1a1a2e; border-radius: 4px; border: 1px solid #2a2a3e;">
+          <div style="position: absolute; left: 34%; width: 16%; height: 100%; background: linear-gradient(135deg, #7b1fa2, #ab47bc); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">RS ∇L3</div>
+          <div style="position: absolute; left: 65%; width: 16%; height: 100%; background: linear-gradient(135deg, #6a1b9a, #7b1fa2); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">RS ∇L2</div>
+          <div style="position: absolute; left: 88%; width: 12%; height: 100%; background: linear-gradient(135deg, #4a148c, #6a1b9a); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 0.65em; font-weight: 500;">RS ∇L1</div>
+        </div>
+      </div>
+      <div style="margin-top: 12px; font-size: 0.78em; color: #888; margin-left: 100px;">
+        三条 stream 同时工作: 计算当前层梯度 | 预取下一层参数 | 发送上一层梯度
+      </div>
+    </div>
+  </div>
+
+  <h4>技术 3: Async Communication (手动控制)</h4>
+  <p>底层 API 可以手动实现 overlap:</p>
+  <pre><code><span class="comment"># 启动异步通信 (不阻塞)</span>
+handle = dist.all_reduce(gradient_bucket, async_op=<span class="keyword">True</span>)
+
+<span class="comment"># GPU 继续做其他计算...</span>
+next_layer_grad = compute_backward(next_layer)
+
+<span class="comment"># 需要结果时才等待</span>
+handle.wait()  <span class="comment"># 此时通信可能早已完成</span></code></pre>
+
+  <!-- Hardware diagram: GPU internal -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">GPU 硬件视角: 为什么能 Overlap</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 30px; display: flex; gap: 20px; align-items: stretch; flex-wrap: wrap; justify-content: center;">
+      <!-- GPU Box -->
+      <div style="border: 2px solid #667eea; border-radius: 12px; padding: 20px; min-width: 280px; position: relative;">
+        <div style="position: absolute; top: -12px; left: 16px; background: #12121f; padding: 0 8px; color: #667eea; font-weight: bold; font-size: 0.85em;">GPU</div>
+        <!-- SMs -->
+        <div style="margin-bottom: 16px;">
+          <div style="color: #4caf50; font-size: 0.78em; font-weight: 500; margin-bottom: 6px;">Streaming Multiprocessors (SMs)</div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+            <div style="background: #4caf5033; border: 1px solid #4caf50; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #81c784;">SM0</div>
+            <div style="background: #4caf5033; border: 1px solid #4caf50; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #81c784;">SM1</div>
+            <div style="background: #4caf5033; border: 1px solid #4caf50; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #81c784;">SM2</div>
+            <div style="background: #4caf5033; border: 1px solid #4caf50; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #81c784;">...</div>
+          </div>
+          <div style="color: #666; font-size: 0.7em; margin-top: 4px; text-align: center;">matmul, activation, backward...</div>
+        </div>
+        <!-- Copy Engines -->
+        <div style="margin-bottom: 16px;">
+          <div style="color: #42a5f5; font-size: 0.78em; font-weight: 500; margin-bottom: 6px;">Copy Engines (CE / DMA)</div>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px;">
+            <div style="background: #1e88e533; border: 1px solid #42a5f5; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #90caf9;">CE0 (D2D)</div>
+            <div style="background: #1e88e533; border: 1px solid #42a5f5; border-radius: 4px; padding: 6px; text-align: center; font-size: 0.65em; color: #90caf9;">CE1 (H2D)</div>
+          </div>
+          <div style="color: #666; font-size: 0.7em; margin-top: 4px; text-align: center;">NVLink/PCIe 数据搬运, 独立于 SM</div>
+        </div>
+        <!-- NVLink -->
+        <div>
+          <div style="color: #ff9800; font-size: 0.78em; font-weight: 500; margin-bottom: 6px;">NVLink / NVSwitch</div>
+          <div style="background: #ff980022; border: 1px solid #ff9800; border-radius: 4px; padding: 8px; text-align: center; font-size: 0.7em; color: #ffcc80;">900 GB/s bidirectional (Blackwell)</div>
+        </div>
+      </div>
+      <!-- Arrow -->
+      <div style="display: flex; align-items: center; color: #666; font-size: 1.5em;">&#8594;</div>
+      <!-- Explanation -->
+      <div style="min-width: 250px; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
+        <div style="background: #4caf5015; border-left: 3px solid #4caf50; padding: 10px 14px; border-radius: 0 6px 6px 0;">
+          <div style="color: #4caf50; font-size: 0.82em; font-weight: 500;">Compute Stream</div>
+          <div style="color: #aaa; font-size: 0.75em; margin-top: 4px;">kernel 在 SM 上执行<br>占用 CUDA Cores / Tensor Cores</div>
+        </div>
+        <div style="background: #1e88e515; border-left: 3px solid #42a5f5; padding: 10px 14px; border-radius: 0 6px 6px 0;">
+          <div style="color: #42a5f5; font-size: 0.82em; font-weight: 500;">Comm Stream</div>
+          <div style="color: #aaa; font-size: 0.75em; margin-top: 4px;">NCCL 通过 Copy Engine 搬数据<br>不占用 SM, 完全独立硬件</div>
+        </div>
+        <div style="background: #ab47bc15; border-left: 3px solid #ab47bc; padding: 10px 14px; border-radius: 0 6px 6px 0;">
+          <div style="color: #ab47bc; font-size: 0.82em; font-weight: 500;">关键洞察</div>
+          <div style="color: #aaa; font-size: 0.75em; margin-top: 4px;">两套硬件可以同时满负荷工作<br>软件只需放到不同 CUDA stream 即可</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h4>什么时候 Overlap 失效?</h4>
   <ul class="concept-list">
-    <li><strong>Gradient Bucketing:</strong> DDP 将梯度分组, 前面层的通信与后面层的计算重叠</li>
-    <li><strong>Prefetching:</strong> FSDP 预取下一层的参数 (AllGather)</li>
-    <li><strong>Async Communication:</strong> 使用 <code>dist.all_reduce(tensor, async_op=True)</code> 实现异步通信</li>
+    <li><strong>通信远大于计算:</strong> 小模型 + 多卡 → AllReduce 时间 >> 单层 backward 时间, 无法完全隐藏</li>
+    <li><strong>带宽不足:</strong> PCIe 连接的多节点场景, 通信瓶颈太大</li>
+    <li><strong>Bubble 阶段:</strong> Pipeline Parallelism 的 warmup/cooldown 阶段, 没有计算可以重叠</li>
+    <li><strong>单 stream 实现:</strong> 如果通信和计算在同一个 CUDA stream 上, 硬件无法并行</li>
   </ul>
+
+  <!-- Overlap failure visualization -->
+  <div style="margin: 25px 0;">
+    <div style="color: #a78bfa; font-weight: bold; margin-bottom: 12px; font-size: 0.95em;">Overlap 程度对比: 不同场景</div>
+    <div style="background: #12121f; border: 1px solid #333; border-radius: 8px; padding: 25px;">
+      <!-- Scenario 1: Perfect overlap -->
+      <div style="margin-bottom: 20px;">
+        <div style="color: #4caf50; font-size: 0.82em; font-weight: 500; margin-bottom: 8px;">理想情况: T_comm &le; T_compute (通信完全隐藏)</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Compute</div>
+          <div style="flex: 1; height: 24px; background: linear-gradient(90deg, #4caf50, #66bb6a); border-radius: 4px;"></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Comm</div>
+          <div style="flex: 1; height: 24px; position: relative; border-radius: 4px;">
+            <div style="position: absolute; left: 10%; width: 50%; height: 100%; background: linear-gradient(90deg, #1e88e5, #42a5f5); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div style="margin-left: 88px; color: #4caf50; font-size: 0.72em; margin-top: 4px;">&#10003; Effective time = T_compute only (通信被完全隐藏)</div>
+      </div>
+      <!-- Scenario 2: Partial overlap -->
+      <div style="margin-bottom: 20px;">
+        <div style="color: #ff9800; font-size: 0.82em; font-weight: 500; margin-bottom: 8px;">部分重叠: T_comm > T_compute (通信溢出)</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Compute</div>
+          <div style="flex: 1; height: 24px; position: relative; border-radius: 4px;">
+            <div style="position: absolute; left: 0; width: 50%; height: 100%; background: linear-gradient(90deg, #4caf50, #66bb6a); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Comm</div>
+          <div style="flex: 1; height: 24px; position: relative; border-radius: 4px;">
+            <div style="position: absolute; left: 10%; width: 80%; height: 100%; background: linear-gradient(90deg, #1e88e5, #42a5f5); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div style="margin-left: 88px; color: #ff9800; font-size: 0.72em; margin-top: 4px;">&#9888; Compute 完成后还要等通信结束, 产生 idle bubble</div>
+      </div>
+      <!-- Scenario 3: No overlap -->
+      <div>
+        <div style="color: #ef5350; font-size: 0.82em; font-weight: 500; margin-bottom: 8px;">无重叠: 同一 stream 或同步通信</div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Compute</div>
+          <div style="flex: 1; height: 24px; position: relative; border-radius: 4px;">
+            <div style="position: absolute; left: 0; width: 40%; height: 100%; background: linear-gradient(90deg, #4caf50, #66bb6a); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <div style="width: 80px; color: #888; font-size: 0.75em; flex-shrink: 0;">Comm</div>
+          <div style="flex: 1; height: 24px; position: relative; border-radius: 4px;">
+            <div style="position: absolute; left: 45%; width: 50%; height: 100%; background: linear-gradient(90deg, #1e88e5, #42a5f5); border-radius: 4px;"></div>
+          </div>
+        </div>
+        <div style="margin-left: 88px; color: #ef5350; font-size: 0.72em; margin-top: 4px;">&#10007; Total = T_compute + T_comm, 完全浪费</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <strong>经验法则:</strong> 当 <code>通信时间 / 计算时间 &le; 1</code> 时, overlap 几乎能完全隐藏通信开销。实际调优时用 <code>torch.profiler</code> 的 trace view 观察两条 stream 是否真正并行。
+  </div>
 </div>
 
 <!-- Exercises -->
