@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二分查找 - 统一模板法</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { color: #76b900; font-size: 2em; margin: 20px 0; }
+h2 { color: #76b900; font-size: 1.5em; margin: 30px 0 15px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+h3 { color: #00d4aa; font-size: 1.2em; margin: 20px 0 10px; }
+p { margin: 10px 0; }
+code {
+  background: #1a1a3a;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+  color: #00d4aa;
+}
+pre {
+  background: #1a1a3a;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 15px 0;
+  border-left: 3px solid #76b900;
+}
+pre code { background: none; padding: 0; color: #e0e0e0; }
+.nav-top { margin-bottom: 20px; }
+.nav-bottom { display: flex; justify-content: space-between; margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; }
+.progress-bar {
+  background: #1a1a3a;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 15px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.progress-bar .count { color: #76b900; font-weight: bold; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+th, td {
+  border: 1px solid #333;
+  padding: 10px 12px;
+  text-align: left;
+}
+th { background: #1a1a3a; color: #76b900; }
+td { background: #0a0a1a; }
+.card {
+  background: #1a1a3a;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 15px 0;
+  border: 1px solid #333;
+}
+.highlight { color: #76b900; font-weight: bold; }
+.accent { color: #00d4aa; }
+/* Animation containers */
+.anim-container {
+  background: #0a0a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.array-display {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.array-cell {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #444;
+  border-radius: 6px;
+  font-weight: bold;
+  font-size: 1.1em;
+  transition: all 0.3s ease;
+  position: relative;
+}
+.array-cell.in-range { background: #1a2a1a; border-color: #76b900; }
+.array-cell.mid-cell { background: #2a2a0a; border-color: #ffd700; color: #ffd700; }
+.array-cell.found { background: #0a2a2a; border-color: #00d4aa; color: #00d4aa; }
+.array-cell.out-range { opacity: 0.3; }
+.pointer-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 5px;
+}
+.pointer-cell {
+  width: 50px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+.ptr-left { color: #76b900; }
+.ptr-right { color: #ff6b6b; }
+.ptr-mid { color: #ffd700; }
+.anim-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 15px;
+}
+.btn {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+  transition: opacity 0.2s;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-secondary { background: #00d4aa; }
+.anim-log {
+  margin-top: 12px;
+  padding: 10px;
+  background: #0f0f23;
+  border-radius: 6px;
+  font-size: 0.85em;
+  min-height: 30px;
+  color: #aaa;
+}
+/* Rotated array */
+.cliff-marker {
+  position: absolute;
+  top: -18px;
+  font-size: 0.7em;
+  color: #ff6b6b;
+}
+/* Exercises */
+.exercise-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+.exercise-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #76b900;
+  cursor: pointer;
+}
+.exercise-item.completed a { color: #666; text-decoration: line-through; }
+/* Think questions */
+.think-q {
+  background: #1a1a2a;
+  border-left: 3px solid #00d4aa;
+  padding: 12px 16px;
+  margin: 10px 0;
+  border-radius: 0 6px 6px 0;
+}
+.think-q summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #00d4aa;
+}
+.think-q p { margin-top: 8px; color: #bbb; }
+/* Decision flow */
+.flow-step {
+  padding: 10px 16px;
+  margin: 8px 0;
+  border-radius: 6px;
+  background: #1a1a2a;
+  border-left: 3px solid #76b900;
+  counter-increment: step;
+}
+.flow-step::before {
+  content: counter(step) ". ";
+  color: #76b900;
+  font-weight: bold;
+}
+.flow-container { counter-reset: step; }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.5em; }
+  .array-cell { width: 38px; height: 38px; font-size: 0.9em; }
+  .pointer-cell { width: 38px; font-size: 0.65em; }
+  table { font-size: 0.85em; }
+  th, td { padding: 6px 8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="nav-top">
+  <a href="algorithms-index.html">&larr; 返回算法目录</a>
+</div>
+
+<h1>二分查找 - 统一模板法</h1>
+
+<div class="progress-bar">
+  <span>练习进度：</span>
+  <span class="count" id="progress-count">已完成 0/7</span>
+</div>
+
+<!-- 核心模板 -->
+<h2>核心模板</h2>
+<p>所有二分查找题目，都可以套用同一个模板。记住这一个就够了：</p>
+<pre><code>left, right = 0, len(nums) - 1
+while left < right:
+    mid = (left + right) // 2
+    if condition(mid):
+        right = mid
+    else:
+        left = mid + 1
+return left</code></pre>
+
+<p>核心思想：每次循环把搜索空间砍掉一半，最终 <code>left == right</code> 时就是答案。</p>
+
+<!-- Why it works -->
+<h2>为什么它是对的？</h2>
+<div class="card">
+  <h3>1. 不会死循环</h3>
+  <p><code>mid = (left + right) // 2</code> 是<span class="highlight">向下取整</span>，所以 <code>mid &lt; right</code> 恒成立。</p>
+  <p>这意味着 <code>right = mid</code> 一定能让区间变小，循环一定会终止。</p>
+
+  <h3>2. 不会跳过答案</h3>
+  <p>当 <code>condition(mid)</code> 成立时，<code>right = mid</code>（保留 mid），不是 <code>mid - 1</code>。</p>
+  <p>答案永远在 <code>[left, right]</code> 之内。</p>
+
+  <h3>3. 结束时 left == right</h3>
+  <p>循环条件是 <code>left &lt; right</code>，退出时必然 <code>left == right</code>，不需要纠结返回谁。</p>
+</div>
+
+<!-- 统一套法表 -->
+<h2>统一套法表</h2>
+<table>
+  <tr><th>你想找</th><th>condition(mid)</th><th>返回</th></tr>
+  <tr><td>最左的满足 X</td><td>X</td><td><code>left</code></td></tr>
+  <tr><td>最右的满足 X</td><td>NOT X（反转条件）</td><td><code>left - 1</code></td></tr>
+</table>
+<p>只要想清楚 <span class="accent">"什么条件下 mid 可能是答案或者答案在左边"</span>，就是 <code>condition(mid)</code>。</p>
+
+<!-- 常见题目示例 -->
+<h2>常见题目套用</h2>
+<table>
+  <tr><th>题目</th><th>condition(mid)</th><th>说明</th></tr>
+  <tr><td>旋转数组最小值</td><td><code>nums[mid] &lt;= nums[right]</code></td><td>mid 在右半段或就是最小值</td></tr>
+  <tr><td>第一个 &gt;= target</td><td><code>nums[mid] &gt;= target</code></td><td>找最左满足</td></tr>
+  <tr><td>第一个 &gt; target</td><td><code>nums[mid] &gt; target</code></td><td>找最左满足</td></tr>
+  <tr><td>最右的 &lt;= target</td><td><code>nums[mid] &gt; target</code></td><td>反转 → 返回 <code>left-1</code></td></tr>
+  <tr><td>求 sqrt(x)</td><td><code>mid * mid &gt;= x</code></td><td>找第一个平方 &gt;= x</td></tr>
+</table>
+
+<!-- 取整方向规则 -->
+<h2>取整方向规则</h2>
+<div class="card">
+  <p><span class="highlight">mid 的取整方向必须远离保留的那端。</span></p>
+  <p>标准模板用 <code>right = mid</code> 保留右端，所以 mid 向下取整（远离 right）。</p>
+  <p>如果你反过来写 <code>left = mid</code> 保留左端，就必须向上取整：<code>mid = (left + right + 1) // 2</code>。</p>
+  <p>记不住？<span class="accent">就只用标准模板，不用记这条规则。</span></p>
+</div>
+
+<!-- 动画1: Binary Search Visualization -->
+<h2>动画演示：查找第一个 &gt;= 7</h2>
+<p>数组 <code>[1, 3, 5, 7, 9, 11, 13, 15]</code>，使用模板查找第一个 &gt;= 7 的元素。</p>
+
+<div class="anim-container" id="anim1">
+  <div class="array-display" id="anim1-array"></div>
+  <div class="pointer-row" id="anim1-ptrs"></div>
+  <div class="anim-controls">
+    <button class="btn" id="anim1-step">下一步</button>
+    <button class="btn btn-secondary" id="anim1-reset">重置</button>
+  </div>
+  <div class="anim-log" id="anim1-log">点击"下一步"开始演示</div>
+</div>
+
+<!-- 动画2: Rotated Array -->
+<h2>动画演示：旋转数组找最小值</h2>
+<p>数组 <code>[4, 5, 6, 7, 0, 1, 2]</code>，存在一个"断崖"。比较 <code>nums[mid]</code> 和 <code>nums[right]</code> 来判断最小值在哪半边。</p>
+
+<div class="anim-container" id="anim2">
+  <div class="array-display" id="anim2-array"></div>
+  <div class="pointer-row" id="anim2-ptrs"></div>
+  <div class="anim-controls">
+    <button class="btn" id="anim2-step">下一步</button>
+    <button class="btn btn-secondary" id="anim2-reset">重置</button>
+  </div>
+  <div class="anim-log" id="anim2-log">点击"下一步"开始演示</div>
+</div>
+
+<!-- 做题决策流程 -->
+<h2>做题决策流程</h2>
+<div class="flow-container">
+  <div class="flow-step"><strong>我在找什么？</strong> → 确定搜索空间（数组下标？答案范围？）</div>
+  <div class="flow-step"><strong>什么条件能排除一半？</strong> → 写出 <code>condition(mid)</code></div>
+  <div class="flow-step"><strong>找最左还是最右？</strong> → 最左用标准模板返回 <code>left</code>；最右反转条件返回 <code>left - 1</code></div>
+  <div class="flow-step"><strong>结束后检查合法性</strong> → 答案可能不存在时，检查 <code>nums[left]</code> 是否真的满足要求</div>
+</div>
+
+<!-- 思考题 -->
+<h2>思考题</h2>
+
+<details class="think-q">
+  <summary>为什么 <code>while left &lt; right</code> 不用 <code>&lt;=</code>？如果用了会怎样？</summary>
+  <p>如果用 <code>&lt;=</code>，当 <code>left == right</code> 时循环还会继续执行。此时 <code>mid == left == right</code>，如果 <code>condition(mid)</code> 为真则 <code>right = mid</code>，区间没变小，死循环！用 <code>&lt;</code> 保证退出时 <code>left == right</code>，既不死循环，又能定位答案。</p>
+</details>
+
+<details class="think-q">
+  <summary>如果把 <code>right = mid</code> 改成 <code>right = mid - 1</code>，什么情况会出错？</summary>
+  <p>当 mid 本身就是答案时，<code>right = mid - 1</code> 会把答案排除出搜索空间。比如找第一个 &gt;= 7，数组是 [1,3,5,7]，如果 mid 指向 7，设 <code>right = mid - 1</code> 就跳过了唯一正确答案。</p>
+</details>
+
+<details class="think-q">
+  <summary>"找最右的满足条件" 为什么可以转化为 "找最左的不满足条件 - 1"？</summary>
+  <p>假设满足条件的元素是一段连续区间 [a, b]，那么第一个不满足条件的位置是 b+1。找到 b+1 后减 1 就是 b（最右满足的位置）。这利用了二分查找的有序性：满足条件的元素必然连续排列在一起。</p>
+</details>
+
+<!-- LeetCode 练习 -->
+<h2>LeetCode 练习</h2>
+
+<h3>热身</h3>
+<div id="exercises-warmup">
+  <div class="exercise-item" data-id="704">
+    <input type="checkbox" id="ex-704">
+    <label for="ex-704"><a href="https://leetcode.cn/problems/binary-search/" target="_blank">704. 二分查找</a></label>
+  </div>
+  <div class="exercise-item" data-id="35">
+    <input type="checkbox" id="ex-35">
+    <label for="ex-35"><a href="https://leetcode.cn/problems/search-insert-position/" target="_blank">35. 搜索插入位置</a></label>
+  </div>
+  <div class="exercise-item" data-id="153">
+    <input type="checkbox" id="ex-153">
+    <label for="ex-153"><a href="https://leetcode.cn/problems/find-minimum-in-rotated-sorted-array/" target="_blank">153. 寻找旋转排序数组中的最小值</a></label>
+  </div>
+</div>
+
+<h3>进阶</h3>
+<div id="exercises-advanced">
+  <div class="exercise-item" data-id="33">
+    <input type="checkbox" id="ex-33">
+    <label for="ex-33"><a href="https://leetcode.cn/problems/search-in-rotated-sorted-array/" target="_blank">33. 搜索旋转排序数组</a></label>
+  </div>
+  <div class="exercise-item" data-id="34">
+    <input type="checkbox" id="ex-34">
+    <label for="ex-34"><a href="https://leetcode.cn/problems/find-first-and-last-position-of-element-in-sorted-array/" target="_blank">34. 在排序数组中查找元素的第一个和最后一个位置</a></label>
+  </div>
+  <div class="exercise-item" data-id="69">
+    <input type="checkbox" id="ex-69">
+    <label for="ex-69"><a href="https://leetcode.cn/problems/sqrtx/" target="_blank">69. x 的平方根</a></label>
+  </div>
+  <div class="exercise-item" data-id="875">
+    <input type="checkbox" id="ex-875">
+    <label for="ex-875"><a href="https://leetcode.cn/problems/koko-eating-bananas/" target="_blank">875. 爱吃香蕉的珂珂</a></label>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav-bottom">
+  <a href="algorithms-index.html">&larr; 上一篇</a>
+  <a href="algorithms-index.html">下一篇 &rarr;</a>
+</div>
+
+<script>
+// === Progress tracking ===
+const STORAGE_KEY = 'algo-progress-binary-search';
+const exerciseIds = ['704', '35', '153', '33', '34', '69', '875'];
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { return {}; }
+}
+
+function saveProgress(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function updateProgressDisplay() {
+  const data = loadProgress();
+  const done = exerciseIds.filter(id => data[id]).length;
+  document.getElementById('progress-count').textContent = `已完成 ${done}/${exerciseIds.length}`;
+}
+
+function initExercises() {
+  const data = loadProgress();
+  exerciseIds.forEach(id => {
+    const cb = document.getElementById(`ex-${id}`);
+    if (!cb) return;
+    cb.checked = !!data[id];
+    if (data[id]) cb.closest('.exercise-item').classList.add('completed');
+    cb.addEventListener('change', () => {
+      const d = loadProgress();
+      d[id] = cb.checked;
+      saveProgress(d);
+      cb.closest('.exercise-item').classList.toggle('completed', cb.checked);
+      updateProgressDisplay();
+    });
+  });
+  updateProgressDisplay();
+}
+
+// === Animation 1: Binary search for first >= 7 ===
+(function() {
+  const nums = [1, 3, 5, 7, 9, 11, 13, 15];
+  const target = 7;
+  let left, right, mid, step, done;
+
+  function reset() {
+    left = 0; right = nums.length - 1; mid = -1; step = 0; done = false;
+    render();
+    document.getElementById('anim1-log').textContent = '点击"下一步"开始演示';
+    document.getElementById('anim1-step').disabled = false;
+  }
+
+  function render() {
+    const arrEl = document.getElementById('anim1-array');
+    const ptrEl = document.getElementById('anim1-ptrs');
+    arrEl.innerHTML = '';
+    ptrEl.innerHTML = '';
+    nums.forEach((n, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'array-cell';
+      if (done && i === left) cell.classList.add('found');
+      else if (i >= left && i <= right) cell.classList.add('in-range');
+      else cell.classList.add('out-range');
+      if (i === mid && !done) cell.classList.add('mid-cell');
+      cell.textContent = n;
+      arrEl.appendChild(cell);
+
+      const ptr = document.createElement('div');
+      ptr.className = 'pointer-cell';
+      let labels = [];
+      if (i === left) labels.push('<span class="ptr-left">L</span>');
+      if (i === right) labels.push('<span class="ptr-right">R</span>');
+      if (i === mid && !done) labels.push('<span class="ptr-mid">M</span>');
+      ptr.innerHTML = labels.join(' ');
+      ptrEl.appendChild(ptr);
+    });
+  }
+
+  function advance() {
+    if (done) return;
+    if (left >= right) {
+      done = true;
+      mid = -1;
+      render();
+      document.getElementById('anim1-log').textContent =
+        `结束！left == right == ${left}，nums[${left}] = ${nums[left]} 就是第一个 >= ${target} 的元素。`;
+      document.getElementById('anim1-step').disabled = true;
+      return;
+    }
+    mid = Math.floor((left + right) / 2);
+    const cond = nums[mid] >= target;
+    let msg = `mid = ${mid}, nums[${mid}] = ${nums[mid]}`;
+    if (cond) {
+      msg += ` >= ${target} ✓ → right = mid = ${mid}`;
+      right = mid;
+    } else {
+      msg += ` < ${target} ✗ → left = mid + 1 = ${mid + 1}`;
+      left = mid + 1;
+    }
+    render();
+    document.getElementById('anim1-log').textContent = msg;
+    if (left >= right) {
+      setTimeout(advance, 100);
+    }
+  }
+
+  document.getElementById('anim1-step').addEventListener('click', advance);
+  document.getElementById('anim1-reset').addEventListener('click', reset);
+  reset();
+})();
+
+// === Animation 2: Rotated array find minimum ===
+(function() {
+  const nums = [4, 5, 6, 7, 0, 1, 2];
+  let left, right, mid, done;
+
+  function reset() {
+    left = 0; right = nums.length - 1; mid = -1; done = false;
+    render();
+    document.getElementById('anim2-log').textContent = '点击"下一步"开始演示。注意 7→0 处的断崖！';
+    document.getElementById('anim2-step').disabled = false;
+  }
+
+  function render() {
+    const arrEl = document.getElementById('anim2-array');
+    const ptrEl = document.getElementById('anim2-ptrs');
+    arrEl.innerHTML = '';
+    ptrEl.innerHTML = '';
+    nums.forEach((n, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'array-cell';
+      if (done && i === left) cell.classList.add('found');
+      else if (i >= left && i <= right) cell.classList.add('in-range');
+      else cell.classList.add('out-range');
+      if (i === mid && !done) cell.classList.add('mid-cell');
+      cell.textContent = n;
+      // cliff marker
+      if (i === 3) {
+        const cliff = document.createElement('span');
+        cliff.className = 'cliff-marker';
+        cliff.textContent = '断崖↓';
+        cell.appendChild(cliff);
+      }
+      arrEl.appendChild(cell);
+
+      const ptr = document.createElement('div');
+      ptr.className = 'pointer-cell';
+      let labels = [];
+      if (i === left) labels.push('<span class="ptr-left">L</span>');
+      if (i === right) labels.push('<span class="ptr-right">R</span>');
+      if (i === mid && !done) labels.push('<span class="ptr-mid">M</span>');
+      ptr.innerHTML = labels.join(' ');
+      ptrEl.appendChild(ptr);
+    });
+  }
+
+  function advance() {
+    if (done) return;
+    if (left >= right) {
+      done = true;
+      mid = -1;
+      render();
+      document.getElementById('anim2-log').textContent =
+        `结束！left == right == ${left}，nums[${left}] = ${nums[left]} 就是最小值。`;
+      document.getElementById('anim2-step').disabled = true;
+      return;
+    }
+    mid = Math.floor((left + right) / 2);
+    const cond = nums[mid] <= nums[right];
+    let msg = `mid = ${mid}, nums[${mid}] = ${nums[mid]}, nums[right] = nums[${right}] = ${nums[right]}`;
+    if (cond) {
+      msg += ` → nums[mid] <= nums[right]，最小值在左半边（含 mid）→ right = ${mid}`;
+      right = mid;
+    } else {
+      msg += ` → nums[mid] > nums[right]，断崖在右边 → left = ${mid + 1}`;
+      left = mid + 1;
+    }
+    render();
+    document.getElementById('anim2-log').textContent = msg;
+    if (left >= right) {
+      setTimeout(advance, 100);
+    }
+  }
+
+  document.getElementById('anim2-step').addEventListener('click', advance);
+  document.getElementById('anim2-reset').addEventListener('click', reset);
+  reset();
+})();
+
+// Init
+initExercises();
+</script>
+</body>
+</html>

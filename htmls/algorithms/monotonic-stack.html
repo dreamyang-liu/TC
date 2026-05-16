@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单调栈 - Monotonic Stack</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 1.8em; }
+h2 { color: #00d4aa; margin: 30px 0 12px; font-size: 1.4em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+h3 { color: #76b900; margin: 20px 0 8px; font-size: 1.1em; }
+p { margin: 10px 0; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; }
+pre {
+  background: #1a1a2e;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-left: 3px solid #76b900;
+}
+pre code { background: none; padding: 0; }
+.accent { color: #76b900; }
+.accent2 { color: #00d4aa; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.nav a {
+  color: #00d4aa;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #00d4aa;
+  border-radius: 4px;
+  font-size: 0.85em;
+  transition: all 0.2s;
+}
+.nav a:hover { background: #00d4aa; color: #0f0f23; }
+.tip {
+  background: #1a2a1a;
+  border-left: 3px solid #76b900;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.variant-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.9em;
+}
+.variant-table th, .variant-table td {
+  border: 1px solid #333;
+  padding: 8px 12px;
+  text-align: center;
+}
+.variant-table th { background: #1a1a2e; color: #76b900; }
+.variant-table td { background: #0a0a1a; }
+
+/* Animation area */
+.anim-container {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.anim-controls {
+  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+}
+.anim-controls button {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+  transition: all 0.2s;
+}
+.anim-controls button:hover { background: #8ed000; }
+.anim-controls button:disabled { background: #555; color: #999; cursor: not-allowed; }
+.speed-label { color: #aaa; font-size: 0.85em; }
+.array-vis {
+  display: flex; gap: 4px; margin: 12px 0; flex-wrap: wrap; align-items: flex-end;
+}
+.arr-item {
+  display: flex; flex-direction: column; align-items: center; transition: all 0.3s;
+}
+.arr-bar {
+  width: 44px;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 4px;
+  color: #e0e0e0;
+  font-weight: bold;
+  font-size: 0.85em;
+  transition: all 0.3s;
+}
+.arr-bar.current { background: #76b900; color: #0f0f23; }
+.arr-bar.in-stack { background: #00d4aa; color: #0f0f23; }
+.arr-bar.popped { background: #ff6b6b; color: #fff; }
+.arr-bar.done { background: #555; }
+.arr-idx { font-size: 0.75em; color: #888; margin-top: 4px; }
+.arr-ans { font-size: 0.75em; color: #76b900; margin-top: 2px; min-height: 16px; }
+.stack-vis {
+  display: flex; align-items: flex-end; gap: 4px; margin: 12px 0; min-height: 80px;
+  border-bottom: 2px solid #555; padding: 8px 0;
+}
+.stack-item {
+  width: 40px; background: #00d4aa; color: #0f0f23; text-align: center;
+  padding: 6px 4px; border-radius: 4px; font-weight: bold; font-size: 0.85em;
+  transition: all 0.3s;
+}
+.step-info {
+  color: #aaa; font-size: 0.9em; margin: 8px 0; min-height: 24px;
+}
+.step-info .hl { color: #76b900; font-weight: bold; }
+
+/* Thinking questions */
+.question {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 10px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.question:hover { border-color: #76b900; }
+.question .q-title { color: #00d4aa; font-weight: bold; }
+.question .q-answer { display: none; margin-top: 10px; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
+.question.open .q-answer { display: block; }
+
+/* LeetCode section */
+.lc-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.lc-item {
+  display: flex; align-items: center; gap: 6px;
+}
+.lc-item a {
+  color: #00d4aa; text-decoration: none; font-size: 0.9em;
+}
+.lc-item a:hover { text-decoration: underline; }
+.lc-item input[type="checkbox"] { accent-color: #76b900; width: 16px; height: 16px; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.4em; }
+  .arr-bar { width: 36px; }
+  .stack-item { width: 34px; }
+  .anim-controls { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="algorithms-index.html">← 目录</a>
+  <div>
+    <a href="sliding-window.html">← 滑动窗口</a>
+    <a href="monotonic-queue.html">单调队列 →</a>
+  </div>
+</nav>
+
+<h1>单调栈 Monotonic Stack</h1>
+<p>栈里存<span class="accent">"还在等下一个更大/更小元素"</span>的下标。新元素来了就清理栈里被它"打败"的人。</p>
+
+<h2>核心模板</h2>
+<p>下一个更大元素 (Next Greater Element):</p>
+<pre><code>def next_greater(nums):
+    n = len(nums)
+    ans = [-1] * n
+    stack = []  # 存下标，栈底到栈顶递减
+    for i, x in enumerate(nums):
+        while stack and nums[stack[-1]] < x:
+            ans[stack.pop()] = x  # x 就是被弹出元素的答案
+        stack.append(i)
+    return ans</code></pre>
+
+<div class="tip">
+<strong>一句话理解：</strong>栈是"候选人等待区"。新人来了，比栈顶强的就把栈顶淘汰——"我就是你要找的更大元素！"
+</div>
+
+<h2>四种变体</h2>
+<p>只需改<span class="accent2">两个地方</span>：比较方向 和 遍历方向。</p>
+
+<table class="variant-table">
+<tr><th>目标</th><th>栈的单调性</th><th>比较条件</th><th>遍历方向</th></tr>
+<tr><td>下一个更大</td><td>递减栈</td><td><code>&lt; x</code></td><td>从左到右</td></tr>
+<tr><td>下一个更小</td><td>递增栈</td><td><code>&gt; x</code></td><td>从左到右</td></tr>
+<tr><td>上一个更大</td><td>递减栈</td><td><code>&lt; x</code></td><td>从右到左</td></tr>
+<tr><td>上一个更小</td><td>递增栈</td><td><code>&gt; x</code></td><td>从右到左</td></tr>
+</table>
+
+<div class="tip">
+<strong>口诀：</strong>找更大 → 栈递减；找更小 → 栈递增。<br>
+<em>（栈和目标相反！想找大的，栈里存的是从大到小排列的候选人）</em>
+</div>
+
+<h2>进阶：贡献法</h2>
+<p>经典应用：<strong>柱状图中最大的矩形</strong>（LC 84）。对每根柱子，用单调栈同时找到它左边和右边第一个比它矮的柱子，就能算出以它为高度的最大矩形宽度。</p>
+<pre><code># 贡献法：每个柱子的贡献 = height[i] * (right[i] - left[i] - 1)
+def largestRectangleArea(heights):
+    heights = [0] + heights + [0]  # 哨兵
+    stack = []
+    ans = 0
+    for i, h in enumerate(heights):
+        while stack and heights[stack[-1]] > h:
+            mid = stack.pop()
+            ans = max(ans, heights[mid] * (i - stack[-1] - 1))
+        stack.append(i)
+    return ans</code></pre>
+
+<h2>动画演示</h2>
+<p>数组 <code>[2, 1, 5, 6, 2, 3]</code> 求"下一个更大元素"：</p>
+
+<div class="anim-container">
+  <div class="anim-controls">
+    <button id="btn-reset">重置</button>
+    <button id="btn-step">下一步</button>
+    <button id="btn-play">自动播放</button>
+    <span class="speed-label">速度：</span>
+    <input type="range" id="speed-slider" min="300" max="2000" value="1000" style="width:100px;">
+  </div>
+  <div class="step-info" id="step-info">点击"下一步"开始</div>
+  <h3 style="margin:12px 0 4px; font-size:0.9em;">数组：</h3>
+  <div class="array-vis" id="array-vis"></div>
+  <h3 style="margin:12px 0 4px; font-size:0.9em;">栈（栈底 → 栈顶）：</h3>
+  <div class="stack-vis" id="stack-vis"></div>
+</div>
+
+<h2>思考题</h2>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">1. 为什么单调递减栈能找"下一个更大"？</div>
+  <div class="q-answer">因为栈维护的是一个递减序列（从底到顶），当新元素 x 比栈顶大时，说明 x 是栈顶第一次遇到的比它大的元素。栈顶一直在"等"，终于等到了打败它的人。而如果 x 比栈顶小，x 自己也还在等，入栈继续排队。</div>
+</div>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">2. 栈里存下标而不是值有什么好处？</div>
+  <div class="q-answer">存下标可以通过 <code>nums[stack[-1]]</code> 随时拿到值，同时还能利用下标信息——比如计算距离（LC 739 每日温度）、判断窗口范围（单调队列中的过期检查）、计算矩形宽度（LC 84）等。存值就丢失了位置信息。</div>
+</div>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">3. 柱状图最大矩形中，为什么要在末尾加一个0？</div>
+  <div class="q-answer">加末尾的 0 是为了确保遍历结束后栈中所有剩余元素都被弹出（因为 0 比任何正数都小）。加开头的 0 是为了在弹出时 <code>stack[-1]</code> 不越界，充当左边界哨兵。这样就不需要额外处理栈为空的边界情况。</div>
+</div>
+
+<h2>LeetCode 练习</h2>
+
+<h3>热身</h3>
+<div class="lc-list" id="lc-warmup"></div>
+
+<h3>进阶</h3>
+<div class="lc-list" id="lc-advanced"></div>
+
+<script>
+const STORAGE_KEY = 'algo-progress-monotonic-stack';
+const nums = [2, 1, 5, 6, 2, 3];
+const n = nums.length;
+const maxVal = Math.max(...nums);
+
+// LeetCode problems
+const warmup = [
+  {id: 496, name: 'Next Greater Element I'},
+  {id: 739, name: 'Daily Temperatures'},
+  {id: 503, name: 'Next Greater Element II'},
+];
+const advanced = [
+  {id: 84, name: 'Largest Rectangle in Histogram'},
+  {id: 85, name: 'Maximal Rectangle'},
+  {id: 42, name: 'Trapping Rain Water'},
+  {id: 907, name: 'Sum of Subarray Minimums'},
+  {id: 316, name: 'Remove Duplicate Letters'},
+];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+function renderLC(containerId, problems) {
+  const container = document.getElementById(containerId);
+  const progress = loadProgress();
+  container.innerHTML = '';
+  problems.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'lc-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!progress[p.id];
+    cb.onchange = () => { const pr = loadProgress(); pr[p.id] = cb.checked; saveProgress(pr); };
+    const a = document.createElement('a');
+    a.href = `https://leetcode.com/problems/${p.name.toLowerCase().replace(/\s+/g, '-')}/`;
+    a.target = '_blank';
+    a.textContent = `${p.id}. ${p.name}`;
+    div.appendChild(cb);
+    div.appendChild(a);
+    container.appendChild(div);
+  });
+}
+renderLC('lc-warmup', warmup);
+renderLC('lc-advanced', advanced);
+
+// Animation logic
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function generateSteps() {
+  steps = [];
+  let stack = [];
+  let ans = Array(n).fill(-1);
+  // Initial state
+  steps.push({ type: 'init', stack: [], ans: [...ans], current: -1, popped: [], info: '初始状态：栈为空，开始遍历数组' });
+  for (let i = 0; i < n; i++) {
+    let x = nums[i];
+    steps.push({ type: 'visit', stack: [...stack], ans: [...ans], current: i, popped: [], info: `访问 nums[${i}] = <span class="hl">${x}</span>` });
+    let popped = [];
+    while (stack.length && nums[stack[stack.length-1]] < x) {
+      let top = stack.pop();
+      ans[top] = x;
+      popped.push(top);
+      steps.push({ type: 'pop', stack: [...stack], ans: [...ans], current: i, popped: [...popped], info: `弹出 ${nums[top]}（下标${top}），它的下一个更大元素是 <span class="hl">${x}</span>` });
+    }
+    stack.push(i);
+    steps.push({ type: 'push', stack: [...stack], ans: [...ans], current: i, popped: [], info: `将 ${x}（下标${i}）入栈` });
+  }
+  steps.push({ type: 'done', stack: [...stack], ans: [...ans], current: -1, popped: [], info: '遍历结束！栈中剩余元素的答案为 -1（没有更大元素）' });
+}
+generateSteps();
+
+function renderState(step) {
+  const arrayVis = document.getElementById('array-vis');
+  const stackVis = document.getElementById('stack-vis');
+  const stepInfo = document.getElementById('step-info');
+  stepInfo.innerHTML = step.info;
+
+  arrayVis.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const item = document.createElement('div');
+    item.className = 'arr-item';
+    const bar = document.createElement('div');
+    bar.className = 'arr-bar';
+    bar.style.height = (nums[i] / maxVal * 80 + 20) + 'px';
+    if (i === step.current) bar.classList.add('current');
+    else if (step.popped.includes(i)) bar.classList.add('popped');
+    else if (step.stack.includes(i)) bar.classList.add('in-stack');
+    else if (step.ans[i] !== -1) bar.classList.add('done');
+    bar.textContent = nums[i];
+    const idx = document.createElement('div');
+    idx.className = 'arr-idx';
+    idx.textContent = `i=${i}`;
+    const ansDiv = document.createElement('div');
+    ansDiv.className = 'arr-ans';
+    ansDiv.textContent = step.ans[i] !== -1 ? `→${step.ans[i]}` : '';
+    item.appendChild(bar);
+    item.appendChild(idx);
+    item.appendChild(ansDiv);
+    arrayVis.appendChild(item);
+  }
+
+  stackVis.innerHTML = '';
+  if (step.stack.length === 0) {
+    stackVis.innerHTML = '<span style="color:#666;font-size:0.85em;">（空）</span>';
+  } else {
+    step.stack.forEach(si => {
+      const el = document.createElement('div');
+      el.className = 'stack-item';
+      el.textContent = nums[si];
+      el.title = `下标 ${si}`;
+      stackVis.appendChild(el);
+    });
+  }
+}
+
+function doStep() {
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    renderState(steps[currentStep]);
+  } else {
+    stopPlay();
+  }
+  updateButtons();
+}
+
+function reset() {
+  stopPlay();
+  currentStep = -1;
+  document.getElementById('step-info').innerHTML = '点击"下一步"开始';
+  document.getElementById('array-vis').innerHTML = '';
+  document.getElementById('stack-vis').innerHTML = '';
+  // Show initial array
+  renderState(steps[0]);
+  currentStep = 0;
+  updateButtons();
+}
+
+function stopPlay() { playing = false; clearInterval(playTimer); updateButtons(); }
+
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true;
+  updateButtons();
+  const speed = document.getElementById('speed-slider').value;
+  playTimer = setInterval(() => {
+    if (currentStep >= steps.length - 1) { stopPlay(); return; }
+    doStep();
+  }, speed);
+}
+
+function updateButtons() {
+  document.getElementById('btn-step').disabled = currentStep >= steps.length - 1;
+  document.getElementById('btn-play').textContent = playing ? '暂停' : '自动播放';
+}
+
+document.getElementById('btn-reset').onclick = reset;
+document.getElementById('btn-step').onclick = doStep;
+document.getElementById('btn-play').onclick = togglePlay;
+document.getElementById('speed-slider').onchange = () => { if (playing) { stopPlay(); togglePlay(); } };
+
+// Init
+reset();
+</script>
+
+</body>
+</html>

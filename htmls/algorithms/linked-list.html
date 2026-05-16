@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>链表核心操作</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; position: relative; overflow: hidden; }
+.nav { display: flex; justify-content: space-between; margin: 2rem 0 1rem; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; transition: all 0.2s; }
+.nav a:hover { border-color: #76b900; background: #1a1a2e; }
+.tag { display: inline-block; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 4px 10px; margin: 3px; font-size: 0.85rem; color: #76b900; }
+.thinking { background: #1a1a2e; border-left: 4px solid #76b900; padding: 16px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.thinking summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.thinking p { margin-top: 0.8rem; color: #ccc; }
+.progress-section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #333; }
+.progress-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #222; }
+.progress-item:last-child { border-bottom: none; }
+.progress-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #76b900; }
+.progress-item label { cursor: pointer; flex: 1; }
+.progress-item.done label { text-decoration: line-through; color: #666; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+.op-list { counter-reset: op; }
+.op-item { counter-increment: op; padding: 12px 0; border-bottom: 1px solid #222; }
+.op-item:last-child { border-bottom: none; }
+.op-item::before { content: counter(op) ". "; color: #76b900; font-weight: bold; }
+.highlight-box { background: #0a0a1a; border: 2px solid #76b900; border-radius: 8px; padding: 16px; margin: 1rem 0; }
+svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+@media (max-width: 768px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  pre { padding: 12px; font-size: 0.78rem; }
+  .card { padding: 16px; }
+  .btn { padding: 8px 14px; font-size: 0.82rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>链表核心操作</h1>
+<p style="color:#aaa; font-size:1.1rem;">三个救命法宝：dummy、画图、改指针前先存好下一个。</p>
+
+<div class="nav">
+  <a href="dijkstra.html">&larr; Dijkstra</a>
+  <a href="bit-manipulation.html">位运算 &rarr;</a>
+</div>
+
+<h2>6个核心操作</h2>
+<div class="card">
+  <div class="op-list">
+    <div class="op-item"><strong>反转链表</strong> — prev/cur 双指针，口诀：<span class="tag">存</span><span class="tag">转</span><span class="tag">移</span>（存nxt → cur.next=prev → prev=cur, cur=nxt）</div>
+    <div class="op-item"><strong>找中点</strong> — 快慢指针，slow一步fast两步，fast到尾时slow在中间</div>
+    <div class="op-item"><strong>判环 + 找入口</strong> — Floyd：快慢指针相遇后，一个回起点同速走再次相遇即入口</div>
+    <div class="op-item"><strong>合并两个有序链表</strong> — dummy + tail，比较后接上小的</div>
+    <div class="op-item"><strong>删除倒数第N个</strong> — dummy + 快慢指针拉开n步</div>
+    <div class="op-item"><strong>K个一组反转</strong> — 先数k个，反转区间，递归/迭代拼接</div>
+  </div>
+</div>
+
+<h2>不写错要点</h2>
+<div class="highlight-box">
+  <p><strong style="color:#76b900;">dummy 是金科玉律</strong> — 头节点可能被删/换时，用 dummy 统一处理</p>
+  <p><strong style="color:#76b900;">画图画图画图</strong> — 不画图直接写指针操作 = 必错</p>
+  <p><strong style="color:#76b900;">空指针检查顺序</strong> — 先检查 node 非空，再访问 node.next</p>
+</div>
+
+<h2>反转模板</h2>
+<div class="card">
+<pre><code><span class="keyword">def</span> <span class="function">reverseList</span>(head):
+    prev, cur = <span class="keyword">None</span>, head
+    <span class="keyword">while</span> cur:
+        nxt = cur.next      <span class="comment"># 存</span>
+        cur.next = prev     <span class="comment"># 转</span>
+        prev = cur          <span class="comment"># 移</span>
+        cur = nxt           <span class="comment"># 移</span>
+    <span class="keyword">return</span> prev</code></pre>
+</div>
+
+<h2>动画演示：链表反转</h2>
+<div class="animation-container" id="anim-container">
+  <svg id="ll-svg" width="100%" height="200" viewBox="0 0 600 200"></svg>
+  <div class="step-info" id="step-info">点击"下一步"观看 5 个节点链表的反转过程</div>
+  <div class="controls">
+    <button class="btn" id="btn-next">下一步</button>
+    <button class="btn btn-secondary" id="btn-reset">重置</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+<div class="card">
+  <details class="thinking">
+    <summary>为什么链表题几乎都需要 dummy 节点？什么时候可以不用？</summary>
+    <p>当头节点可能被删除或更换时（如合并、删除、反转），没有dummy就要对头节点特殊判断。如果确定头节点不会变（如只是遍历或修改值），可以不用dummy。</p>
+  </details>
+  <details class="thinking">
+    <summary>K个一组反转中，为什么要先检查后续是否还有k个？</summary>
+    <p>题目要求不足k个的尾部保持原序。如果不先检查就反转，最后一组不足k个也被反转了，不符合要求。先数k个确认够了再反转。</p>
+  </details>
+  <details class="thinking">
+    <summary>如何不用额外空间判断链表是否为回文？</summary>
+    <p>组合三个操作：(1) 快慢指针找中点 → (2) 反转后半段 → (3) 双指针从头和中间同时比较。用到了找中点 + 反转两个核心操作。</p>
+  </details>
+</div>
+
+<h2>LeetCode 练习</h2>
+<div class="progress-section" id="progress-section">
+  <h3>热身</h3>
+  <div class="progress-item" data-id="206"><input type="checkbox" id="lc-206"><label for="lc-206">206. Reverse Linked List</label></div>
+  <div class="progress-item" data-id="21"><input type="checkbox" id="lc-21"><label for="lc-21">21. Merge Two Sorted Lists</label></div>
+  <div class="progress-item" data-id="876"><input type="checkbox" id="lc-876"><label for="lc-876">876. Middle of the Linked List</label></div>
+  <div class="progress-item" data-id="141"><input type="checkbox" id="lc-141"><label for="lc-141">141. Linked List Cycle</label></div>
+  <div class="progress-item" data-id="83"><input type="checkbox" id="lc-83"><label for="lc-83">83. Remove Duplicates from Sorted List</label></div>
+  <h3>进阶</h3>
+  <div class="progress-item" data-id="25"><input type="checkbox" id="lc-25"><label for="lc-25">25. Reverse Nodes in k-Group</label></div>
+  <div class="progress-item" data-id="92"><input type="checkbox" id="lc-92"><label for="lc-92">92. Reverse Linked List II</label></div>
+  <div class="progress-item" data-id="142"><input type="checkbox" id="lc-142"><label for="lc-142">142. Linked List Cycle II</label></div>
+  <div class="progress-item" data-id="143"><input type="checkbox" id="lc-143"><label for="lc-143">143. Reorder List</label></div>
+  <div class="progress-item" data-id="148"><input type="checkbox" id="lc-148"><label for="lc-148">148. Sort List</label></div>
+  <div class="progress-item" data-id="146"><input type="checkbox" id="lc-146"><label for="lc-146">146. LRU Cache</label></div>
+</div>
+
+<div class="nav" style="margin-top:3rem;">
+  <a href="dijkstra.html">&larr; Dijkstra</a>
+  <a href="bit-manipulation.html">位运算 &rarr;</a>
+</div>
+
+<script>
+// --- Progress ---
+const STORAGE_KEY = 'algo-progress-linked-list';
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+const progress = loadProgress();
+document.querySelectorAll('.progress-item').forEach(item => {
+  const id = item.dataset.id;
+  const cb = item.querySelector('input');
+  if (progress[id]) { cb.checked = true; item.classList.add('done'); }
+  cb.addEventListener('change', () => {
+    progress[id] = cb.checked;
+    item.classList.toggle('done', cb.checked);
+    saveProgress(progress);
+  });
+});
+
+// --- Linked List Reversal Animation ---
+const svg = document.getElementById('ll-svg');
+const stepInfo = document.getElementById('step-info');
+const values = [1, 2, 3, 4, 5];
+const nodeSpacing = 110;
+const startX = 50;
+const nodeY = 80;
+const ptrY = 160;
+
+// Animation state
+let animStep = 0;
+// Steps: initial, then for each node: show pointers, store nxt, reverse link, advance
+// We'll model: prev=None, cur=0 initially. Each iteration: store, turn, move.
+const animSteps = [];
+
+// Build steps
+// State: which links are reversed, where prev/cur/nxt point
+// prev index (-1 = None), cur index (-1 = None), nxt index (-1 = None)
+// reversed[i] = true means node i points left instead of right
+function buildSteps() {
+  animSteps.length = 0;
+  animSteps.push({prev:-1, cur:0, nxt:-1, reversed:[], msg:'初始状态：prev=None, cur=节点1'});
+  let prev=-1, cur=0;
+  for(let i=0; i<5; i++) {
+    const nxt = (i<4) ? i+1 : -1;
+    animSteps.push({prev, cur:i, nxt, reversed:animSteps[animSteps.length-1].reversed.slice(), msg:`存：nxt = cur.next = ${nxt>=0?'节点'+(nxt+1):'None'}`});
+    const newReversed = animSteps[animSteps.length-1].reversed.slice();
+    newReversed.push(i);
+    animSteps.push({prev, cur:i, nxt, reversed:newReversed, msg:`转：cur.next = prev = ${prev>=0?'节点'+(prev+1):'None'}`});
+    animSteps.push({prev:i, cur:nxt, nxt:-1, reversed:newReversed, msg:`移：prev=节点${i+1}, cur=${nxt>=0?'节点'+(nxt+1):'None'}`});
+  }
+  animSteps.push({prev:4, cur:-1, nxt:-1, reversed:[0,1,2,3,4], msg:'完成！prev 就是新的头节点（节点5）'});
+}
+buildSteps();
+
+function renderState(state) {
+  let html = '';
+  // Draw nodes
+  for(let i=0; i<5; i++) {
+    const x = startX + i * nodeSpacing;
+    const isReversed = state.reversed.includes(i);
+    const fillColor = state.cur===i ? '#f0c800' : (isReversed ? '#76b900' : '#333');
+    const strokeColor = state.prev===i ? '#00d4aa' : (state.nxt===i ? '#ff6b6b' : '#666');
+    html += `<rect x="${x-20}" y="${nodeY-20}" width="40" height="40" rx="8" fill="${fillColor}" stroke="${strokeColor}" stroke-width="${(state.prev===i||state.cur===i||state.nxt===i)?3:1.5}"/>`;
+    html += `<text x="${x}" y="${nodeY+6}" fill="${fillColor==='#333'?'#e0e0e0':'#000'}" font-size="16" text-anchor="middle" font-weight="bold">${values[i]}</text>`;
+  }
+  // Draw arrows
+  for(let i=0; i<4; i++) {
+    const x1 = startX + i * nodeSpacing + 20;
+    const x2 = startX + (i+1) * nodeSpacing - 20;
+    const midX = (x1+x2)/2;
+    if(state.reversed.includes(i)) {
+      // reversed arrow (points left)
+      html += `<line x1="${x2}" y1="${nodeY}" x2="${x1}" y2="${nodeY}" stroke="#76b900" stroke-width="2" marker-end="url(#arrowGreen)"/>`;
+    } else {
+      // normal arrow (points right)
+      html += `<line x1="${x1}" y1="${nodeY}" x2="${x2}" y2="${nodeY}" stroke="#666" stroke-width="2" marker-end="url(#arrowGray)"/>`;
+    }
+  }
+  // Pointer labels
+  const pointers = [];
+  if(state.prev >= 0) pointers.push({idx:state.prev, label:'prev', color:'#00d4aa'});
+  if(state.cur >= 0) pointers.push({idx:state.cur, label:'cur', color:'#f0c800'});
+  if(state.nxt >= 0) pointers.push({idx:state.nxt, label:'nxt', color:'#ff6b6b'});
+  pointers.forEach((p, pi) => {
+    const x = startX + p.idx * nodeSpacing;
+    const y = ptrY + pi * 18;
+    html += `<text x="${x}" y="${y}" fill="${p.color}" font-size="13" text-anchor="middle" font-weight="bold">${p.label}</text>`;
+  });
+  // Defs for arrows
+  const defs = `<defs>
+    <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#666"/></marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#76b900"/></marker>
+  </defs>`;
+  svg.innerHTML = defs + html;
+  stepInfo.textContent = state.msg;
+}
+
+function resetAnim() {
+  animStep = 0;
+  renderState(animSteps[0]);
+}
+resetAnim();
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if(animStep < animSteps.length - 1) {
+    animStep++;
+    renderState(animSteps[animStep]);
+  }
+});
+document.getElementById('btn-reset').addEventListener('click', resetAnim);
+</script>
+</body>
+</html>

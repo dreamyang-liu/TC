@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>拓扑排序 Topological Sort</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.builtin { color: #56b6c2; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; min-height: 380px; position: relative; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.nav { display: flex; justify-content: space-between; margin: 2rem 0; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; transition: all 0.2s; }
+.nav a:hover { border-color: #00d4aa; background: #1a1a2e; }
+
+.thinking-card { background: #1a1a2e; border-left: 3px solid #76b900; padding: 16px 20px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.thinking-card summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.thinking-card p { margin: 10px 0 0; color: #ccc; }
+
+.progress-bar { background: #1a1a2e; border-radius: 8px; padding: 12px 16px; margin: 1rem 0; border: 1px solid #333; }
+.progress-bar label { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 4px 0; font-size: 0.9rem; }
+.progress-bar input[type="checkbox"] { accent-color: #76b900; width: 16px; height: 16px; }
+
+.order-display { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0; min-height: 36px; }
+.order-item { background: #76b900; color: #000; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; animation: popIn 0.3s ease; }
+@keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+
+svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  .animation-container { padding: 12px; min-height: 320px; }
+  .controls { gap: 6px; }
+  .btn { padding: 8px 14px; font-size: 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>拓扑排序 Topological Sort</h1>
+<p style="color:#888; margin-bottom:2rem;">每次取入度为0的点输出，删掉它的出边。全部输出 → 无环。</p>
+
+<div class="card">
+<h2>核心思想</h2>
+<p>想象大学选课：有些课有先修要求。拓扑排序就是找一个上课顺序，保证每门课的先修课都排在它前面。</p>
+<p><strong>做法：</strong>找到没有先修课（入度=0）的课先上，上完后把它从图中"删掉"（它后继的入度减1）。重复直到所有课都排完，或者发现排不完（有环）。</p>
+</div>
+
+<div class="card card-highlight">
+<h2>Kahn/BFS 法模板</h2>
+<pre><code><span class="keyword">from</span> collections <span class="keyword">import</span> deque
+
+<span class="keyword">def</span> <span class="function">topo_sort</span>(n, edges):
+    g = [[] <span class="keyword">for</span> _ <span class="keyword">in</span> <span class="builtin">range</span>(n)]
+    indeg = [<span class="number">0</span>] * n
+    <span class="keyword">for</span> u, v <span class="keyword">in</span> edges:
+        g[u].append(v)
+        indeg[v] += <span class="number">1</span>
+    q = deque(i <span class="keyword">for</span> i <span class="keyword">in</span> <span class="builtin">range</span>(n) <span class="keyword">if</span> indeg[i] == <span class="number">0</span>)
+    order = []
+    <span class="keyword">while</span> q:
+        u = q.popleft()
+        order.append(u)
+        <span class="keyword">for</span> v <span class="keyword">in</span> g[u]:
+            indeg[v] -= <span class="number">1</span>
+            <span class="keyword">if</span> indeg[v] == <span class="number">0</span>:
+                q.append(v)
+    <span class="keyword">return</span> order <span class="keyword">if</span> <span class="builtin">len</span>(order) == n <span class="keyword">else</span> []  <span class="comment"># 空 = 有环</span></code></pre>
+</div>
+
+<div class="card">
+<h2>DFS 法（三色标记）</h2>
+<p>白色=未访问，灰色=正在访问（在递归栈中），黑色=已完成。</p>
+<p><strong>灰色碰灰色就是环！</strong>完成顺序的逆序就是拓扑序。</p>
+<h3>应用</h3>
+<ul style="margin-left:1.5rem;">
+<li><strong>课程表：</strong>判断能否修完所有课（LC 207/210）</li>
+<li><strong>字典序最小拓扑序：</strong>把队列换成最小堆</li>
+<li><strong>DAG 上 DP：</strong>按拓扑序处理，每个节点的 DP 值只依赖已算好的前驱</li>
+</ul>
+</div>
+
+<h2>动画：BFS 拓扑排序过程</h2>
+<div class="animation-container">
+<div class="controls">
+  <button class="btn" id="btn-step">下一步</button>
+  <button class="btn btn-secondary" id="btn-auto">自动播放</button>
+  <button class="btn btn-secondary" id="btn-reset">重置</button>
+</div>
+<div class="step-info" id="step-info">DAG: 0→2, 0→3, 1→3, 2→4, 3→4, 3→5。点击"下一步"开始</div>
+<svg id="topo-svg" width="100%" height="220" viewBox="0 0 600 220"></svg>
+<div style="margin-top:8px; color:#888; font-size:0.85rem;">入度: <span id="indeg-display"></span></div>
+<div style="margin-top:4px; color:#888; font-size:0.85rem;">输出序列:</div>
+<div class="order-display" id="order-display"></div>
+</div>
+
+<script>
+(function() {
+  // DAG: 6 nodes, edges as specified
+  const N = 6;
+  const edges = [[0,2],[0,3],[1,3],[2,4],[3,4],[3,5]];
+  const nodePositions = [
+    {x:80, y:60},   // 0
+    {x:80, y:160},  // 1
+    {x:250, y:40},  // 2
+    {x:250, y:140}, // 3
+    {x:430, y:60},  // 4
+    {x:430, y:160}  // 5
+  ];
+
+  let g, indeg, queue, order, nodeState, animInterval;
+  // nodeState: 0=white, 1=inQueue, 2=processing, 3=done
+
+  function reset() {
+    g = Array.from({length:N}, ()=>[]);
+    indeg = new Array(N).fill(0);
+    for (const [u,v] of edges) { g[u].push(v); indeg[v]++; }
+    queue = [];
+    for (let i = 0; i < N; i++) if (indeg[i] === 0) queue.push(i);
+    order = [];
+    nodeState = new Array(N).fill(0);
+    for (const i of queue) nodeState[i] = 1;
+    if (animInterval) { clearInterval(animInterval); animInterval = null; }
+    document.getElementById('step-info').textContent = `初始入度为0的节点: [${queue.join(', ')}] 入队`;
+    draw();
+  }
+
+  function step() {
+    if (queue.length === 0) {
+      const msg = order.length === N ? '完成！拓扑序: ' + order.join(' → ') + '（无环）' : '队列空但未输出所有节点 → 有环！';
+      document.getElementById('step-info').textContent = msg;
+      if (animInterval) { clearInterval(animInterval); animInterval = null; }
+      return;
+    }
+    const u = queue.shift();
+    nodeState[u] = 3;
+    order.push(u);
+    for (const v of g[u]) {
+      indeg[v]--;
+      if (indeg[v] === 0) {
+        queue.push(v);
+        nodeState[v] = 1;
+      }
+    }
+    document.getElementById('step-info').textContent = `取出节点 ${u}，更新邻居入度。队列: [${queue.join(', ')}]`;
+    draw();
+  }
+
+  function draw() {
+    const svg = document.getElementById('topo-svg');
+    let html = '<defs><marker id="arrowT" viewBox="0 0 10 10" refX="18" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/></marker></defs>';
+
+    // edges
+    for (const [u,v] of edges) {
+      const from = nodePositions[u], to = nodePositions[v];
+      const done = nodeState[u] === 3;
+      const color = done ? '#333' : '#555';
+      html += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${color}" stroke-width="2" marker-end="url(#arrowT)"/>`;
+    }
+
+    // nodes
+    const stateColors = ['#1a1a2e', '#d19a66', '#61afef', '#76b900'];
+    const stateStrokes = ['#555', '#d19a66', '#61afef', '#76b900'];
+    const textColors = ['#e0e0e0', '#000', '#000', '#000'];
+    for (let i = 0; i < N; i++) {
+      const {x,y} = nodePositions[i];
+      const s = nodeState[i];
+      html += `<circle cx="${x}" cy="${y}" r="20" fill="${stateColors[s]}" stroke="${stateStrokes[s]}" stroke-width="2.5"/>`;
+      html += `<text x="${x}" y="${y+5}" text-anchor="middle" fill="${textColors[s]}" font-size="14" font-weight="bold">${i}</text>`;
+    }
+
+    // legend
+    html += `<text x="540" y="200" text-anchor="end" fill="#555" font-size="11">白=未处理 橙=队列中 绿=完成</text>`;
+    svg.innerHTML = html;
+
+    // indeg display
+    document.getElementById('indeg-display').textContent = `[${indeg.join(', ')}]`;
+
+    // order display
+    const orderDiv = document.getElementById('order-display');
+    orderDiv.innerHTML = order.map(n => `<div class="order-item">${n}</div>`).join('');
+  }
+
+  document.getElementById('btn-step').onclick = step;
+  document.getElementById('btn-reset').onclick = reset;
+  document.getElementById('btn-auto').onclick = function() {
+    if (animInterval) { clearInterval(animInterval); animInterval = null; return; }
+    animInterval = setInterval(() => {
+      if (queue.length === 0) { clearInterval(animInterval); animInterval = null; step(); return; }
+      step();
+    }, 1000);
+  };
+
+  reset();
+})();
+</script>
+
+<div class="card">
+<h2>思考题</h2>
+<details class="thinking-card">
+<summary>BFS 法和 DFS 法各有什么优势？</summary>
+<p>BFS (Kahn) 直观、容易理解，天然产生拓扑序，方便改成"字典序最小"版本（用堆）。DFS 法代码更短，适合判环（灰碰灰），且后序逆序天然是拓扑序，适合需要逆拓扑序的场景（如 SCC）。</p>
+</details>
+<details class="thinking-card">
+<summary>如果要求字典序最小的拓扑序怎么做？</summary>
+<p>把 BFS 的普通队列换成最小堆（优先队列）。每次从入度为0的节点中取编号最小的。注意这和"最短路径"无关，只是输出顺序的要求。</p>
+</details>
+<details class="thinking-card">
+<summary>拓扑排序和 DAG 上的 DP 有什么关系？</summary>
+<p>DAG 上 DP 的转移顺序就是拓扑序：当你处理节点 u 时，它的所有前驱都已经被处理完了，所以 dp[u] 可以从前驱的 dp 值转移过来。经典例子：DAG 最长路径（LC 329）。</p>
+</details>
+</div>
+
+<div class="card">
+<h2>LeetCode 练习</h2>
+<h3>热身</h3>
+<div class="progress-bar" id="progress-warmup">
+  <label><input type="checkbox" data-id="207"> 207. 课程表</label>
+  <label><input type="checkbox" data-id="210"> 210. 课程表 II</label>
+  <label><input type="checkbox" data-id="802"> 802. 找到最终的安全状态</label>
+</div>
+<h3>进阶</h3>
+<div class="progress-bar" id="progress-advanced">
+  <label><input type="checkbox" data-id="269"> 269. 火星词典</label>
+  <label><input type="checkbox" data-id="310"> 310. 最小高度树</label>
+  <label><input type="checkbox" data-id="329"> 329. 矩阵中的最长递增路径</label>
+  <label><input type="checkbox" data-id="2192"> 2192. 有向无环图中一个节点的所有祖先</label>
+  <label><input type="checkbox" data-id="1857"> 1857. 有向图中最大颜色值</label>
+</div>
+</div>
+
+<script>
+(function() {
+  const KEY = 'algo-progress-topological-sort';
+  const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+  document.querySelectorAll('.progress-bar input[type="checkbox"]').forEach(cb => {
+    const id = cb.dataset.id;
+    if (saved[id]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      saved[id] = cb.checked;
+      localStorage.setItem(KEY, JSON.stringify(saved));
+    });
+  });
+})();
+</script>
+
+<div class="nav">
+  <a href="union-find.html">&larr; 并查集</a>
+  <a href="dijkstra.html">Dijkstra &rarr;</a>
+</div>
+
+</body>
+</html>

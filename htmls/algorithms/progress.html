@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习进度 - 算法模板速查</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+  padding: 40px 20px;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Back link */
+.back-link {
+  display: inline-block;
+  color: #76b900;
+  text-decoration: none;
+  font-size: 0.95em;
+  margin-bottom: 30px;
+  transition: color 0.2s;
+}
+.back-link:hover { color: #00d4aa; }
+
+/* Header */
+.page-title {
+  font-size: 2.5em;
+  background: linear-gradient(135deg, #76b900, #00d4aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 40px;
+}
+
+/* Circular progress */
+.overall-section {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  margin-bottom: 50px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.circle-container {
+  position: relative;
+  width: 180px;
+  height: 180px;
+}
+.circle-bg, .circle-fg {
+  fill: none;
+  stroke-width: 12;
+}
+.circle-bg { stroke: #1a1a2e; }
+.circle-fg {
+  stroke: url(#progressGradient);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+.circle-text {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+.circle-pct {
+  font-size: 2.5em;
+  font-weight: bold;
+  color: #fff;
+}
+.circle-label {
+  font-size: 0.85em;
+  color: #888;
+}
+.overall-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.overall-stat {
+  font-size: 1.1em;
+  color: #ccc;
+}
+.overall-stat span {
+  color: #76b900;
+  font-weight: bold;
+}
+
+/* Pattern breakdown */
+.section-header {
+  font-size: 1.5em;
+  color: #fff;
+  margin: 40px 0 20px;
+  padding-left: 12px;
+  border-left: 4px solid #76b900;
+}
+
+.pattern-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+}
+.pattern-item {
+  background: #1a1a2e;
+  border-radius: 12px;
+  border: 1px solid #333;
+  padding: 18px;
+  transition: border-color 0.2s;
+}
+.pattern-item:hover { border-color: #555; }
+.pattern-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.pattern-name {
+  font-size: 1em;
+  color: #fff;
+  font-weight: 600;
+}
+.pattern-count {
+  font-size: 0.85em;
+  color: #888;
+}
+.pattern-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.pattern-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #76b900, #00d4aa);
+  transition: width 0.4s ease;
+}
+.pattern-actions {
+  margin-top: 8px;
+  text-align: right;
+}
+.reset-btn-sm {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.75em;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.reset-btn-sm:hover { color: #ff4444; }
+
+/* Heatmap */
+.heatmap-section { margin: 40px 0; }
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+.heatmap-cell {
+  aspect-ratio: 2;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7em;
+  color: #aaa;
+  text-align: center;
+  padding: 4px;
+  transition: transform 0.2s;
+}
+.heatmap-cell:hover { transform: scale(1.05); }
+.heat-0 { background: #1a1a2e; border: 1px solid #333; }
+.heat-1 { background: rgba(118,185,0,0.15); border: 1px solid rgba(118,185,0,0.3); }
+.heat-2 { background: rgba(118,185,0,0.3); border: 1px solid rgba(118,185,0,0.5); }
+.heat-3 { background: rgba(118,185,0,0.5); border: 1px solid rgba(118,185,0,0.7); }
+.heat-4 { background: rgba(118,185,0,0.75); border: 1px solid rgba(118,185,0,0.9); color: #fff; }
+
+/* Reset all button */
+.reset-all-container {
+  text-align: center;
+  margin: 50px 0 30px;
+}
+.reset-all-btn {
+  background: rgba(255,68,68,0.1);
+  border: 1px solid rgba(255,68,68,0.3);
+  color: #ff6666;
+  padding: 12px 30px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.reset-all-btn:hover {
+  background: rgba(255,68,68,0.2);
+  border-color: #ff4444;
+}
+
+@media (max-width: 768px) {
+  .page-title { font-size: 1.8em; }
+  .overall-section { flex-direction: column; gap: 20px; }
+  .pattern-grid { grid-template-columns: 1fr; }
+  .heatmap-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <a href="algorithms-index.html" class="back-link">← 返回算法模板速查</a>
+  <h1 class="page-title">学习进度</h1>
+
+  <!-- Overall progress -->
+  <div class="overall-section">
+    <div class="circle-container">
+      <svg width="180" height="180" viewBox="0 0 180 180">
+        <defs>
+          <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#76b900"/>
+            <stop offset="100%" stop-color="#00d4aa"/>
+          </linearGradient>
+        </defs>
+        <circle class="circle-bg" cx="90" cy="90" r="78"/>
+        <circle class="circle-fg" id="progressCircle" cx="90" cy="90" r="78"
+          stroke-dasharray="490" stroke-dashoffset="490"
+          transform="rotate(-90 90 90)"/>
+      </svg>
+      <div class="circle-text">
+        <div class="circle-pct" id="overallPct">0%</div>
+        <div class="circle-label">完成率</div>
+      </div>
+    </div>
+    <div class="overall-stats">
+      <div class="overall-stat">已完成: <span id="totalDone">0</span> / <span id="totalAll">0</span> 题</div>
+      <div class="overall-stat">已开始: <span id="startedCount">0</span> / 22 模板</div>
+      <div class="overall-stat">已掌握: <span id="masteredCount">0</span> 模板 (100%)</div>
+    </div>
+  </div>
+
+  <!-- Per-pattern breakdown -->
+  <h2 class="section-header">各模板进度</h2>
+  <div class="pattern-grid" id="patternGrid"></div>
+
+  <!-- Heatmap -->
+  <div class="heatmap-section">
+    <h2 class="section-header">活跃度热力图</h2>
+    <div class="heatmap-grid" id="heatmapGrid"></div>
+  </div>
+
+  <!-- Reset all -->
+  <div class="reset-all-container">
+    <button class="reset-all-btn" id="resetAllBtn">重置所有进度</button>
+  </div>
+</div>
+
+<script>
+const PATTERNS = [
+  { key: 'hash-table', name: '哈希表', total: 10 },
+  { key: 'linked-list', name: '链表', total: 11 },
+  { key: 'heap', name: '堆/优先队列', total: 9 },
+  { key: 'trie', name: '前缀树', total: 8 },
+  { key: 'union-find', name: '并查集', total: 9 },
+  { key: 'two-pointers', name: '双指针', total: 10 },
+  { key: 'sliding-window', name: '滑动窗口', total: 8 },
+  { key: 'binary-search', name: '二分查找', total: 7 },
+  { key: 'monotonic-stack', name: '单调栈', total: 8 },
+  { key: 'monotonic-queue', name: '单调队列', total: 5 },
+  { key: 'bfs', name: '广度优先搜索', total: 8 },
+  { key: 'backtracking', name: '回溯', total: 10 },
+  { key: 'dp', name: '动态规划基础', total: 10 },
+  { key: 'interval-dp', name: '区间DP', total: 8 },
+  { key: 'tree-dp', name: '树形DP', total: 9 },
+  { key: 'bit-manipulation', name: '位运算/状压', total: 8 },
+  { key: 'topological-sort', name: '拓扑排序', total: 8 },
+  { key: 'dijkstra', name: '最短路径', total: 8 },
+  { key: 'greedy', name: '贪心', total: 10 },
+  { key: 'quickselect', name: '快速选择', total: 5 },
+  { key: 'difference-array', name: '差分/前缀和', total: 4 },
+  { key: 'tree-traversal', name: '树遍历', total: 11 }
+];
+
+function getProgress(pattern) {
+  try {
+    const data = JSON.parse(localStorage.getItem(`algo-progress-${pattern.key}`));
+    if (!data) return { done: 0, total: pattern.total };
+    const done = Object.values(data).filter(v => v === true).length;
+    return { done, total: pattern.total };
+  } catch(e) {
+    return { done: 0, total: pattern.total };
+  }
+}
+
+function render() {
+  let totalDone = 0, totalAll = 0, started = 0, mastered = 0;
+  const grid = document.getElementById('patternGrid');
+  const heatmap = document.getElementById('heatmapGrid');
+  grid.innerHTML = '';
+  heatmap.innerHTML = '';
+
+  PATTERNS.forEach(p => {
+    const { done, total } = getProgress(p);
+    totalDone += done;
+    totalAll += total;
+    if (done > 0) started++;
+    if (done >= total) mastered++;
+    const pct = Math.round((done / total) * 100);
+
+    // Pattern card
+    const item = document.createElement('div');
+    item.className = 'pattern-item';
+    item.innerHTML = `
+      <div class="pattern-header">
+        <span class="pattern-name">${p.name}</span>
+        <span class="pattern-count">${done}/${total}</span>
+      </div>
+      <div class="pattern-bar"><div class="pattern-bar-fill" style="width:${pct}%"></div></div>
+      <div class="pattern-actions">
+        <button class="reset-btn-sm" data-key="${p.key}">重置</button>
+      </div>
+    `;
+    grid.appendChild(item);
+
+    // Heatmap cell
+    const cell = document.createElement('div');
+    const heatLevel = done === 0 ? 0 : done >= total ? 4 : done >= total * 0.6 ? 3 : done >= total * 0.3 ? 2 : 1;
+    cell.className = `heatmap-cell heat-${heatLevel}`;
+    cell.textContent = p.name;
+    heatmap.appendChild(cell);
+  });
+
+  // Overall stats
+  document.getElementById('totalDone').textContent = totalDone;
+  document.getElementById('totalAll').textContent = totalAll;
+  document.getElementById('startedCount').textContent = started;
+  document.getElementById('masteredCount').textContent = mastered;
+
+  const overallPct = totalAll > 0 ? Math.round((totalDone / totalAll) * 100) : 0;
+  document.getElementById('overallPct').textContent = overallPct + '%';
+
+  // Circle animation
+  const circumference = 2 * Math.PI * 78; // ~490
+  const offset = circumference - (overallPct / 100) * circumference;
+  document.getElementById('progressCircle').style.strokeDashoffset = offset;
+
+  // Bind reset buttons
+  grid.querySelectorAll('.reset-btn-sm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      if (confirm(`确定要重置「${PATTERNS.find(p => p.key === key).name}」的进度吗？`)) {
+        localStorage.removeItem(`algo-progress-${key}`);
+        render();
+      }
+    });
+  });
+}
+
+// Reset all
+document.getElementById('resetAllBtn').addEventListener('click', () => {
+  if (confirm('确定要重置所有算法练习进度吗？此操作不可恢复。')) {
+    PATTERNS.forEach(p => localStorage.removeItem(`algo-progress-${p.key}`));
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>

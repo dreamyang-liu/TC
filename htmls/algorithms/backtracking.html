@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>回溯算法 - Backtracking</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 1.8em; }
+h2 { color: #00d4aa; margin: 32px 0 16px; font-size: 1.4em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+h3 { color: #76b900; margin: 20px 0 10px; font-size: 1.1em; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 3px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #76b900; }
+pre {
+  background: #1a1a2e;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-left: 3px solid #76b900;
+}
+pre code { background: none; padding: 0; color: #e0e0e0; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 8px; }
+.nav a { padding: 6px 14px; background: #1a1a2e; border-radius: 4px; font-size: 0.9em; }
+.progress-bar { background: #1a1a2e; padding: 10px 16px; border-radius: 6px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.progress-bar span { color: #76b900; font-weight: bold; }
+.checkbox-list { list-style: none; padding: 0; }
+.checkbox-list li { padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+.checkbox-list input[type="checkbox"] { width: 18px; height: 18px; accent-color: #76b900; cursor: pointer; }
+.section { margin-bottom: 32px; }
+.key-point { background: #1a1a2e; border-left: 3px solid #00d4aa; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+.formula { text-align: center; font-size: 1.1em; color: #76b900; margin: 16px 0; padding: 12px; background: #1a1a2e; border-radius: 6px; }
+ul, ol { padding-left: 24px; margin: 8px 0; }
+li { margin: 4px 0; }
+
+/* Animation containers */
+.anim-container {
+  background: #1a1a2e;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid #333;
+}
+.anim-controls { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+.anim-controls button {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+.anim-controls button:hover { background: #8ed600; }
+.anim-controls button.secondary { background: #00d4aa; }
+.anim-controls button.secondary:hover { background: #00eebb; }
+
+/* Tree visualization */
+.tree-svg { width: 100%; height: 360px; }
+.tree-node { cursor: pointer; }
+.tree-node circle { fill: #1a1a2e; stroke: #76b900; stroke-width: 2; }
+.tree-node.active circle { fill: #76b900; stroke: #76b900; }
+.tree-node.done circle { fill: #333; stroke: #555; }
+.tree-node.result circle { fill: #00d4aa; stroke: #00d4aa; }
+.tree-node text { fill: #e0e0e0; font-size: 11px; text-anchor: middle; }
+.tree-node.active text { fill: #0f0f23; }
+.tree-edge { stroke: #555; stroke-width: 1.5; fill: none; }
+.tree-edge.active { stroke: #76b900; stroke-width: 2.5; }
+
+/* Comparison view */
+.compare-container { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .compare-container { grid-template-columns: 1fr; } }
+.compare-panel { background: #0f0f23; border: 1px solid #333; border-radius: 6px; padding: 12px; }
+.compare-panel h4 { color: #00d4aa; margin-bottom: 8px; text-align: center; }
+
+/* Questions */
+.question { background: #1a1a2e; border-radius: 8px; padding: 16px; margin: 12px 0; border: 1px solid #333; }
+.question p { font-weight: bold; color: #00d4aa; margin-bottom: 8px; }
+.question .answer { display: none; padding: 10px; background: #0f0f23; border-radius: 4px; margin-top: 8px; border-left: 3px solid #76b900; }
+.question button { background: #333; color: #e0e0e0; border: 1px solid #555; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
+.question button:hover { background: #444; }
+
+/* LeetCode links */
+.lc-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.lc-link { background: #1a1a2e; padding: 4px 10px; border-radius: 4px; font-size: 0.85em; border: 1px solid #333; }
+.lc-link:hover { border-color: #76b900; }
+
+.status-info { font-size: 0.85em; color: #888; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="algorithms-index.html">← 目录</a>
+  <div>
+    <a href="tree-dp.html">← 树形DP</a>
+    <a href="bfs.html" style="margin-left:8px">BFS →</a>
+  </div>
+</div>
+
+<div class="progress-bar">
+  <span id="progress-text">已完成 0/10</span>
+  <button onclick="resetProgress()" style="background:#333;color:#e0e0e0;border:1px solid #555;padding:4px 10px;border-radius:4px;cursor:pointer;font-size:0.8em;">重置</button>
+</div>
+
+<h1>回溯算法 Backtracking</h1>
+<p class="formula">回溯 = 决策树 DFS：选 → 递归 → 撤销</p>
+
+<!-- Section 1: Template -->
+<div class="section">
+<h2>1. 万能三件套</h2>
+<p>所有回溯问题都是同一个模板，区别只在"选择列表"怎么构造：</p>
+<pre><code>def backtrack(path, choices):
+    if 满足结束条件:
+        ans.append(path[:])   # 注意拷贝！
+        return
+    for c in choices:
+        if not_valid(c): continue   # 剪枝
+        path.append(c)              # 做选择
+        backtrack(path, new_choices) # 递归
+        path.pop()                  # 撤销选择</code></pre>
+
+<div class="key-point">
+<strong>核心思想：</strong>在决策树上做 DFS，每到一个节点就做选择，递归进入下一层，回来时撤销选择（恢复现场），这就是"回溯"。
+</div>
+</div>
+
+<!-- Section 2: Three families -->
+<div class="section">
+<h2>2. 三大问题族</h2>
+
+<h3>子集 (Subsets)</h3>
+<p>每个元素"选"或"不选"，或者用枚举起点版（for i in range(start, n)）。结果数量：2^n</p>
+
+<h3>排列 (Permutations)</h3>
+<p>顺序敏感！[1,2] 和 [2,1] 是不同答案。需要 <code>used[]</code> 数组标记哪些元素已经用过。结果数量：n!</p>
+
+<h3>组合 (Combinations)</h3>
+<p>固定长度 k，从 <code>start</code> 开始枚举避免重复。结果数量：C(n,k)</p>
+
+<div class="key-point">
+<strong>速记：</strong>子集=所有节点收集，排列=叶子节点+used，组合=叶子节点+start
+</div>
+</div>
+
+<!-- Section 3: Dedup -->
+<div class="section">
+<h2>3. 去重套路</h2>
+<p><strong>步骤：</strong>先排序，同一层跳过相同值。</p>
+<pre><code>nums.sort()
+def backtrack(start, path):
+    ...
+    for i in range(start, len(nums)):
+        if i > start and nums[i] == nums[i-1]:
+            continue  # 同一层去重
+        ...</code></pre>
+
+<div class="key-point">
+<strong>口诀：</strong>同一层不能选相同（兄弟去重），同一路径可以（父子可同）。<br>
+"兄弟"就是 for 循环的同一轮，"父子"就是递归的上下层。
+</div>
+</div>
+
+<!-- Section 4: Pitfalls -->
+<div class="section">
+<h2>4. 不写错要点</h2>
+<ul>
+  <li><code>path[:]</code> 拷贝 — 不拷贝的话 path 最终会变成空列表</li>
+  <li>状态恢复对称 — append 对 pop，used[i]=True 对 used[i]=False</li>
+  <li>排列用 <code>used[]</code>，组合用 <code>start</code> — 别搞混</li>
+  <li>去重前必须排序</li>
+</ul>
+</div>
+
+<!-- Animation 1: Decision Tree -->
+<div class="section">
+<h2>5. 动画：子集决策树</h2>
+<p>数组 <code>[1, 2, 3]</code> 的子集生成过程。点击"下一步"推进，观察 path 变化和回溯过程。</p>
+
+<div class="anim-container">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px;">
+    <span>当前 path: <code id="current-path">[]</code></span>
+    <span>结果: <code id="current-results">[]</code></span>
+  </div>
+  <svg id="subset-tree" class="tree-svg" viewBox="0 0 700 340"></svg>
+  <div class="anim-controls">
+    <button onclick="subsetNext()">下一步</button>
+    <button class="secondary" onclick="subsetReset()">重置</button>
+    <span class="status-info" id="subset-status">点击"下一步"开始</span>
+  </div>
+</div>
+</div>
+
+<!-- Animation 2: Permutation vs Combination -->
+<div class="section">
+<h2>6. 对比：排列 vs 组合</h2>
+<p>同样是 <code>[1, 2, 3]</code>，排列和组合产生完全不同的决策树。</p>
+
+<div class="anim-container">
+<div class="compare-container">
+  <div class="compare-panel">
+    <h4>排列 P(3,2)</h4>
+    <svg id="perm-tree" class="tree-svg" viewBox="0 0 340 280" style="height:280px;"></svg>
+  </div>
+  <div class="compare-panel">
+    <h4>组合 C(3,2)</h4>
+    <svg id="comb-tree" class="tree-svg" viewBox="0 0 340 280" style="height:280px;"></svg>
+  </div>
+</div>
+<div class="anim-controls">
+  <button onclick="compareNext()">下一步</button>
+  <button class="secondary" onclick="compareReset()">重置</button>
+  <span class="status-info" id="compare-status">点击"下一步"开始</span>
+</div>
+</div>
+</div>
+
+<!-- Questions -->
+<div class="section">
+<h2>7. 思考题</h2>
+
+<div class="question">
+  <p>Q1: 为什么 <code>ans.append(path[:])</code> 而不是 <code>ans.append(path)</code>？</p>
+  <button onclick="toggleAnswer(this)">显示答案</button>
+  <div class="answer">
+    <code>path</code> 是一个列表引用，在回溯过程中会不断 append/pop 修改。如果直接存引用，最终 ans 里所有元素都指向同一个列表（而且回溯结束后 path 是空的）。<code>path[:]</code> 创建一个快照副本，冻结当前状态。
+  </div>
+</div>
+
+<div class="question">
+  <p>Q2: 子集问题用"选/不选"和"枚举起点"两种写法，哪种更通用？为什么？</p>
+  <button onclick="toggleAnswer(this)">显示答案</button>
+  <div class="answer">
+    <strong>枚举起点版更通用。</strong>原因：<br>
+    1. 它能直接扩展到"组合""组合总和"等变种（加一个长度限制就是组合）<br>
+    2. 去重逻辑（<code>i > start and nums[i] == nums[i-1]</code>）更自然<br>
+    3. "选/不选"版本在需要剪枝或去重时反而更难改<br>
+    "选/不选"更适合理解本质（二叉决策树），实际刷题用枚举起点版。
+  </div>
+</div>
+
+<div class="question">
+  <p>Q3: 去重时 <code>if i > start and nums[i] == nums[i-1]: continue</code> 为什么是 <code>i > start</code> 而不是 <code>i > 0</code>？</p>
+  <button onclick="toggleAnswer(this)">显示答案</button>
+  <div class="answer">
+    <code>i > start</code> 确保只在"同一层"去重。当 <code>i == start</code> 时，这是当前层的第一个选择，即使和前面值相同也必须保留（因为前面那个值是"父节点"选的，不是"兄弟"选的）。<br>
+    如果用 <code>i > 0</code>，会误删"父子路径上值相同"的合法情况。比如 [1,1,2] 求子集，[1,1] 是合法子集，用 <code>i > 0</code> 会跳过第二个1导致丢失这个答案。
+  </div>
+</div>
+</div>
+
+<!-- LeetCode -->
+<div class="section">
+<h2>8. LeetCode 练习</h2>
+
+<h3>热身</h3>
+<ul class="checkbox-list">
+  <li><input type="checkbox" data-idx="0"> <a href="https://leetcode.cn/problems/subsets/" target="_blank" class="lc-link">78. 子集</a></li>
+  <li><input type="checkbox" data-idx="1"> <a href="https://leetcode.cn/problems/permutations/" target="_blank" class="lc-link">46. 全排列</a></li>
+  <li><input type="checkbox" data-idx="2"> <a href="https://leetcode.cn/problems/combinations/" target="_blank" class="lc-link">77. 组合</a></li>
+  <li><input type="checkbox" data-idx="3"> <a href="https://leetcode.cn/problems/letter-combinations-of-a-phone-number/" target="_blank" class="lc-link">17. 电话号码的字母组合</a></li>
+</ul>
+
+<h3>进阶</h3>
+<ul class="checkbox-list">
+  <li><input type="checkbox" data-idx="4"> <a href="https://leetcode.cn/problems/subsets-ii/" target="_blank" class="lc-link">90. 子集 II</a></li>
+  <li><input type="checkbox" data-idx="5"> <a href="https://leetcode.cn/problems/permutations-ii/" target="_blank" class="lc-link">47. 全排列 II</a></li>
+  <li><input type="checkbox" data-idx="6"> <a href="https://leetcode.cn/problems/combination-sum/" target="_blank" class="lc-link">39. 组合总和</a></li>
+  <li><input type="checkbox" data-idx="7"> <a href="https://leetcode.cn/problems/n-queens/" target="_blank" class="lc-link">51. N 皇后</a></li>
+  <li><input type="checkbox" data-idx="8"> <a href="https://leetcode.cn/problems/sudoku-solver/" target="_blank" class="lc-link">37. 解数独</a></li>
+  <li><input type="checkbox" data-idx="9"> <a href="https://leetcode.cn/problems/palindrome-partitioning/" target="_blank" class="lc-link">131. 分割回文串</a></li>
+</ul>
+</div>
+
+<script>
+// === Progress ===
+const STORAGE_KEY = 'algo-progress-backtracking';
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
+}
+function saveProgress(arr) { localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+function updateProgressDisplay() {
+  const done = loadProgress();
+  document.getElementById('progress-text').textContent = `已完成 ${done.length}/10`;
+}
+function resetProgress() {
+  localStorage.removeItem(STORAGE_KEY);
+  document.querySelectorAll('.checkbox-list input').forEach(cb => cb.checked = false);
+  updateProgressDisplay();
+}
+document.querySelectorAll('.checkbox-list input').forEach(cb => {
+  const idx = parseInt(cb.dataset.idx);
+  const done = loadProgress();
+  cb.checked = done.includes(idx);
+  cb.addEventListener('change', () => {
+    let done = loadProgress();
+    if (cb.checked) { if (!done.includes(idx)) done.push(idx); }
+    else { done = done.filter(x => x !== idx); }
+    saveProgress(done);
+    updateProgressDisplay();
+  });
+});
+updateProgressDisplay();
+
+// === Toggle answers ===
+function toggleAnswer(btn) {
+  const ans = btn.nextElementSibling;
+  if (ans.style.display === 'block') { ans.style.display = 'none'; btn.textContent = '显示答案'; }
+  else { ans.style.display = 'block'; btn.textContent = '隐藏答案'; }
+}
+
+// === Animation 1: Subset decision tree ===
+// Tree structure for subsets of [1,2,3] using pick/not-pick model
+// Nodes: id, label, children, x, y
+const subsetSteps = [
+  { action: 'visit', node: 0, path: [], desc: '根节点，开始决策' },
+  { action: 'visit', node: 1, path: [], desc: '考虑元素1：选1' },
+  { action: 'visit', node: 3, path: [1], desc: '考虑元素2：选2' },
+  { action: 'visit', node: 7, path: [1,2], desc: '考虑元素3：选3' },
+  { action: 'result', node: 7, path: [1,2,3], desc: '收集结果 [1,2,3]' },
+  { action: 'back', node: 7, path: [1,2], desc: '回溯：撤销选3' },
+  { action: 'visit', node: 8, path: [1,2], desc: '考虑元素3：不选3' },
+  { action: 'result', node: 8, path: [1,2], desc: '收集结果 [1,2]' },
+  { action: 'back', node: 8, path: [1,2], desc: '回溯' },
+  { action: 'back', node: 3, path: [1], desc: '回溯：撤销选2' },
+  { action: 'visit', node: 4, path: [1], desc: '考虑元素2：不选2' },
+  { action: 'visit', node: 9, path: [1], desc: '考虑元素3：选3' },
+  { action: 'result', node: 9, path: [1,3], desc: '收集结果 [1,3]' },
+  { action: 'back', node: 9, path: [1], desc: '回溯：撤销选3' },
+  { action: 'visit', node: 10, path: [1], desc: '考虑元素3：不选3' },
+  { action: 'result', node: 10, path: [1], desc: '收集结果 [1]' },
+  { action: 'back', node: 10, path: [1], desc: '回溯' },
+  { action: 'back', node: 4, path: [1], desc: '回溯' },
+  { action: 'back', node: 1, path: [], desc: '回溯：撤销选1' },
+  { action: 'visit', node: 2, path: [], desc: '考虑元素1：不选1' },
+  { action: 'visit', node: 5, path: [], desc: '考虑元素2：选2' },
+  { action: 'visit', node: 11, path: [2], desc: '考虑元素3：选3' },
+  { action: 'result', node: 11, path: [2,3], desc: '收集结果 [2,3]' },
+  { action: 'back', node: 11, path: [2], desc: '回溯：撤销选3' },
+  { action: 'visit', node: 12, path: [2], desc: '考虑元素3：不选3' },
+  { action: 'result', node: 12, path: [2], desc: '收集结果 [2]' },
+  { action: 'back', node: 12, path: [2], desc: '回溯' },
+  { action: 'back', node: 5, path: [], desc: '回溯：撤销选2' },
+  { action: 'visit', node: 6, path: [], desc: '考虑元素2：不选2' },
+  { action: 'visit', node: 13, path: [], desc: '考虑元素3：选3' },
+  { action: 'result', node: 13, path: [3], desc: '收集结果 [3]' },
+  { action: 'back', node: 13, path: [], desc: '回溯：撤销选3' },
+  { action: 'visit', node: 14, path: [], desc: '考虑元素3：不选3' },
+  { action: 'result', node: 14, path: [], desc: '收集结果 []' },
+  { action: 'back', node: 14, path: [], desc: '回溯' },
+  { action: 'back', node: 6, path: [], desc: '回溯' },
+  { action: 'back', node: 2, path: [], desc: '完成！' },
+];
+
+// Node positions for subset tree
+const stNodes = [
+  {id:0, x:350, y:20, label:'根'},
+  {id:1, x:180, y:80, label:'选1'},  {id:2, x:520, y:80, label:'不选1'},
+  {id:3, x:100, y:150, label:'选2'}, {id:4, x:260, y:150, label:'不选2'},
+  {id:5, x:440, y:150, label:'选2'}, {id:6, x:600, y:150, label:'不选2'},
+  {id:7, x:60, y:230, label:'选3'},  {id:8, x:140, y:230, label:'不选3'},
+  {id:9, x:220, y:230, label:'选3'}, {id:10, x:300, y:230, label:'不选3'},
+  {id:11, x:400, y:230, label:'选3'},{id:12, x:480, y:230, label:'不选3'},
+  {id:13, x:560, y:230, label:'选3'},{id:14, x:640, y:230, label:'不选3'},
+];
+const stEdges = [
+  [0,1],[0,2],[1,3],[1,4],[2,5],[2,6],
+  [3,7],[3,8],[4,9],[4,10],[5,11],[5,12],[6,13],[6,14]
+];
+
+let subsetStep = -1;
+let subsetResults = [];
+let nodeStates = {}; // 'active','done','result'
+
+function drawSubsetTree() {
+  const svg = document.getElementById('subset-tree');
+  let html = '';
+  // Edges
+  stEdges.forEach(([a,b]) => {
+    const na = stNodes[a], nb = stNodes[b];
+    const cls = (nodeStates[a] === 'active' || nodeStates[b] === 'active') ? 'active' : '';
+    html += `<line class="tree-edge ${cls}" x1="${na.x}" y1="${na.y+12}" x2="${nb.x}" y2="${nb.y-12}"/>`;
+  });
+  // Nodes
+  stNodes.forEach(n => {
+    const st = nodeStates[n.id] || '';
+    html += `<g class="tree-node ${st}"><circle cx="${n.x}" cy="${n.y}" r="12"/><text x="${n.x}" y="${n.y+4}">${n.label}</text></g>`;
+  });
+  svg.innerHTML = html;
+}
+
+function subsetNext() {
+  subsetStep++;
+  if (subsetStep >= subsetSteps.length) { subsetStep = subsetSteps.length - 1; return; }
+  const s = subsetSteps[subsetStep];
+  if (s.action === 'visit') { nodeStates[s.node] = 'active'; }
+  else if (s.action === 'back') { nodeStates[s.node] = 'done'; }
+  else if (s.action === 'result') { nodeStates[s.node] = 'result'; subsetResults.push('[' + s.path.join(',') + ']'); }
+  document.getElementById('current-path').textContent = '[' + s.path.join(', ') + ']';
+  document.getElementById('current-results').textContent = subsetResults.join(', ') || '[]';
+  document.getElementById('subset-status').textContent = s.desc;
+  drawSubsetTree();
+}
+function subsetReset() {
+  subsetStep = -1; subsetResults = []; nodeStates = {};
+  document.getElementById('current-path').textContent = '[]';
+  document.getElementById('current-results').textContent = '[]';
+  document.getElementById('subset-status').textContent = '点击"下一步"开始';
+  drawSubsetTree();
+}
+drawSubsetTree();
+
+// === Animation 2: Permutation vs Combination comparison ===
+// Permutation tree for P(3,2): pick 2 from [1,2,3], order matters
+const permNodes = [
+  {id:0, x:170, y:20, label:'根'},
+  {id:1, x:60, y:90, label:'1'},  {id:2, x:170, y:90, label:'2'}, {id:3, x:280, y:90, label:'3'},
+  {id:4, x:20, y:170, label:'12'},{id:5, x:60, y:170, label:'13'},
+  {id:6, x:140, y:170, label:'21'},{id:7, x:195, y:170, label:'23'},
+  {id:8, x:255, y:170, label:'31'},{id:9, x:305, y:170, label:'32'},
+];
+const permEdges = [[0,1],[0,2],[0,3],[1,4],[1,5],[2,6],[2,7],[3,8],[3,9]];
+
+// Combination tree for C(3,2): pick 2 from [1,2,3], order doesn't matter
+const combNodes = [
+  {id:0, x:170, y:20, label:'根'},
+  {id:1, x:60, y:90, label:'1'},  {id:2, x:170, y:90, label:'2'}, {id:3, x:280, y:90, label:'3'},
+  {id:4, x:30, y:170, label:'12'},{id:5, x:90, y:170, label:'13'},
+  {id:6, x:170, y:170, label:'23'},
+];
+const combEdges = [[0,1],[0,2],[0,3],[1,4],[1,5],[2,6]];
+
+const compareSteps = [
+  { perm: [0], comb: [0], desc: '根节点：选第一个元素' },
+  { perm: [0,1,2,3], comb: [0,1,2,3], desc: '第一层：都可选1/2/3' },
+  { perm: [0,1,4,5,2,6,7,3,8,9], comb: [0,1,4,5,2,6], desc: '第二层：排列每个都可选剩余所有；组合只能选后面的' },
+];
+let compareStep = -1;
+let permActive = [], combActive = [];
+
+function drawCompareTree(svgId, nodes, edges, activeIds) {
+  const svg = document.getElementById(svgId);
+  let html = '';
+  edges.forEach(([a,b]) => {
+    const na = nodes[a], nb = nodes[b];
+    const cls = (activeIds.includes(a) && activeIds.includes(b)) ? 'active' : '';
+    html += `<line class="tree-edge ${cls}" x1="${na.x}" y1="${na.y+12}" x2="${nb.x}" y2="${nb.y-12}"/>`;
+  });
+  nodes.forEach(n => {
+    const st = activeIds.includes(n.id) ? 'active' : '';
+    html += `<g class="tree-node ${st}"><circle cx="${n.x}" cy="${n.y}" r="14"/><text x="${n.x}" y="${n.y+4}">${n.label}</text></g>`;
+  });
+  svg.innerHTML = html;
+}
+
+function compareNext() {
+  compareStep++;
+  if (compareStep >= compareSteps.length) { compareStep = compareSteps.length - 1; return; }
+  const s = compareSteps[compareStep];
+  permActive = s.perm;
+  combActive = s.comb;
+  document.getElementById('compare-status').textContent = s.desc;
+  drawCompareTree('perm-tree', permNodes, permEdges, permActive);
+  drawCompareTree('comb-tree', combNodes, combEdges, combActive);
+}
+function compareReset() {
+  compareStep = -1; permActive = []; combActive = [];
+  document.getElementById('compare-status').textContent = '点击"下一步"开始';
+  drawCompareTree('perm-tree', permNodes, permEdges, []);
+  drawCompareTree('comb-tree', combNodes, combEdges, []);
+}
+drawCompareTree('perm-tree', permNodes, permEdges, []);
+drawCompareTree('comb-tree', combNodes, combEdges, []);
+</script>
+</body>
+</html>

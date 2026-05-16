@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trie / 前缀树</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 1.8em; }
+h2 { color: #00d4aa; margin: 32px 0 12px; font-size: 1.3em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+h3 { color: #76b900; margin: 20px 0 8px; font-size: 1.1em; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 3px; font-family: 'Fira Code', monospace; font-size: 0.9em; }
+pre { background: #1a1a2e; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; border: 1px solid #333; }
+pre code { padding: 0; background: none; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.nav a { padding: 6px 14px; background: #1a1a2e; border-radius: 6px; border: 1px solid #333; font-size: 0.9em; }
+.nav a:hover { border-color: #00d4aa; }
+.progress-bar { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 10px 16px; margin-bottom: 24px; font-size: 0.9em; }
+.progress-bar span { color: #76b900; font-weight: bold; }
+.section { margin-bottom: 28px; }
+.key-point { background: #1a1a2e; border-left: 3px solid #76b900; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0; }
+.warning { border-left-color: #ff6b6b; }
+.thinking { background: #1a1a2e; border: 1px solid #00d4aa; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.thinking h3 { margin-top: 0; }
+.thinking ol { padding-left: 20px; }
+.thinking li { margin: 8px 0; }
+.leetcode-section { margin: 16px 0; }
+.leetcode-section h3 { margin-bottom: 8px; }
+.lc-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.lc-item { position: relative; }
+.lc-item input[type="checkbox"] { display: none; }
+.lc-item label {
+  display: inline-block; padding: 5px 12px; background: #1a1a2e; border: 1px solid #333;
+  border-radius: 6px; cursor: pointer; font-size: 0.85em; transition: all 0.2s;
+}
+.lc-item input:checked + label { border-color: #76b900; background: #1a2e0a; color: #76b900; }
+.lc-item label:hover { border-color: #00d4aa; }
+
+/* Animation area */
+.anim-container {
+  background: #1a1a2e; border: 1px solid #333; border-radius: 8px;
+  padding: 16px; margin: 16px 0; min-height: 300px; position: relative;
+}
+.anim-controls { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.anim-controls button {
+  padding: 8px 16px; background: #76b900; color: #0f0f23; border: none;
+  border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;
+}
+.anim-controls button:hover { background: #8dd100; }
+.anim-controls button:disabled { background: #555; color: #999; cursor: not-allowed; }
+.anim-controls button.secondary { background: #00d4aa; }
+.anim-controls button.secondary:hover { background: #00eebb; }
+.anim-status { margin-top: 8px; font-size: 0.9em; color: #aaa; min-height: 1.5em; }
+
+/* SVG tree styles */
+svg text { font-family: 'Fira Code', monospace; }
+.tree-node circle { transition: fill 0.3s, stroke 0.3s; }
+.tree-edge { transition: stroke 0.3s; }
+.highlight-node circle { fill: #76b900 !important; }
+.highlight-edge { stroke: #76b900 !important; stroke-width: 3 !important; }
+.end-marker circle { fill: #00d4aa !important; stroke: #00d4aa !important; }
+.search-hit circle { fill: #76b900 !important; }
+.search-miss circle { fill: #ff6b6b !important; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.4em; }
+  pre { padding: 10px; font-size: 0.8em; }
+  .anim-container { min-height: 250px; padding: 10px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="algorithms-index.html">← 目录</a>
+  <div>
+    <a href="greedy.html">← 贪心</a>
+    <a href="union-find.html" style="margin-left:8px">并查集 →</a>
+  </div>
+</nav>
+
+<div class="progress-bar">进度: <span id="progress-text">已完成 0/8</span></div>
+
+<h1>Trie / 前缀树</h1>
+<p>每个节点代表"走到这里时的前缀"。共享前缀的字符串共享路径。</p>
+
+<h2>1. dict 版模板（最常用）</h2>
+<pre><code class="python">class Trie:
+    def __init__(self):
+        self.root = {}
+
+    def insert(self, word):
+        node = self.root
+        for c in word:
+            if c not in node: node[c] = {}
+            node = node[c]
+        node['#'] = True          # 结尾标记
+
+    def search(self, word):
+        node = self._walk(word)
+        return node is not None and '#' in node
+
+    def starts_with(self, prefix):
+        return self._walk(prefix) is not None
+
+    def _walk(self, s):
+        node = self.root
+        for c in s:
+            if c not in node: return None
+            node = node[c]
+        return node</code></pre>
+
+<div class="key-point">
+  <strong>核心思想:</strong> 沿着字符一步步走，走到头能找到 <code>#</code> 标记就说明这个词存在。<code>starts_with</code> 只需要能走完就行，不要求有结尾标记。
+</div>
+
+<h2>2. 数组版（更快，固定字符集）</h2>
+<pre><code class="python">class TrieArray:
+    def __init__(self):
+        # 预分配节点池，children[i][c] = 下一个节点编号
+        self.children = [[0]*26 for _ in range(100001)]
+        self.is_end = [False] * 100001
+        self.cnt = 0  # 当前已用节点数
+
+    def insert(self, word):
+        node = 0
+        for ch in word:
+            c = ord(ch) - ord('a')
+            if self.children[node][c] == 0:
+                self.cnt += 1
+                self.children[node][c] = self.cnt
+            node = self.children[node][c]
+        self.is_end[node] = True</code></pre>
+
+<div class="key-point">
+  <strong>dict vs 数组:</strong><br>
+  - dict 版: 灵活，字符集不限，写起来快，Python 首选<br>
+  - 数组版: 访问更快（O(1) 数组索引 vs 哈希），内存紧凑，C++/竞赛常用
+</div>
+
+<h2>3. 不写错要点</h2>
+<div class="key-point warning">
+  <strong>结尾标记不能省!</strong> 如果不加 <code>#</code>（或 <code>is_end</code>），插入 "apple" 后 search("app") 会返回 True —— 因为 "app" 是 "apple" 的前缀，路径确实存在，但 "app" 这个词并没有被插入过。
+</div>
+
+<h2>4. 经典套路</h2>
+<div class="section">
+  <h3>单词搜索 II（Trie + 回溯）</h3>
+  <p>把所有待搜索词建成 Trie，然后在网格上 DFS。每走一步看 Trie 中有没有对应分支，没有就剪枝。比逐个词搜索快得多。</p>
+
+  <h3>最大异或对（01 Trie）</h3>
+  <p>把每个数的二进制表示插入 Trie（从高位到低位）。查询时贪心地走相反方向 —— 每一位尽量选和当前位不同的路径，这样异或结果该位为 1，最终得到最大值。</p>
+</div>
+
+<h2>5. 插入可视化</h2>
+<div class="anim-container">
+  <svg id="trie-svg" width="100%" height="280" viewBox="0 0 700 280"></svg>
+  <div class="anim-controls">
+    <button id="btn-insert" onclick="insertNext()">插入下一个</button>
+    <button id="btn-reset" class="secondary" onclick="resetTrie()">重置</button>
+  </div>
+  <div class="anim-status" id="insert-status">点击"插入下一个"依次插入: apple, app, ant, bee</div>
+</div>
+
+<h2>6. 搜索过程演示</h2>
+<div class="anim-container">
+  <svg id="search-svg" width="100%" height="280" viewBox="0 0 700 280"></svg>
+  <div class="anim-controls">
+    <button id="btn-search-app" onclick="doSearch('app')" disabled>search("app")</button>
+    <button id="btn-search-ap" onclick="doSearch('ap')" disabled>search("ap")</button>
+    <button id="btn-search-reset" class="secondary" onclick="resetSearch()">重置高亮</button>
+  </div>
+  <div class="anim-status" id="search-status">请先完成上方的插入动画</div>
+</div>
+
+<h2>7. 思考题</h2>
+<div class="thinking">
+  <ol>
+    <li>为什么需要 <code>#</code> 结尾标记？不加会出什么问题？</li>
+    <li>dict 版和数组版 Trie 各有什么优劣？</li>
+    <li>01 Trie 的 "每一位尽量选相反方向" 为什么能得到最大异或？</li>
+  </ol>
+</div>
+
+<h2>8. LeetCode 练习</h2>
+<div class="leetcode-section">
+  <h3>热身</h3>
+  <div class="lc-list">
+    <div class="lc-item"><input type="checkbox" id="lc-208"><label for="lc-208"><a href="https://leetcode.cn/problems/implement-trie-prefix-tree/" target="_blank">208</a> 实现 Trie</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-1268"><label for="lc-1268"><a href="https://leetcode.cn/problems/search-suggestions-system/" target="_blank">1268</a> 搜索推荐</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-648"><label for="lc-648"><a href="https://leetcode.cn/problems/replace-words/" target="_blank">648</a> 替换单词</label></div>
+  </div>
+  <h3>进阶</h3>
+  <div class="lc-list">
+    <div class="lc-item"><input type="checkbox" id="lc-212"><label for="lc-212"><a href="https://leetcode.cn/problems/word-search-ii/" target="_blank">212</a> 单词搜索 II</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-421"><label for="lc-421"><a href="https://leetcode.cn/problems/maximum-xor-of-two-numbers-in-an-array/" target="_blank">421</a> 最大异或</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-336"><label for="lc-336"><a href="https://leetcode.cn/problems/palindrome-pairs/" target="_blank">336</a> 回文对</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-677"><label for="lc-677"><a href="https://leetcode.cn/problems/map-sum-pairs/" target="_blank">677</a> 键值映射</label></div>
+    <div class="lc-item"><input type="checkbox" id="lc-745"><label for="lc-745"><a href="https://leetcode.cn/problems/prefix-and-suffix-search/" target="_blank">745</a> 前后缀搜索</label></div>
+  </div>
+</div>
+
+<script>
+// ===== Progress tracking =====
+const STORAGE_KEY = 'algo-progress-trie';
+const PROBLEMS = ['lc-208','lc-1268','lc-648','lc-212','lc-421','lc-336','lc-677','lc-745'];
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  PROBLEMS.forEach(id => {
+    const cb = document.getElementById(id);
+    if (saved[id]) cb.checked = true;
+  });
+  updateProgressText();
+}
+
+function updateProgressText() {
+  const done = PROBLEMS.filter(id => document.getElementById(id).checked).length;
+  document.getElementById('progress-text').textContent = `已完成 ${done}/8`;
+}
+
+PROBLEMS.forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    const state = {};
+    PROBLEMS.forEach(pid => { state[pid] = document.getElementById(pid).checked; });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateProgressText();
+  });
+});
+loadProgress();
+
+// ===== Trie Animation =====
+const WORDS = ['apple', 'app', 'ant', 'bee'];
+let insertIndex = 0;
+let trieData = { children: {}, id: 0 };
+let nodeCount = 0;
+let allInserted = false;
+
+// Layout: compute positions for each node
+// We'll use a simple tree layout
+function getNodeId() { return ++nodeCount; }
+
+function insertWord(trie, word) {
+  let node = trie;
+  const path = [];
+  for (const c of word) {
+    if (!node.children[c]) {
+      node.children[c] = { children: {}, id: getNodeId(), char: c, isEnd: false, parent: node.id };
+    }
+    path.push({ from: node.id, to: node.children[c].id, char: c });
+    node = node.children[c];
+  }
+  node.isEnd = true;
+  path.push({ nodeId: node.id, isEnd: true });
+  return path;
+}
+
+// Layout computation
+function computeLayout(trie, x, y, xSpan) {
+  const nodes = [];
+  const edges = [];
+
+  function traverse(node, cx, cy, span, parentPos) {
+    nodes.push({ id: node.id, x: cx, y: cy, char: node.char || 'root', isEnd: node.isEnd });
+    if (parentPos) {
+      edges.push({ from: parentPos, to: { x: cx, y: cy }, char: node.char });
+    }
+    const keys = Object.keys(node.children).sort();
+    if (keys.length === 0) return;
+    const childSpan = span / keys.length;
+    let startX = cx - span / 2 + childSpan / 2;
+    for (let i = 0; i < keys.length; i++) {
+      const child = node.children[keys[i]];
+      traverse(child, startX + i * childSpan, cy + 55, childSpan, { x: cx, y: cy });
+    }
+  }
+
+  traverse(trie, x, y, xSpan, null);
+  return { nodes, edges };
+}
+
+function renderTrie(svgId, layout, highlightPath, searchResult) {
+  const svg = document.getElementById(svgId);
+  let html = '';
+
+  // Edges
+  for (const e of layout.edges) {
+    const isHL = highlightPath && highlightPath.edges &&
+      highlightPath.edges.some(he => he.from.x === e.from.x && he.from.y === e.from.y && he.to.x === e.to.x && he.to.y === e.to.y);
+    html += `<line x1="${e.from.x}" y1="${e.from.y}" x2="${e.to.x}" y2="${e.to.y}"
+      stroke="${isHL ? '#76b900' : '#555'}" stroke-width="${isHL ? 3 : 1.5}"
+      class="tree-edge"/>`;
+    // Edge label
+    const mx = (e.from.x + e.to.x) / 2 - 5;
+    const my = (e.from.y + e.to.y) / 2 - 5;
+    html += `<text x="${mx}" y="${my}" fill="${isHL ? '#76b900' : '#aaa'}" font-size="12">${e.char}</text>`;
+  }
+
+  // Nodes
+  for (const n of layout.nodes) {
+    let fill = '#2a2a4a';
+    let stroke = '#555';
+    const isHLNode = highlightPath && highlightPath.nodes && highlightPath.nodes.includes(n.id);
+    if (isHLNode) { fill = '#2a4a0a'; stroke = '#76b900'; }
+    if (n.isEnd) { stroke = '#00d4aa'; if (isHLNode) fill = '#0a3a3a'; }
+
+    if (searchResult && searchResult.nodeId === n.id) {
+      if (searchResult.found) { fill = '#1a4a1a'; stroke = '#76b900'; }
+      else { fill = '#4a1a1a'; stroke = '#ff6b6b'; }
+    }
+
+    html += `<circle cx="${n.x}" cy="${n.y}" r="16" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+    if (n.isEnd) {
+      html += `<text x="${n.x}" y="${n.y + 4}" text-anchor="middle" fill="#00d4aa" font-size="11" font-weight="bold">#</text>`;
+    }
+  }
+
+  svg.innerHTML = html;
+}
+
+function getCurrentLayout() {
+  return computeLayout(trieData, 350, 30, 600);
+}
+
+function insertNext() {
+  if (insertIndex >= WORDS.length) return;
+  const word = WORDS[insertIndex];
+  const path = insertWord(trieData, word);
+  insertIndex++;
+
+  const layout = getCurrentLayout();
+  // Highlight the path of this insertion
+  const hlNodes = [];
+  const hlEdges = [];
+  let node = trieData;
+  hlNodes.push(node.id);
+  for (const c of word) {
+    const parentPos = layout.nodes.find(n => n.id === node.id);
+    node = node.children[c];
+    const childPos = layout.nodes.find(n => n.id === node.id);
+    hlNodes.push(node.id);
+    if (parentPos && childPos) {
+      hlEdges.push({ from: { x: parentPos.x, y: parentPos.y }, to: { x: childPos.x, y: childPos.y } });
+    }
+  }
+
+  renderTrie('trie-svg', layout, { nodes: hlNodes, edges: hlEdges });
+  document.getElementById('insert-status').textContent = `已插入: "${word}" (${insertIndex}/${WORDS.length})`;
+
+  if (insertIndex >= WORDS.length) {
+    document.getElementById('btn-insert').disabled = true;
+    document.getElementById('insert-status').textContent += ' - 全部插入完成!';
+    allInserted = true;
+    // Enable search buttons and render search SVG
+    document.getElementById('btn-search-app').disabled = false;
+    document.getElementById('btn-search-ap').disabled = false;
+    document.getElementById('search-status').textContent = '点击按钮演示搜索过程';
+    renderTrie('search-svg', layout, null);
+  }
+}
+
+function resetTrie() {
+  trieData = { children: {}, id: 0 };
+  nodeCount = 0;
+  insertIndex = 0;
+  allInserted = false;
+  document.getElementById('trie-svg').innerHTML = '';
+  document.getElementById('insert-status').textContent = '点击"插入下一个"依次插入: apple, app, ant, bee';
+  document.getElementById('btn-insert').disabled = false;
+  document.getElementById('btn-search-app').disabled = true;
+  document.getElementById('btn-search-ap').disabled = true;
+  document.getElementById('search-svg').innerHTML = '';
+  document.getElementById('search-status').textContent = '请先完成上方的插入动画';
+}
+
+// ===== Search Animation =====
+function doSearch(word) {
+  if (!allInserted) return;
+  const layout = getCurrentLayout();
+  const hlNodes = [];
+  const hlEdges = [];
+  let node = trieData;
+  hlNodes.push(node.id);
+  let found = true;
+
+  for (const c of word) {
+    if (!node.children[c]) { found = false; break; }
+    const parentPos = layout.nodes.find(n => n.id === node.id);
+    node = node.children[c];
+    const childPos = layout.nodes.find(n => n.id === node.id);
+    hlNodes.push(node.id);
+    if (parentPos && childPos) {
+      hlEdges.push({ from: { x: parentPos.x, y: parentPos.y }, to: { x: childPos.x, y: childPos.y } });
+    }
+  }
+
+  const hasEnd = found && node.isEnd;
+  const searchRes = found ? { nodeId: node.id, found: hasEnd } : null;
+
+  renderTrie('search-svg', layout, { nodes: hlNodes, edges: hlEdges }, searchRes);
+
+  if (!found) {
+    document.getElementById('search-status').textContent = `search("${word}") -> 路径不存在，返回 False`;
+  } else if (hasEnd) {
+    document.getElementById('search-status').textContent = `search("${word}") -> 找到节点且有 # 标记，返回 True`;
+  } else {
+    document.getElementById('search-status').textContent = `search("${word}") -> 找到节点但没有 # 标记，返回 False（只是前缀，不是完整单词）`;
+  }
+}
+
+function resetSearch() {
+  if (!allInserted) return;
+  const layout = getCurrentLayout();
+  renderTrie('search-svg', layout, null);
+  document.getElementById('search-status').textContent = '点击按钮演示搜索过程';
+}
+</script>
+
+</body>
+</html>

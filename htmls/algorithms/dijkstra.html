@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dijkstra 最短路径算法</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1200px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; position: relative; overflow: hidden; }
+.nav { display: flex; justify-content: space-between; margin: 2rem 0 1rem; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; transition: all 0.2s; }
+.nav a:hover { border-color: #76b900; background: #1a1a2e; }
+.tag { display: inline-block; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 4px 10px; margin: 3px; font-size: 0.85rem; color: #76b900; }
+.thinking { background: #1a1a2e; border-left: 4px solid #76b900; padding: 16px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.thinking summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.thinking p { margin-top: 0.8rem; color: #ccc; }
+.progress-section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #333; }
+.progress-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #222; }
+.progress-item:last-child { border-bottom: none; }
+.progress-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #76b900; }
+.progress-item label { cursor: pointer; flex: 1; }
+.progress-item.done label { text-decoration: line-through; color: #666; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.dist-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+.dist-table th, .dist-table td { padding: 8px 12px; border: 1px solid #333; text-align: center; font-family: monospace; }
+.dist-table th { background: #1a1a2e; color: #76b900; }
+.dist-table td { background: #0a0a1a; }
+.dist-table td.updated { background: #76b900; color: #000; font-weight: bold; transition: background 0.3s; }
+@media (max-width: 768px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  pre { padding: 12px; font-size: 0.78rem; }
+  .card { padding: 16px; }
+  .controls { gap: 6px; }
+  .btn { padding: 8px 14px; font-size: 0.82rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>Dijkstra 最短路径算法</h1>
+<p style="color:#aaa; font-size:1.1rem;">带优先队列的BFS：每次取当前已知距离最小的未确定节点去松弛邻居。只适用于非负边权。</p>
+
+<div class="nav">
+  <a href="topological-sort.html">&larr; 拓扑排序</a>
+  <a href="linked-list.html">链表 &rarr;</a>
+</div>
+
+<h2>模板代码</h2>
+<div class="card">
+<pre><code><span class="keyword">import</span> heapq
+<span class="keyword">def</span> <span class="function">dijkstra</span>(n, edges, src):
+    g = [[] <span class="keyword">for</span> _ <span class="keyword">in</span> range(n)]
+    <span class="keyword">for</span> u, v, w <span class="keyword">in</span> edges: g[u].append((v, w))
+    dist = [<span class="number">float</span>(<span class="string">'inf'</span>)] * n
+    dist[src] = <span class="number">0</span>
+    pq = [(<span class="number">0</span>, src)]
+    <span class="keyword">while</span> pq:
+        d, u = heapq.heappop(pq)
+        <span class="keyword">if</span> d > dist[u]: <span class="keyword">continue</span>  <span class="comment"># 跳过过期条目</span>
+        <span class="keyword">for</span> v, w <span class="keyword">in</span> g[u]:
+            nd = d + w
+            <span class="keyword">if</span> nd < dist[v]:
+                dist[v] = nd
+                heapq.heappush(pq, (nd, v))
+    <span class="keyword">return</span> dist</code></pre>
+</div>
+
+<h2>三个关键点</h2>
+<div class="card">
+  <p><span class="tag">1</span> 堆里存 <code>(距离, 节点)</code> 这个元组，保证 heappop 按距离排序</p>
+  <p><span class="tag">2</span> 弹出时检查 <code>if d > dist[u]: continue</code> ——跳过过期的旧条目</p>
+  <p><span class="tag">3</span> 松弛成功后再 push 新的 (nd, v)，不要提前 push</p>
+</div>
+
+<h2>变体与边界</h2>
+<div class="card">
+  <h3>变体</h3>
+  <p><span class="tag">A* 搜索</span> 加启发式函数，优先探索"更有希望"的方向</p>
+  <p><span class="tag">分层图/状态扩维</span> 节点变成 (node, state)，如限制K次免费通行</p>
+  <p><span class="tag">0-1 BFS</span> 边权只有0/1时，用双端队列代替堆，O(V+E)</p>
+  <h3>何时不用 Dijkstra</h3>
+  <p>边权全1 → 普通BFS就行</p>
+  <p>边权只有0/1 → 0-1 BFS更快</p>
+  <p>有负权边 → Bellman-Ford / SPFA</p>
+</div>
+
+<h2>动画演示</h2>
+<div class="animation-container" id="anim-container">
+  <svg id="graph-svg" width="100%" height="280" viewBox="0 0 500 280"></svg>
+  <table class="dist-table" id="dist-table">
+    <thead><tr><th>节点</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr></thead>
+    <tbody><tr><td>dist</td><td id="d0">0</td><td id="d1">inf</td><td id="d2">inf</td><td id="d3">inf</td><td id="d4">inf</td></tr></tbody>
+  </table>
+  <div class="step-info" id="step-info">点击"下一步"开始 Dijkstra 演示（从节点 0 出发）</div>
+  <div class="controls">
+    <button class="btn" id="btn-next">下一步</button>
+    <button class="btn btn-secondary" id="btn-reset">重置</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+<div class="card">
+  <details class="thinking">
+    <summary>为什么 Dijkstra 不能处理负权边？给一个反例。</summary>
+    <p>Dijkstra 贪心地"确定"当前最小距离节点，一旦确定就不再更新。如果后面有负权边能让已确定节点距离更短，算法无法回头修正。反例：A→B(1), A→C(5), C→B(-10)，从A出发先确定B=1，但实际最短是A→C→B=-5。</p>
+  </details>
+  <details class="thinking">
+    <summary><code>if d > dist[u]: continue</code> 这一行的作用是什么？不加会怎样？</summary>
+    <p>堆中可能有同一节点的多个旧条目。这行跳过过期条目，避免用旧距离去松弛邻居。不加不影响正确性，但会做大量无用松弛，时间复杂度退化。</p>
+  </details>
+  <details class="thinking">
+    <summary>0-1 BFS 为什么比 Dijkstra 更快（边权只有0/1时）？</summary>
+    <p>0-1 BFS 用双端队列：权0的边加到队头，权1的边加到队尾。不需要堆操作，时间 O(V+E)，而 Dijkstra 是 O((V+E)logV)。</p>
+  </details>
+</div>
+
+<h2>LeetCode 练习</h2>
+<div class="progress-section" id="progress-section">
+  <h3>热身</h3>
+  <div class="progress-item" data-id="743"><input type="checkbox" id="lc-743"><label for="lc-743">743. Network Delay Time</label></div>
+  <div class="progress-item" data-id="1631"><input type="checkbox" id="lc-1631"><label for="lc-1631">1631. Path With Minimum Effort</label></div>
+  <div class="progress-item" data-id="787"><input type="checkbox" id="lc-787"><label for="lc-787">787. Cheapest Flights Within K Stops</label></div>
+  <h3>进阶</h3>
+  <div class="progress-item" data-id="1514"><input type="checkbox" id="lc-1514"><label for="lc-1514">1514. Path with Maximum Probability</label></div>
+  <div class="progress-item" data-id="1928"><input type="checkbox" id="lc-1928"><label for="lc-1928">1928. Minimum Cost to Reach Destination in Time</label></div>
+  <div class="progress-item" data-id="2045"><input type="checkbox" id="lc-2045"><label for="lc-2045">2045. Second Minimum Time to Reach Destination</label></div>
+  <div class="progress-item" data-id="1976"><input type="checkbox" id="lc-1976"><label for="lc-1976">1976. Number of Ways to Arrive at Destination</label></div>
+  <div class="progress-item" data-id="407"><input type="checkbox" id="lc-407"><label for="lc-407">407. Trapping Rain Water II</label></div>
+</div>
+
+<div class="nav" style="margin-top:3rem;">
+  <a href="topological-sort.html">&larr; 拓扑排序</a>
+  <a href="linked-list.html">链表 &rarr;</a>
+</div>
+
+<script>
+// --- Progress ---
+const STORAGE_KEY = 'algo-progress-dijkstra';
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+const progress = loadProgress();
+document.querySelectorAll('.progress-item').forEach(item => {
+  const id = item.dataset.id;
+  const cb = item.querySelector('input');
+  if (progress[id]) { cb.checked = true; item.classList.add('done'); }
+  cb.addEventListener('change', () => {
+    progress[id] = cb.checked;
+    item.classList.toggle('done', cb.checked);
+    saveProgress(progress);
+  });
+});
+
+// --- Graph Animation ---
+const nodes = [
+  {id:0, x:80, y:140},
+  {id:1, x:200, y:50},
+  {id:2, x:200, y:230},
+  {id:3, x:350, y:100},
+  {id:4, x:420, y:220}
+];
+const edges = [
+  {u:0,v:1,w:4}, {u:0,v:2,w:2},
+  {u:1,v:3,w:5}, {u:2,v:1,w:1},
+  {u:2,v:3,w:8}, {u:2,v:4,w:10},
+  {u:3,v:4,w:2}
+];
+
+const svg = document.getElementById('graph-svg');
+function drawGraph() {
+  let html = '';
+  // edges
+  edges.forEach((e,i) => {
+    const s = nodes[e.u], t = nodes[e.v];
+    const mx = (s.x+t.x)/2, my = (s.y+t.y)/2;
+    html += `<line id="edge-${i}" x1="${s.x}" y1="${s.y}" x2="${t.x}" y2="${t.y}" stroke="#444" stroke-width="2"/>`;
+    html += `<text x="${mx}" y="${my-8}" fill="#aaa" font-size="12" text-anchor="middle">${e.w}</text>`;
+  });
+  // nodes
+  nodes.forEach(n => {
+    html += `<circle id="node-${n.id}" cx="${n.x}" cy="${n.y}" r="22" fill="#333" stroke="#666" stroke-width="2"/>`;
+    html += `<text x="${n.x}" y="${n.y+5}" fill="#e0e0e0" font-size="14" text-anchor="middle" font-weight="bold">${n.id}</text>`;
+  });
+  svg.innerHTML = html;
+}
+drawGraph();
+
+// Dijkstra steps
+function computeSteps() {
+  const dist = [0, Infinity, Infinity, Infinity, Infinity];
+  const confirmed = [false,false,false,false,false];
+  const steps = [];
+  const g = [[],[],[],[],[]];
+  edges.forEach(e => g[e.u].push({v:e.v, w:e.w}));
+
+  // priority queue simulation
+  const pq = [{d:0, u:0}];
+  steps.push({type:'init', msg:'初始化：dist[0]=0，其余为 inf。优先队列 = [(0,0)]'});
+
+  while(pq.length) {
+    pq.sort((a,b)=>a.d-b.d);
+    const {d, u} = pq.shift();
+    if(d > dist[u]) continue;
+    steps.push({type:'pop', node:u, dist:[...dist], msg:`弹出节点 ${u}（距离=${d}），标记为已确定`});
+    confirmed[u] = true;
+    const relaxed = [];
+    for(const {v, w} of g[u]) {
+      const nd = d + w;
+      if(nd < dist[v]) {
+        dist[v] = nd;
+        pq.push({d:nd, u:v});
+        relaxed.push({v, nd, old: dist[v] === nd ? 'inf' : dist[v]});
+      }
+    }
+    if(relaxed.length) {
+      steps.push({type:'relax', from:u, targets:relaxed, dist:[...dist], confirmed:[...confirmed],
+        msg:`从节点 ${u} 松弛：${relaxed.map(r=>`dist[${r.v}]=${r.nd}`).join(', ')}`});
+    }
+  }
+  steps.push({type:'done', dist:[...dist], msg:'完成！所有节点最短距离已确定。'});
+  return steps;
+}
+
+const steps = computeSteps();
+let currentStep = 0;
+const distCells = [document.getElementById('d0'),document.getElementById('d1'),document.getElementById('d2'),document.getElementById('d3'),document.getElementById('d4')];
+const stepInfo = document.getElementById('step-info');
+
+function colorNode(id, color) {
+  const el = document.getElementById('node-'+id);
+  if(el) el.setAttribute('fill', color);
+}
+function resetVis() {
+  currentStep = 0;
+  nodes.forEach(n => colorNode(n.id, '#333'));
+  distCells.forEach((c,i) => { c.textContent = i===0?'0':'inf'; c.className=''; });
+  stepInfo.textContent = '点击"下一步"开始 Dijkstra 演示（从节点 0 出发）';
+}
+function applyStep(step) {
+  if(step.type==='init') {
+    stepInfo.textContent = step.msg;
+  } else if(step.type==='pop') {
+    colorNode(step.node, '#f0c800'); // yellow = processing
+    setTimeout(()=>colorNode(step.node, '#76b900'), 400); // green = confirmed
+    stepInfo.textContent = step.msg;
+    step.dist.forEach((d,i) => { distCells[i].textContent = d===Infinity?'inf':d; });
+  } else if(step.type==='relax') {
+    step.dist.forEach((d,i) => {
+      distCells[i].textContent = d===Infinity?'inf':d;
+      distCells[i].className = '';
+    });
+    step.targets.forEach(t => { distCells[t.v].className='updated'; });
+    stepInfo.textContent = step.msg;
+    // color relaxed nodes
+    step.targets.forEach(t => { if(!step.confirmed[t.v]) colorNode(t.v, '#f0c800'); });
+    setTimeout(()=>{ step.targets.forEach(t => { if(!step.confirmed[t.v]) colorNode(t.v, '#555'); }); }, 500);
+  } else if(step.type==='done') {
+    step.dist.forEach((d,i) => { distCells[i].textContent = d; distCells[i].className='updated'; });
+    nodes.forEach(n => colorNode(n.id, '#76b900'));
+    stepInfo.textContent = step.msg;
+  }
+}
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if(currentStep < steps.length) { applyStep(steps[currentStep]); currentStep++; }
+});
+document.getElementById('btn-reset').addEventListener('click', resetVis);
+</script>
+</body>
+</html>

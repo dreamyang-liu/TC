@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>哈希表 - Hash Table</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: #888; font-size: 1rem; margin-bottom: 2rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.builtin { color: #56b6c2; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; position: relative; overflow: hidden; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.pattern-num { display: inline-block; width: 28px; height: 28px; background: #76b900; color: #000; border-radius: 50%; text-align: center; line-height: 28px; font-weight: bold; font-size: 0.9rem; margin-right: 10px; }
+.pattern-item { margin: 16px 0; padding: 16px; background: #0a0a1a; border-radius: 8px; border-left: 3px solid #76b900; }
+
+.array-cell { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: #1a1a2e; border: 2px solid #444; border-radius: 8px; font-family: monospace; font-size: 1.1rem; font-weight: bold; margin: 4px; transition: all 0.4s ease; }
+.array-cell.current { border-color: #76b900; background: #2a3a1e; box-shadow: 0 0 12px rgba(118,185,0,0.4); }
+.array-cell.found { border-color: #00d4aa; background: #1a3a3e; box-shadow: 0 0 12px rgba(0,212,170,0.4); }
+.array-cell.paired { background: #00d4aa; color: #000; border-color: #00d4aa; animation: pairPulse 0.6s ease; }
+
+.dict-container { margin: 16px 0; padding: 12px; background: #1a1a2e; border-radius: 8px; border: 1px solid #333; min-height: 50px; }
+.dict-entry { display: inline-block; background: #0a0a1a; border: 1px solid #76b900; border-radius: 6px; padding: 4px 10px; margin: 4px; font-family: monospace; font-size: 0.85rem; transition: all 0.3s ease; }
+.dict-entry.highlight { background: #76b900; color: #000; font-weight: bold; }
+.dict-entry.match { background: #00d4aa; color: #000; font-weight: bold; animation: pairPulse 0.6s ease; }
+
+@keyframes pairPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+.thinking-card { background: #1a1a2e; border: 1px solid #00d4aa; border-radius: 12px; padding: 20px; margin: 12px 0; }
+.thinking-card summary { cursor: pointer; color: #00d4aa; font-weight: bold; }
+.thinking-card p { margin-top: 12px; color: #ccc; }
+
+.leetcode-tag { display: inline-block; background: #333; color: #76b900; padding: 4px 10px; border-radius: 16px; font-size: 0.8rem; margin: 4px; font-family: monospace; }
+.leetcode-tag.advanced { color: #00d4aa; border: 1px solid #00d4aa; }
+
+.progress-section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #333; }
+.progress-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #76b900, #00d4aa); border-radius: 4px; transition: width 0.3s ease; }
+.checkbox-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+.checkbox-item input { accent-color: #76b900; width: 16px; height: 16px; }
+
+.nav-bar { display: flex; justify-content: space-between; margin: 2rem 0; padding: 16px 0; border-top: 1px solid #333; }
+.nav-link { color: #76b900; text-decoration: none; font-size: 0.9rem; }
+.nav-link:hover { color: #00d4aa; }
+
+ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+li { margin: 4px 0; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  .array-cell { width: 38px; height: 38px; font-size: 0.9rem; }
+  .controls { flex-direction: column; align-items: stretch; }
+}
+</style>
+</head>
+<body>
+
+<h1>哈希表 Hash Table</h1>
+<p class="subtitle">用空间换时间，把找过的东西存起来 O(1) 查。面试高频中的高频。</p>
+
+<!-- 三大模式 -->
+<h2>三大模式</h2>
+
+<div class="pattern-item">
+<span class="pattern-num">1</span><strong>两数之和（一边遍历一边查）</strong>
+<pre><code><span class="keyword">def</span> <span class="function">twoSum</span>(nums, target):
+    seen = {}
+    <span class="keyword">for</span> i, x <span class="keyword">in</span> <span class="function">enumerate</span>(nums):
+        <span class="keyword">if</span> target - x <span class="keyword">in</span> seen:      <span class="comment"># 先查</span>
+            <span class="keyword">return</span> [seen[target - x], i]
+        seen[x] = i                    <span class="comment"># 后存</span></code></pre>
+<p style="color:#888; font-size:0.85rem;">关键：先查后存，防止自己配自己。</p>
+</div>
+
+<div class="pattern-item">
+<span class="pattern-num">2</span><strong>前缀和 + 哈希表（和为K的子数组）</strong>
+<pre><code><span class="keyword">def</span> <span class="function">subarraySum</span>(nums, k):
+    prefix = {<span class="number">0</span>: <span class="number">1</span>}  <span class="comment"># 初始化！空前缀和为0出现1次</span>
+    curr_sum = count = <span class="number">0</span>
+    <span class="keyword">for</span> x <span class="keyword">in</span> nums:
+        curr_sum += x
+        count += prefix.get(curr_sum - k, <span class="number">0</span>)
+        prefix[curr_sum] = prefix.get(curr_sum, <span class="number">0</span>) + <span class="number">1</span>
+    <span class="keyword">return</span> count</code></pre>
+<p style="color:#888; font-size:0.85rem;">核心思想：curr_sum - prev_sum = k，即 prev_sum = curr_sum - k。</p>
+</div>
+
+<div class="pattern-item">
+<span class="pattern-num">3</span><strong>分组 / 计数 / 异位词</strong>
+<pre><code><span class="comment"># 异位词分组：选什么做key？</span>
+<span class="comment"># 方法1: 排序后的字符串</span>
+key = <span class="function">tuple</span>(<span class="function">sorted</span>(word))
+
+<span class="comment"># 方法2: 字母频率元组</span>
+key = <span class="function">tuple</span>(count[c] <span class="keyword">for</span> c <span class="keyword">in</span> <span class="string">'abcdefghijklmnopqrstuvwxyz'</span>)</code></pre>
+<p style="color:#888; font-size:0.85rem;">选key的技巧：能唯一标识一组的、可哈希的东西。</p>
+</div>
+
+<!-- Python速查 -->
+<h2>Python 速查</h2>
+<div class="card">
+<pre><code><span class="comment"># dict.get(key, default) — 不存在时返回默认值</span>
+d.get(<span class="string">'x'</span>, <span class="number">0</span>)
+
+<span class="comment"># dict.setdefault(key, default) — 不存在时设置并返回</span>
+d.setdefault(<span class="string">'x'</span>, []).append(val)
+
+<span class="comment"># defaultdict — 自动初始化</span>
+<span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict
+d = defaultdict(<span class="builtin">list</span>)   <span class="comment"># d['key'] 自动是 []</span>
+d = defaultdict(<span class="builtin">int</span>)    <span class="comment"># d['key'] 自动是 0</span>
+
+<span class="comment"># Counter — 计数神器</span>
+<span class="keyword">from</span> collections <span class="keyword">import</span> Counter
+c = Counter(<span class="string">"hello"</span>)    <span class="comment"># Counter({'l': 2, 'h': 1, 'e': 1, 'o': 1})</span>
+c.most_common(<span class="number">2</span>)        <span class="comment"># [('l', 2), ('h', 1)]</span>
+c1 - c2                 <span class="comment"># 减法，只保留正数计数</span></code></pre>
+</div>
+
+<!-- 滚动哈希 -->
+<h2>进阶：滚动哈希（Rabin-Karp）</h2>
+<div class="card">
+<p>用多项式哈希在 O(1) 时间内从一个窗口滑动到下一个窗口。</p>
+<pre><code><span class="comment"># 字符串匹配：O(n+m) 平均</span>
+<span class="keyword">def</span> <span class="function">rabinKarp</span>(text, pattern):
+    base, mod = <span class="number">31</span>, <span class="number">10**9 + 7</span>
+    m = len(pattern)
+
+    <span class="comment"># 计算pattern的哈希</span>
+    pat_hash = <span class="number">0</span>
+    <span class="keyword">for</span> c <span class="keyword">in</span> pattern:
+        pat_hash = (pat_hash * base + ord(c)) % mod
+
+    <span class="comment"># 滑动窗口</span>
+    win_hash = <span class="number">0</span>
+    power = <span class="function">pow</span>(base, m - <span class="number">1</span>, mod)
+    <span class="keyword">for</span> i, c <span class="keyword">in</span> <span class="function">enumerate</span>(text):
+        win_hash = (win_hash * base + ord(c)) % mod
+        <span class="keyword">if</span> i >= m:
+            win_hash = (win_hash - ord(text[i - m]) * power * base) % mod
+        <span class="keyword">if</span> i >= m - <span class="number">1</span> <span class="keyword">and</span> win_hash == pat_hash:
+            <span class="keyword">if</span> text[i-m+<span class="number">1</span>:i+<span class="number">1</span>] == pattern:  <span class="comment"># 验证（防哈希碰撞）</span>
+                <span class="keyword">return</span> i - m + <span class="number">1</span>
+    <span class="keyword">return</span> -<span class="number">1</span></code></pre>
+</div>
+
+<!-- Animation -->
+<h2>动画：两数之和过程</h2>
+<div class="animation-container">
+<p style="margin-bottom:8px; color:#888;">数组 <code>[2, 7, 11, 15]</code>，target = <code>9</code></p>
+<div class="controls">
+  <button class="btn" onclick="startTwoSum()">开始演示</button>
+  <button class="btn btn-secondary" onclick="nextStep()">下一步</button>
+  <button class="btn btn-secondary" onclick="resetTwoSum()">重置</button>
+</div>
+
+<div style="margin: 16px 0;">
+  <p style="font-size:0.85rem; color:#888; margin-bottom:8px;">数组：</p>
+  <div id="array-display"></div>
+</div>
+
+<div>
+  <p style="font-size:0.85rem; color:#888; margin-bottom:8px;">seen 字典：</p>
+  <div class="dict-container" id="dict-display">
+    <span style="color:#555; font-style:italic;">空</span>
+  </div>
+</div>
+
+<div class="step-info" id="twosum-step-info">点击"开始演示"查看两数之和的查找过程</div>
+</div>
+
+<!-- 思考题 -->
+<h2>思考题</h2>
+
+<details class="thinking-card">
+<summary>为什么两数之和要"先查后存"？举一个如果"先存后查"会出错的例子。</summary>
+<p>例子：nums = [3, 3], target = 6。<br><br>
+如果"先存后查"：遍历到第一个3时，先存 seen[3]=0。然后查 target-3=3，发现 seen 里有！返回 [0, 0]。<br>
+但这是同一个元素，不是两个不同的数。<br><br>
+"先查后存"：遍历到第一个3时，先查 seen 里有没有6-3=3，没有。再存 seen[3]=0。<br>
+遍历到第二个3时，先查 seen 里有没有6-3=3，有！返回 [0, 1]。正确！</p>
+</details>
+
+<details class="thinking-card">
+<summary>前缀和+哈希表中，{0: 1} 初始化的含义是什么？不加会漏掉哪些情况？</summary>
+<p><code>{0: 1}</code> 表示"前缀和为0出现过1次"，对应的是空前缀（一个元素都不取）。<br><br>
+如果不加：当 curr_sum 恰好等于 k 时（即从数组开头到当前位置的子数组和就是k），<br>
+我们需要找 curr_sum - k = 0 在 prefix 中出现的次数。如果没有初始化 {0:1}，就找不到，漏掉了这种情况。<br><br>
+例：nums = [1, 2, 3], k = 3。前缀和到第2个元素时是3，需要 prefix[0] = 1 才能数到子数组 [1,2]。</p>
+</details>
+
+<details class="thinking-card">
+<summary>Counter 的减法 c1 - c2 为什么只保留正数？这在什么场景下有用？</summary>
+<p>设计哲学：Counter 代表"多重集合"，元素个数不能为负。减法表示"从集合中移除"，移除比拥有的多就是0。<br><br>
+有用场景：<br>
+- 判断一个单词能否由另一个的字母组成：<code>Counter(word) - Counter(available)</code> 为空则可以。<br>
+- 找缺少的字母：<code>Counter(required) - Counter(have)</code> 得到还差什么。<br>
+- 滑动窗口中比较字符频率。</p>
+</details>
+
+<!-- LeetCode -->
+<h2>LeetCode 题目</h2>
+<div class="card">
+<h3>热身</h3>
+<span class="leetcode-tag">1. Two Sum</span>
+<span class="leetcode-tag">49. Group Anagrams</span>
+<span class="leetcode-tag">560. Subarray Sum Equals K</span>
+<span class="leetcode-tag">128. Longest Consecutive</span>
+<span class="leetcode-tag">217. Contains Duplicate</span>
+
+<h3>进阶</h3>
+<span class="leetcode-tag advanced">454. 4Sum II</span>
+<span class="leetcode-tag advanced">974. Subarray Sums Divisible by K</span>
+<span class="leetcode-tag advanced">437. Path Sum III</span>
+<span class="leetcode-tag advanced">146. LRU Cache</span>
+<span class="leetcode-tag advanced">355. Design Twitter</span>
+</div>
+
+<!-- Progress -->
+<div class="progress-section">
+<h3>学习进度</h3>
+<div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+<p id="progress-text" style="font-size:0.85rem; color:#888;">0 / 10 完成</p>
+<div id="progress-checks"></div>
+</div>
+
+<!-- Navigation -->
+<nav class="nav-bar">
+<a href="bit-manipulation.html" class="nav-link">&larr; 上一篇: 位运算</a>
+<a href="difference-array.html" class="nav-link">下一篇: 差分数组 &rarr;</a>
+</nav>
+
+<script>
+// Progress tracking
+const STORAGE_KEY = 'algo-progress-hash-table';
+const problems = ['1', '49', '560', '128', '217', '454', '974', '437', '146', '355'];
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  const container = document.getElementById('progress-checks');
+  container.innerHTML = '';
+  let done = 0;
+  problems.forEach(p => {
+    const checked = saved[p] || false;
+    if (checked) done++;
+    const label = document.createElement('label');
+    label.className = 'checkbox-item';
+    label.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleProblem('${p}', this.checked)"><span>LC ${p}</span>`;
+    container.appendChild(label);
+  });
+  document.getElementById('progress-fill').style.width = (done / problems.length * 100) + '%';
+  document.getElementById('progress-text').textContent = `${done} / ${problems.length} 完成`;
+}
+
+function toggleProblem(id, checked) {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  saved[id] = checked;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  loadProgress();
+}
+
+loadProgress();
+
+// Two Sum Animation
+const nums = [2, 7, 11, 15];
+const target = 9;
+let currentStep = -1;
+let autoMode = false;
+
+const steps = [
+  { idx: 0, action: 'check', desc: '遍历 i=0, x=2。查找 target-x = 9-2 = 7，seen 中没有 7' },
+  { idx: 0, action: 'store', desc: '存入 seen[2] = 0' },
+  { idx: 1, action: 'check', desc: '遍历 i=1, x=7。查找 target-x = 9-7 = 2，seen 中有 2！' },
+  { idx: 1, action: 'found', desc: '找到配对！seen[2]=0, 当前i=1。返回 [0, 1]' },
+];
+
+function renderArray(highlightIdx = -1, pairedIndices = []) {
+  const container = document.getElementById('array-display');
+  container.innerHTML = '';
+  nums.forEach((n, i) => {
+    const cell = document.createElement('span');
+    cell.className = 'array-cell';
+    if (pairedIndices.includes(i)) cell.className += ' paired';
+    else if (i === highlightIdx) cell.className += ' current';
+    cell.textContent = n;
+    container.appendChild(cell);
+  });
+}
+
+function renderDict(entries, highlightKey = null, matchKey = null) {
+  const container = document.getElementById('dict-display');
+  if (entries.length === 0) {
+    container.innerHTML = '<span style="color:#555; font-style:italic;">空</span>';
+    return;
+  }
+  container.innerHTML = '';
+  entries.forEach(([k, v]) => {
+    const el = document.createElement('span');
+    el.className = 'dict-entry';
+    if (k === matchKey) el.className += ' match';
+    else if (k === highlightKey) el.className += ' highlight';
+    el.textContent = `${k}: ${v}`;
+    container.appendChild(el);
+  });
+}
+
+function resetTwoSum() {
+  currentStep = -1;
+  autoMode = false;
+  renderArray();
+  renderDict([]);
+  document.getElementById('twosum-step-info').textContent = '点击"开始演示"查看两数之和的查找过程';
+}
+
+function startTwoSum() {
+  resetTwoSum();
+  autoMode = true;
+  currentStep = -1;
+  autoNext();
+}
+
+function autoNext() {
+  if (!autoMode) return;
+  if (currentStep >= steps.length - 1) { autoMode = false; return; }
+  nextStep();
+  if (currentStep < steps.length - 1) {
+    setTimeout(autoNext, 1800);
+  } else {
+    autoMode = false;
+  }
+}
+
+function nextStep() {
+  currentStep++;
+  if (currentStep >= steps.length) { currentStep = steps.length - 1; return; }
+
+  const step = steps[currentStep];
+  const info = document.getElementById('twosum-step-info');
+  info.textContent = step.desc;
+
+  // Build current seen state
+  const seen = [];
+  for (let i = 0; i <= currentStep; i++) {
+    if (steps[i].action === 'store') {
+      seen.push([nums[steps[i].idx], steps[i].idx]);
+    }
+  }
+
+  if (step.action === 'check') {
+    renderArray(step.idx);
+    renderDict(seen);
+  } else if (step.action === 'store') {
+    renderArray(step.idx);
+    renderDict(seen, nums[step.idx]);
+  } else if (step.action === 'found') {
+    renderArray(-1, [0, 1]);
+    renderDict(seen, null, 2);
+  }
+}
+
+// Initialize
+renderArray();
+renderDict([]);
+</script>
+</body>
+</html>

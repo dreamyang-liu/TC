@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算法模板速查 - Algorithm Patterns</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Hero Section */
+.hero {
+  text-align: center;
+  padding: 80px 20px 60px;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(118, 185, 0, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(0, 212, 170, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 0%, rgba(102, 126, 234, 0.06) 0%, transparent 50%);
+  pointer-events: none;
+}
+.hero h1 {
+  font-size: 3.5em;
+  background: linear-gradient(135deg, #76b900, #00d4aa, #667eea);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 15px;
+}
+.hero .subtitle {
+  font-size: 1.3em;
+  color: #888;
+  position: relative;
+  z-index: 1;
+  max-width: 700px;
+  margin: 0 auto;
+}
+.hero .stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 30px;
+  position: relative;
+  z-index: 1;
+}
+.stat-item { text-align: center; }
+.stat-number {
+  font-size: 2em;
+  font-weight: bold;
+  background: linear-gradient(135deg, #76b900, #00d4aa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label { font-size: 0.85em; color: #888; }
+
+.nav-link {
+  display: inline-block;
+  margin-top: 25px;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, rgba(118,185,0,0.15), rgba(0,212,170,0.15));
+  border: 1px solid rgba(118,185,0,0.4);
+  border-radius: 30px;
+  color: #76b900;
+  text-decoration: none;
+  font-size: 1em;
+  transition: all 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+.nav-link:hover {
+  background: linear-gradient(135deg, rgba(118,185,0,0.25), rgba(0,212,170,0.25));
+  border-color: #76b900;
+  transform: translateY(-2px);
+}
+
+/* Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+.section-title {
+  font-size: 1.8em;
+  color: #fff;
+  margin: 50px 0 30px;
+  padding-left: 15px;
+  border-left: 4px solid var(--section-color, #76b900);
+}
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 25px;
+}
+.chapter-card {
+  background: #1a1a2e;
+  border-radius: 16px;
+  border: 1px solid #333;
+  padding: 28px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  position: relative;
+  overflow: hidden;
+}
+.chapter-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3), 0 0 20px var(--glow);
+}
+.chapter-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  background: var(--gradient);
+}
+.chapter-number {
+  font-size: 0.8em;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.chapter-card h3 {
+  font-size: 1.3em;
+  color: #fff;
+  margin-bottom: 10px;
+}
+.chapter-card p {
+  color: #aaa;
+  font-size: 0.95em;
+  margin-bottom: 12px;
+}
+.chapter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.tag {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.75em;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #444;
+  color: #aaa;
+}
+
+/* Progress bar in card */
+.card-progress {
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+.card-progress-fill {
+  height: 100%;
+  background: var(--gradient);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Section color themes */
+.section-1 .section-title { --section-color: #76b900; }
+.section-1 .chapter-card { --accent: #76b900; --glow: rgba(118,185,0,0.2); --gradient: linear-gradient(90deg, #76b900, #00d4aa); }
+
+.section-2 .section-title { --section-color: #00d2ff; }
+.section-2 .chapter-card { --accent: #00d2ff; --glow: rgba(0,210,255,0.2); --gradient: linear-gradient(90deg, #00d2ff, #7b2ff7); }
+
+.section-3 .section-title { --section-color: #667eea; }
+.section-3 .chapter-card { --accent: #667eea; --glow: rgba(102,126,234,0.2); --gradient: linear-gradient(90deg, #667eea, #764ba2); }
+
+.section-4 .section-title { --section-color: #ff9800; }
+.section-4 .chapter-card { --accent: #ff9800; --glow: rgba(255,152,0,0.2); --gradient: linear-gradient(90deg, #ff9800, #ffd700); }
+
+.section-5 .section-title { --section-color: #ff4444; }
+.section-5 .chapter-card { --accent: #ff4444; --glow: rgba(255,68,68,0.2); --gradient: linear-gradient(90deg, #ff4444, #ff9800); }
+
+.section-6 .section-title { --section-color: #00d4aa; }
+.section-6 .chapter-card { --accent: #00d4aa; --glow: rgba(0,212,170,0.2); --gradient: linear-gradient(90deg, #00d4aa, #0088ff); }
+
+.section-7 .section-title { --section-color: #ffd700; }
+.section-7 .chapter-card { --accent: #ffd700; --glow: rgba(255,215,0,0.2); --gradient: linear-gradient(90deg, #ffd700, #ff9800); }
+
+/* Footer */
+.footer {
+  text-align: center;
+  padding: 40px 20px;
+  color: #555;
+  font-size: 0.85em;
+}
+
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2.2em; }
+  .hero .subtitle { font-size: 1em; }
+  .hero .stats { gap: 20px; flex-wrap: wrap; }
+  .stat-number { font-size: 1.5em; }
+  .chapter-grid { grid-template-columns: 1fr; }
+  .section-title { font-size: 1.4em; }
+}
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <h1>算法模板速查</h1>
+  <p class="subtitle">22 个核心模板，从入门到精通，配动画解释和 LeetCode 练习</p>
+  <div class="stats">
+    <div class="stat-item"><div class="stat-number">22</div><div class="stat-label">模板</div></div>
+    <div class="stat-item"><div class="stat-number">30+</div><div class="stat-label">动画</div></div>
+    <div class="stat-item"><div class="stat-number">150+</div><div class="stat-label">练习题</div></div>
+  </div>
+  <a href="progress.html" class="nav-link">查看学习进度 →</a>
+</section>
+
+<div class="container">
+
+  <!-- Section 1 -->
+  <div class="section-1">
+    <h2 class="section-title">基础数据结构</h2>
+    <div class="chapter-grid">
+      <a href="hash-table.html" class="chapter-card" data-pattern="hash-table">
+        <div class="chapter-number">PATTERN 01</div>
+        <h3>哈希表</h3>
+        <p>空间换时间，O(1)查找</p>
+        <div class="chapter-tags"><span class="tag">HashMap</span><span class="tag">计数</span><span class="tag">去重</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="linked-list.html" class="chapter-card" data-pattern="linked-list">
+        <div class="chapter-number">PATTERN 02</div>
+        <h3>链表</h3>
+        <p>dummy + 画图 + 先存再改</p>
+        <div class="chapter-tags"><span class="tag">dummy节点</span><span class="tag">反转</span><span class="tag">合并</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="heap.html" class="chapter-card" data-pattern="heap">
+        <div class="chapter-number">PATTERN 03</div>
+        <h3>堆/优先队列</h3>
+        <p>O(log n) 取最值</p>
+        <div class="chapter-tags"><span class="tag">TopK</span><span class="tag">合并有序</span><span class="tag">调度</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="trie.html" class="chapter-card" data-pattern="trie">
+        <div class="chapter-number">PATTERN 04</div>
+        <h3>前缀树</h3>
+        <p>共享前缀，共享路径</p>
+        <div class="chapter-tags"><span class="tag">自动补全</span><span class="tag">词典</span><span class="tag">前缀匹配</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="union-find.html" class="chapter-card" data-pattern="union-find">
+        <div class="chapter-number">PATTERN 05</div>
+        <h3>并查集</h3>
+        <p>find找根，union合并</p>
+        <div class="chapter-tags"><span class="tag">连通性</span><span class="tag">路径压缩</span><span class="tag">按秩合并</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 2 -->
+  <div class="section-2">
+    <h2 class="section-title">双指针与窗口</h2>
+    <div class="chapter-grid">
+      <a href="two-pointers.html" class="chapter-card" data-pattern="two-pointers">
+        <div class="chapter-number">PATTERN 06</div>
+        <h3>双指针</h3>
+        <p>对撞 + 快慢两种形态</p>
+        <div class="chapter-tags"><span class="tag">对撞指针</span><span class="tag">快慢指针</span><span class="tag">有序数组</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="sliding-window.html" class="chapter-card" data-pattern="sliding-window">
+        <div class="chapter-number">PATTERN 07</div>
+        <h3>滑动窗口</h3>
+        <p>右扩左缩，进出对称</p>
+        <div class="chapter-tags"><span class="tag">子串</span><span class="tag">子数组</span><span class="tag">最长/最短</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="binary-search.html" class="chapter-card" data-pattern="binary-search">
+        <div class="chapter-number">PATTERN 08</div>
+        <h3>二分查找</h3>
+        <p>一个模板走天下</p>
+        <div class="chapter-tags"><span class="tag">左闭右开</span><span class="tag">单调性</span><span class="tag">答案二分</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 3 -->
+  <div class="section-3">
+    <h2 class="section-title">栈与队列</h2>
+    <div class="chapter-grid">
+      <a href="monotonic-stack.html" class="chapter-card" data-pattern="monotonic-stack">
+        <div class="chapter-number">PATTERN 09</div>
+        <h3>单调栈</h3>
+        <p>下一个更大/更小</p>
+        <div class="chapter-tags"><span class="tag">NGE</span><span class="tag">柱状图</span><span class="tag">温度</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="monotonic-queue.html" class="chapter-card" data-pattern="monotonic-queue">
+        <div class="chapter-number">PATTERN 10</div>
+        <h3>单调队列</h3>
+        <p>滑窗最值 O(1)</p>
+        <div class="chapter-tags"><span class="tag">滑窗最大值</span><span class="tag">双端队列</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 4 -->
+  <div class="section-4">
+    <h2 class="section-title">搜索</h2>
+    <div class="chapter-grid">
+      <a href="bfs.html" class="chapter-card" data-pattern="bfs">
+        <div class="chapter-number">PATTERN 11</div>
+        <h3>广度优先搜索</h3>
+        <p>最短步数，逐层扩散</p>
+        <div class="chapter-tags"><span class="tag">层序遍历</span><span class="tag">最短路</span><span class="tag">多源BFS</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="backtracking.html" class="chapter-card" data-pattern="backtracking">
+        <div class="chapter-number">PATTERN 12</div>
+        <h3>回溯</h3>
+        <p>选→递归→撤销</p>
+        <div class="chapter-tags"><span class="tag">排列</span><span class="tag">组合</span><span class="tag">剪枝</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 5 -->
+  <div class="section-5">
+    <h2 class="section-title">动态规划</h2>
+    <div class="chapter-grid">
+      <a href="dp.html" class="chapter-card" data-pattern="dp">
+        <div class="chapter-number">PATTERN 13</div>
+        <h3>动态规划基础</h3>
+        <p>记忆化递归，四步走</p>
+        <div class="chapter-tags"><span class="tag">状态定义</span><span class="tag">转移方程</span><span class="tag">初始化</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="interval-dp.html" class="chapter-card" data-pattern="interval-dp">
+        <div class="chapter-number">PATTERN 14</div>
+        <h3>区间DP</h3>
+        <p>长度从小到大</p>
+        <div class="chapter-tags"><span class="tag">区间合并</span><span class="tag">戳气球</span><span class="tag">矩阵链</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="tree-dp.html" class="chapter-card" data-pattern="tree-dp">
+        <div class="chapter-number">PATTERN 15</div>
+        <h3>树形DP</h3>
+        <p>后序遍历+状态聚合</p>
+        <div class="chapter-tags"><span class="tag">树直径</span><span class="tag">打家劫舍III</span><span class="tag">换根</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="bit-manipulation.html" class="chapter-card" data-pattern="bit-manipulation">
+        <div class="chapter-number">PATTERN 16</div>
+        <h3>位运算/状压</h3>
+        <p>整数当set用</p>
+        <div class="chapter-tags"><span class="tag">位运算</span><span class="tag">状压DP</span><span class="tag">子集枚举</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 6 -->
+  <div class="section-6">
+    <h2 class="section-title">图论</h2>
+    <div class="chapter-grid">
+      <a href="topological-sort.html" class="chapter-card" data-pattern="topological-sort">
+        <div class="chapter-number">PATTERN 17</div>
+        <h3>拓扑排序</h3>
+        <p>入度为0就输出</p>
+        <div class="chapter-tags"><span class="tag">DAG</span><span class="tag">课程表</span><span class="tag">依赖顺序</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="dijkstra.html" class="chapter-card" data-pattern="dijkstra">
+        <div class="chapter-number">PATTERN 18</div>
+        <h3>最短路径</h3>
+        <p>带堆的BFS</p>
+        <div class="chapter-tags"><span class="tag">Dijkstra</span><span class="tag">加权图</span><span class="tag">网络延迟</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Section 7 -->
+  <div class="section-7">
+    <h2 class="section-title">其他经典</h2>
+    <div class="chapter-grid">
+      <a href="greedy.html" class="chapter-card" data-pattern="greedy">
+        <div class="chapter-number">PATTERN 19</div>
+        <h3>贪心</h3>
+        <p>局部最优→全局最优</p>
+        <div class="chapter-tags"><span class="tag">排序+贪心</span><span class="tag">区间调度</span><span class="tag">跳跃</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="quickselect.html" class="chapter-card" data-pattern="quickselect">
+        <div class="chapter-number">PATTERN 20</div>
+        <h3>快速选择</h3>
+        <p>期望O(n)找第K</p>
+        <div class="chapter-tags"><span class="tag">partition</span><span class="tag">TopK</span><span class="tag">中位数</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="difference-array.html" class="chapter-card" data-pattern="difference-array">
+        <div class="chapter-number">PATTERN 21</div>
+        <h3>差分/前缀和</h3>
+        <p>变化量代替全量</p>
+        <div class="chapter-tags"><span class="tag">区间加</span><span class="tag">前缀和</span><span class="tag">二维前缀和</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+      <a href="tree-traversal.html" class="chapter-card" data-pattern="tree-traversal">
+        <div class="chapter-number">PATTERN 22</div>
+        <h3>树遍历</h3>
+        <p>前中后序+递归三问</p>
+        <div class="chapter-tags"><span class="tag">前序</span><span class="tag">中序</span><span class="tag">后序</span><span class="tag">Morris</span></div>
+        <div class="card-progress"><div class="card-progress-fill" style="width:0%"></div></div>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <p>算法模板速查 | 22 Patterns for Coding Interviews</p>
+</div>
+
+<script>
+// Expected totals per pattern
+const TOTALS = {
+  'hash-table': 10, 'linked-list': 11, 'heap': 9, 'trie': 8, 'union-find': 9,
+  'two-pointers': 10, 'sliding-window': 8, 'binary-search': 7,
+  'monotonic-stack': 8, 'monotonic-queue': 5,
+  'bfs': 8, 'backtracking': 10,
+  'dp': 10, 'interval-dp': 8, 'tree-dp': 9, 'bit-manipulation': 8,
+  'topological-sort': 8, 'dijkstra': 8,
+  'greedy': 10, 'quickselect': 5, 'difference-array': 4, 'tree-traversal': 11
+};
+
+// Update progress bars from localStorage
+document.querySelectorAll('.chapter-card[data-pattern]').forEach(card => {
+  const pattern = card.dataset.pattern;
+  const total = TOTALS[pattern] || 1;
+  const key = `algo-progress-${pattern}`;
+  let completed = 0;
+  try {
+    const data = JSON.parse(localStorage.getItem(key));
+    if (data) {
+      completed = Object.values(data).filter(v => v === true).length;
+    }
+  } catch(e) {}
+  const pct = Math.round((completed / total) * 100);
+  const fill = card.querySelector('.card-progress-fill');
+  if (fill) fill.style.width = pct + '%';
+});
+</script>
+</body>
+</html>

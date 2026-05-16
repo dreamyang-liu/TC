@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>贪心算法 - Greedy Algorithm</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.8; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: #888; font-size: 1rem; margin-bottom: 2rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.6; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; position: relative; overflow: hidden; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; font-size: 0.9rem; }
+.nav a:hover { text-decoration: underline; }
+
+.tag { display: inline-block; background: #76b900; color: #000; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; margin-right: 4px; }
+.tag-blue { background: #00d4aa; }
+
+.motto { background: linear-gradient(135deg, rgba(118,185,0,0.1), rgba(0,212,170,0.1)); border-left: 4px solid #76b900; padding: 16px 20px; border-radius: 0 8px 8px 0; margin: 1rem 0; font-size: 1.1rem; }
+
+ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+li { margin-bottom: 0.5rem; }
+
+.progress-bar { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 12px 16px; margin: 1rem 0; display: flex; align-items: center; gap: 12px; }
+.progress-bar .count { color: #76b900; font-weight: bold; }
+
+.problem-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; margin: 1rem 0; }
+.problem-item { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 8px 12px; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 0.85rem; }
+.problem-item:hover { border-color: #76b900; }
+.problem-item.done { border-color: #76b900; background: rgba(118,185,0,0.1); }
+.problem-item a { color: #e0e0e0; text-decoration: none; }
+.problem-item.done a { color: #76b900; }
+
+.think-card { background: #1a1a2e; border: 1px solid #00d4aa; border-radius: 12px; padding: 20px; margin: 1rem 0; }
+.think-card summary { cursor: pointer; color: #00d4aa; font-weight: bold; }
+.think-card p { margin-top: 0.8rem; color: #ccc; }
+
+/* Timeline for interval animation */
+.timeline { position: relative; height: 250px; margin: 20px 0; }
+.timeline-axis { position: absolute; bottom: 30px; left: 40px; right: 20px; height: 2px; background: #444; }
+.timeline-label { position: absolute; bottom: 5px; font-size: 0.7rem; color: #888; transform: translateX(-50%); }
+.interval-bar { position: absolute; height: 24px; border-radius: 4px; transition: all 0.5s ease; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; }
+.interval-bar.pending { background: #333; border: 1px solid #555; color: #aaa; }
+.interval-bar.selected { background: rgba(118,185,0,0.8); border: 1px solid #76b900; color: #000; }
+.interval-bar.rejected { background: rgba(255,80,80,0.2); border: 1px solid rgba(255,80,80,0.4); color: #f55; }
+.interval-bar.current { background: rgba(0,212,170,0.4); border: 2px solid #00d4aa; color: #fff; }
+
+/* Course schedule animation */
+.course-container { min-height: 200px; }
+.course-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; padding: 8px 12px; border-radius: 8px; transition: all 0.4s ease; font-size: 0.85rem; }
+.course-row.in-heap { background: rgba(118,185,0,0.15); border: 1px solid #76b900; }
+.course-row.rejected { background: rgba(255,80,80,0.1); border: 1px solid rgba(255,80,80,0.3); opacity: 0.5; }
+.course-row.current { background: rgba(0,212,170,0.2); border: 2px solid #00d4aa; }
+.course-row.pending { background: #1a1a2e; border: 1px solid #333; }
+.heap-display { background: #1a1a2e; border: 1px solid #76b900; border-radius: 8px; padding: 12px; margin: 10px 0; }
+.heap-item { display: inline-block; background: #76b900; color: #000; padding: 4px 10px; border-radius: 4px; margin: 3px; font-weight: bold; font-size: 0.85rem; }
+.heap-item.popped { background: #f55; color: #fff; text-decoration: line-through; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  .problem-list { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .nav { font-size: 0.8rem; }
+  .timeline { height: 300px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="quickselect.html">&larr; 快速选择</a>
+  <a href="algorithms-index.html">目录</a>
+  <a href="trie.html">字典树 &rarr;</a>
+</nav>
+
+<h1>贪心算法</h1>
+<p class="subtitle">每步做局部最优选择，且能证明通向全局最优</p>
+
+<div class="motto">
+  难点不在代码，在判断<strong>能不能贪</strong>。贪心的代码通常很短，但正确性证明是灵魂。
+</div>
+
+<div class="progress-bar">
+  <span>练习进度：</span>
+  <span class="count" id="progress-display">已完成 0/10</span>
+</div>
+
+<!-- Section 1: 证明方式 -->
+<h2>一、两种证明方式</h2>
+
+<div class="card">
+  <h3>1. Exchange Argument（交换论证）</h3>
+  <p>思路：假设存在一个最优解 OPT 和贪心解 G 不同，找到第一个不同的地方，把 OPT 中的选择换成 G 的选择，证明结果<strong>不会变差</strong>。既然 OPT 已经是最优，换了也不差 → 矛盾或证明 G 也是最优。</p>
+  <p><span class="tag">适用场景</span> 排序类贪心（如按截止时间排序的调度问题）</p>
+</div>
+
+<div class="card">
+  <h3>2. Greedy Stays Ahead（贪心始终领先）</h3>
+  <p>思路：用数学归纳法证明贪心在<strong>每一步</strong>都不比最优解差。既然每步都领先或持平，最终结果自然最优。</p>
+  <p><span class="tag tag-blue">适用场景</span> 每步有可量化指标的问题（如区间调度选的区间数）</p>
+</div>
+
+<!-- Section 2: 五个常见套路 -->
+<h2>二、5个常见套路</h2>
+
+<div class="card">
+  <ol>
+    <li><strong>按某 key 排序后扫一遍</strong> — 区间问题按右端点排序是经典</li>
+    <li><strong>双堆/优先队列</strong> — 动态维护最大/最小值（如 IPO 问题）</li>
+    <li><strong>抵消/Cancel</strong> — Boyer-Moore 投票算法，多数元素</li>
+    <li><strong>反悔贪心</strong> — 先贪心选，遇到更好的反悔替换（课程表III）</li>
+    <li><strong>双指针贪心</strong> — 两端或快慢指针（分配饼干问题）</li>
+  </ol>
+</div>
+
+<!-- Section 3: Animation 1 - 区间调度 -->
+<h2>三、区间调度动画</h2>
+<p>按右端点排序后，每次选择不与已选区间重叠的最早结束区间。</p>
+
+<div class="animation-container">
+  <div class="controls">
+    <button class="btn" id="interval-start">开始演示</button>
+    <button class="btn btn-secondary" id="interval-step">下一步</button>
+    <button class="btn btn-secondary" id="interval-reset">重置</button>
+  </div>
+  <div class="step-info" id="interval-info">点击"开始演示"查看贪心选择过程</div>
+  <div class="timeline" id="interval-timeline"></div>
+</div>
+
+<!-- Section 4: 反悔贪心 -->
+<h2>四、反悔贪心模板（课程表III）</h2>
+
+<div class="motto">口诀：先贪婪装，装不下就扔最贵的</div>
+
+<pre><code><span class="keyword">def</span> <span class="function">schedule_courses</span>(courses):
+    courses.sort(key=<span class="keyword">lambda</span> c: c[<span class="number">1</span>])  <span class="comment"># 按 deadline 排序</span>
+    total = <span class="number">0</span>
+    heap = []
+    <span class="keyword">for</span> duration, deadline <span class="keyword">in</span> courses:
+        total += duration
+        heapq.heappush(heap, -duration)  <span class="comment"># 最大堆</span>
+        <span class="keyword">if</span> total > deadline:
+            total += heapq.heappop(heap)  <span class="comment"># 弹出最大的（负数所以是加）</span>
+    <span class="keyword">return</span> len(heap)</code></pre>
+
+<p>核心思想：遍历时无脑加入，如果超时了就<strong>反悔</strong>——把之前选过的最长课程踢掉，总时间一定会变小（因为踢掉的 ≥ 当前的或能让总时间回到 deadline 内）。</p>
+
+<!-- Animation 2: 反悔贪心 -->
+<h3>反悔贪心动画</h3>
+
+<div class="animation-container">
+  <div class="controls">
+    <button class="btn" id="course-start">开始演示</button>
+    <button class="btn btn-secondary" id="course-step">下一步</button>
+    <button class="btn btn-secondary" id="course-reset">重置</button>
+  </div>
+  <div class="step-info" id="course-info">点击"开始演示"查看反悔贪心过程</div>
+  <div class="heap-display">
+    <strong>最大堆：</strong><span id="heap-content">空</span>
+    <span style="margin-left:20px;">总耗时：<span id="total-time">0</span></span>
+  </div>
+  <div class="course-container" id="course-list"></div>
+</div>
+
+<!-- Section 5: 贪心 vs DP -->
+<h2>五、贪心 vs DP</h2>
+
+<div class="card card-highlight">
+  <p><strong>简单判断：</strong>不确定能贪就回退用 DP。</p>
+  <table style="width:100%; border-collapse:collapse; margin-top:12px;">
+    <tr style="border-bottom:1px solid #333;">
+      <th style="text-align:left; padding:8px; color:#76b900;">特征</th>
+      <th style="text-align:left; padding:8px; color:#76b900;">贪心</th>
+      <th style="text-align:left; padding:8px; color:#76b900;">DP</th>
+    </tr>
+    <tr style="border-bottom:1px solid #222;">
+      <td style="padding:8px;">选择</td>
+      <td style="padding:8px;">当前最优，不回头</td>
+      <td style="padding:8px;">尝试所有子问题</td>
+    </tr>
+    <tr style="border-bottom:1px solid #222;">
+      <td style="padding:8px;">正确性</td>
+      <td style="padding:8px;">需要证明</td>
+      <td style="padding:8px;">天然正确（穷举）</td>
+    </tr>
+    <tr style="border-bottom:1px solid #222;">
+      <td style="padding:8px;">复杂度</td>
+      <td style="padding:8px;">通常 O(n log n)</td>
+      <td style="padding:8px;">通常 O(n^2) 或更高</td>
+    </tr>
+    <tr>
+      <td style="padding:8px;">典型信号</td>
+      <td style="padding:8px;">排序后扫描、优先队列</td>
+      <td style="padding:8px;">最优子结构 + 重叠子问题</td>
+    </tr>
+  </table>
+</div>
+
+<!-- 思考题 -->
+<h2>六、思考题</h2>
+
+<details class="think-card">
+  <summary>"交换论证"和"贪心始终领先"两种证明方式各适合什么场景？</summary>
+  <p>交换论证适合"排列/排序型"问题——你需要证明某种排序方式是最优的（如按 deadline、按 ratio 排序）。贪心始终领先适合"选择型"问题——每步选一个元素，需要证明你选的集合在每一步都不比最优解差（如区间调度）。</p>
+</details>
+
+<details class="think-card">
+  <summary>为什么反悔贪心要用最大堆？如果用最小堆会怎样？</summary>
+  <p>反悔时要踢掉"代价最大"的已选元素——踢掉最长的课程能腾出最多时间。如果用最小堆踢掉最短的，腾出的时间最少，可能还是超时，而且损失了一个"便宜"的选择。最大堆保证每次反悔的收益最大化。</p>
+</details>
+
+<details class="think-card">
+  <summary>怎么快速判断一道题能不能用贪心？</summary>
+  <p>三步法：1) 能否找到一个排序/选择策略使得每步的局部最优不影响后续？ 2) 能否构造反例推翻贪心？如果试了几个反例都推不翻，大概率能贪。3) 题目是否有"最小/最大数量"且输入可排序？这些都是贪心的信号。实在不确定就写 DP。</p>
+</details>
+
+<!-- LeetCode 练习 -->
+<h2>七、LeetCode 练习</h2>
+
+<h3>热身</h3>
+<div class="problem-list" id="warmup-problems">
+  <div class="problem-item" data-id="455"><a href="https://leetcode.cn/problems/assign-cookies/" target="_blank">455</a></div>
+  <div class="problem-item" data-id="122"><a href="https://leetcode.cn/problems/best-time-to-buy-and-sell-stock-ii/" target="_blank">122</a></div>
+  <div class="problem-item" data-id="435"><a href="https://leetcode.cn/problems/non-overlapping-intervals/" target="_blank">435</a></div>
+  <div class="problem-item" data-id="55"><a href="https://leetcode.cn/problems/jump-game/" target="_blank">55</a></div>
+  <div class="problem-item" data-id="134"><a href="https://leetcode.cn/problems/gas-station/" target="_blank">134</a></div>
+</div>
+
+<h3>进阶</h3>
+<div class="problem-list" id="advanced-problems">
+  <div class="problem-item" data-id="630"><a href="https://leetcode.cn/problems/course-schedule-iii/" target="_blank">630</a></div>
+  <div class="problem-item" data-id="1024"><a href="https://leetcode.cn/problems/video-stitching/" target="_blank">1024</a></div>
+  <div class="problem-item" data-id="763"><a href="https://leetcode.cn/problems/partition-labels/" target="_blank">763</a></div>
+  <div class="problem-item" data-id="502"><a href="https://leetcode.cn/problems/ipo/" target="_blank">502</a></div>
+  <div class="problem-item" data-id="871"><a href="https://leetcode.cn/problems/minimum-number-of-refueling-stops/" target="_blank">871</a></div>
+</div>
+
+<nav class="nav" style="margin-top:3rem; padding-top:2rem; border-top:1px solid #333;">
+  <a href="quickselect.html">&larr; 快速选择</a>
+  <a href="algorithms-index.html">目录</a>
+  <a href="trie.html">字典树 &rarr;</a>
+</nav>
+
+<script>
+// === Progress tracking ===
+const STORAGE_KEY = 'algo-progress-greedy';
+const ALL_PROBLEMS = ['455','122','435','55','134','630','1024','763','502','871'];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch(e) { return []; }
+}
+function saveProgress(done) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(done));
+}
+function updateDisplay() {
+  const done = loadProgress();
+  document.getElementById('progress-display').textContent = `已完成 ${done.length}/10`;
+  document.querySelectorAll('.problem-item').forEach(el => {
+    el.classList.toggle('done', done.includes(el.dataset.id));
+  });
+}
+document.querySelectorAll('.problem-item').forEach(el => {
+  el.addEventListener('click', (e) => {
+    if (e.target.tagName === 'A') e.preventDefault();
+    const id = el.dataset.id;
+    let done = loadProgress();
+    if (done.includes(id)) { done = done.filter(x => x !== id); }
+    else { done.push(id); }
+    saveProgress(done);
+    updateDisplay();
+  });
+});
+updateDisplay();
+
+// === Interval Scheduling Animation ===
+const intervals = [
+  {s:1, e:4, label:'A'}, {s:3, e:5, label:'B'}, {s:0, e:6, label:'C'},
+  {s:5, e:7, label:'D'}, {s:3, e:9, label:'E'}, {s:5, e:9, label:'F'},
+  {s:6, e:10, label:'G'}, {s:8, e:11, label:'H'}, {s:8, e:12, label:'I'},
+  {s:2, e:14, label:'J'}, {s:12, e:16, label:'K'}
+];
+// Sort by end time
+intervals.sort((a,b) => a.e - b.e);
+
+let intStep = -1;
+let intSelected = [];
+let intLastEnd = -1;
+let intAutoPlay = null;
+
+function renderIntervals() {
+  const container = document.getElementById('interval-timeline');
+  const maxTime = 16;
+  const axisLeft = 40, axisRight = 20;
+  container.innerHTML = '';
+
+  // Axis
+  const axis = document.createElement('div');
+  axis.className = 'timeline-axis';
+  container.appendChild(axis);
+
+  // Time labels
+  for (let t = 0; t <= maxTime; t += 2) {
+    const lbl = document.createElement('div');
+    lbl.className = 'timeline-label';
+    lbl.textContent = t;
+    lbl.style.left = `${axisLeft + (container.offsetWidth - axisLeft - axisRight) * t / maxTime}px`;
+    container.appendChild(lbl);
+  }
+
+  const w = container.offsetWidth - axisLeft - axisRight;
+  intervals.forEach((iv, i) => {
+    const bar = document.createElement('div');
+    bar.className = 'interval-bar';
+    const left = axisLeft + w * iv.s / maxTime;
+    const right = axisLeft + w * iv.e / maxTime;
+    bar.style.left = left + 'px';
+    bar.style.width = (right - left) + 'px';
+    bar.style.top = (10 + i * 22) + 'px';
+    bar.textContent = `${iv.label}[${iv.s},${iv.e}]`;
+
+    if (i < intStep) {
+      bar.classList.add(intSelected.includes(i) ? 'selected' : 'rejected');
+    } else if (i === intStep) {
+      bar.classList.add('current');
+    } else {
+      bar.classList.add('pending');
+    }
+    container.appendChild(bar);
+  });
+}
+
+function intervalNextStep() {
+  if (intStep >= intervals.length) {
+    document.getElementById('interval-info').textContent =
+      `完成！选了 ${intSelected.length} 个不重叠区间: ${intSelected.map(i=>intervals[i].label).join(', ')}`;
+    if (intAutoPlay) { clearInterval(intAutoPlay); intAutoPlay = null; }
+    return;
+  }
+  intStep++;
+  if (intStep >= intervals.length) {
+    document.getElementById('interval-info').textContent =
+      `完成！选了 ${intSelected.length} 个不重叠区间: ${intSelected.map(i=>intervals[i].label).join(', ')}`;
+    if (intAutoPlay) { clearInterval(intAutoPlay); intAutoPlay = null; }
+    renderIntervals();
+    return;
+  }
+  const iv = intervals[intStep];
+  if (iv.s >= intLastEnd) {
+    intSelected.push(intStep);
+    intLastEnd = iv.e;
+    document.getElementById('interval-info').textContent =
+      `选择 ${iv.label}[${iv.s},${iv.e}]：起点${iv.s} >= 上次结束${intLastEnd === iv.e ? '(无)' : intLastEnd}，不重叠 ✓`;
+    if (intSelected.length === 1) {
+      document.getElementById('interval-info').textContent =
+        `选择 ${iv.label}[${iv.s},${iv.e}]：第一个区间，直接选 ✓`;
+    }
+  } else {
+    document.getElementById('interval-info').textContent =
+      `跳过 ${iv.label}[${iv.s},${iv.e}]：起点${iv.s} < 上次结束${intLastEnd}，重叠 ✗`;
+  }
+  renderIntervals();
+}
+
+function intervalReset() {
+  intStep = -1; intSelected = []; intLastEnd = -1;
+  if (intAutoPlay) { clearInterval(intAutoPlay); intAutoPlay = null; }
+  document.getElementById('interval-info').textContent = '点击"开始演示"查看贪心选择过程';
+  renderIntervals();
+}
+
+document.getElementById('interval-start').addEventListener('click', () => {
+  intervalReset();
+  intAutoPlay = setInterval(intervalNextStep, 1200);
+});
+document.getElementById('interval-step').addEventListener('click', intervalNextStep);
+document.getElementById('interval-reset').addEventListener('click', intervalReset);
+
+// Initial render
+setTimeout(renderIntervals, 100);
+window.addEventListener('resize', renderIntervals);
+
+// === Course Schedule III Animation ===
+const courses = [
+  {dur: 5, ddl: 5}, {dur: 4, ddl: 6}, {dur: 2, ddl: 7},
+  {dur: 3, ddl: 9}, {dur: 5, ddl: 14}
+];
+// Already sorted by deadline
+
+let courseStep = -1;
+let courseHeap = []; // max-heap stored as negative values
+let courseTotal = 0;
+let courseStates = []; // 'pending', 'in-heap', 'rejected'
+let courseAutoPlay = null;
+let courseLog = '';
+
+function heapPush(arr, val) {
+  arr.push(val);
+  let i = arr.length - 1;
+  while (i > 0) {
+    const parent = Math.floor((i-1)/2);
+    if (arr[parent] < arr[i]) { [arr[parent], arr[i]] = [arr[i], arr[parent]]; i = parent; }
+    else break;
+  }
+}
+function heapPop(arr) {
+  const top = arr[0];
+  arr[0] = arr[arr.length-1];
+  arr.pop();
+  let i = 0;
+  while (true) {
+    let largest = i, l = 2*i+1, r = 2*i+2;
+    if (l < arr.length && arr[l] > arr[largest]) largest = l;
+    if (r < arr.length && arr[r] > arr[largest]) largest = r;
+    if (largest !== i) { [arr[i], arr[largest]] = [arr[largest], arr[i]]; i = largest; }
+    else break;
+  }
+  return top;
+}
+
+function renderCourses() {
+  const container = document.getElementById('course-list');
+  container.innerHTML = '';
+  courses.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'course-row ' + (courseStates[i] || 'pending');
+    row.innerHTML = `<span style="min-width:60px;">课程${i+1}</span>
+      <span>耗时: <strong>${c.dur}</strong></span>
+      <span>截止: <strong>${c.ddl}</strong></span>
+      <span style="margin-left:auto; font-size:0.8rem; color:#888;">${
+        courseStates[i] === 'in-heap' ? '✓ 已选' :
+        courseStates[i] === 'rejected' ? '✗ 被反悔踢出' : '等待'
+      }</span>`;
+    container.appendChild(row);
+  });
+
+  // Heap display
+  const heapContent = document.getElementById('heap-content');
+  if (courseHeap.length === 0) {
+    heapContent.textContent = '空';
+  } else {
+    heapContent.innerHTML = courseHeap.map(v => `<span class="heap-item">${v}</span>`).join('');
+  }
+  document.getElementById('total-time').textContent = courseTotal;
+}
+
+function courseNextStep() {
+  if (courseStep >= courses.length - 1) {
+    document.getElementById('course-info').textContent =
+      `完成！最多能上 ${courseHeap.length} 门课`;
+    if (courseAutoPlay) { clearInterval(courseAutoPlay); courseAutoPlay = null; }
+    return;
+  }
+  courseStep++;
+  const c = courses[courseStep];
+  courseTotal += c.dur;
+  heapPush(courseHeap, c.dur);
+  courseStates[courseStep] = 'in-heap';
+
+  if (courseTotal > c.ddl) {
+    const popped = heapPop(courseHeap);
+    courseTotal -= popped;
+    // Find which course was popped (the one with that duration that's in-heap)
+    for (let i = 0; i <= courseStep; i++) {
+      if (courseStates[i] === 'in-heap' && courses[i].dur === popped) {
+        courseStates[i] = 'rejected';
+        break;
+      }
+    }
+    document.getElementById('course-info').textContent =
+      `加入课程${courseStep+1}(耗时${c.dur})后总时间${courseTotal+popped}>${c.ddl}，反悔踢出耗时${popped}的课，总时间变为${courseTotal}`;
+  } else {
+    document.getElementById('course-info').textContent =
+      `加入课程${courseStep+1}(耗时${c.dur})，总时间${courseTotal} ≤ 截止${c.ddl} ✓`;
+  }
+  renderCourses();
+}
+
+function courseReset() {
+  courseStep = -1; courseHeap = []; courseTotal = 0;
+  courseStates = courses.map(() => 'pending');
+  if (courseAutoPlay) { clearInterval(courseAutoPlay); courseAutoPlay = null; }
+  document.getElementById('course-info').textContent = '点击"开始演示"查看反悔贪心过程';
+  renderCourses();
+}
+
+document.getElementById('course-start').addEventListener('click', () => {
+  courseReset();
+  courseAutoPlay = setInterval(courseNextStep, 1800);
+});
+document.getElementById('course-step').addEventListener('click', courseNextStep);
+document.getElementById('course-reset').addEventListener('click', courseReset);
+
+courseStates = courses.map(() => 'pending');
+setTimeout(renderCourses, 100);
+</script>
+
+</body>
+</html>

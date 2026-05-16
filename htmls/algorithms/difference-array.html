@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>差分数组/前缀和 - 用变化量代替全量</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.8; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: #888; font-size: 1.1rem; margin-bottom: 2rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+.card-accent { border-color: #00d4aa; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+li { margin-bottom: 0.5rem; }
+.key-point { color: #76b900; font-weight: bold; }
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.95rem; margin: 10px 0; min-height: 24px; }
+.array-row { display: flex; gap: 4px; margin: 10px 0; flex-wrap: wrap; }
+.array-cell { width: 60px; height: 50px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; border: 2px solid #444; border-radius: 6px; font-size: 1rem; font-family: monospace; font-weight: bold; transition: all 0.4s ease; }
+.array-cell.positive { border-color: #76b900; color: #76b900; }
+.array-cell.negative { border-color: #ff6b6b; color: #ff6b6b; }
+.array-cell.highlight { background: #76b900; color: #000; border-color: #76b900; }
+.array-cell.result { background: #00d4aa; color: #000; border-color: #00d4aa; }
+.array-label { font-size: 0.8rem; color: #888; text-align: center; width: 60px; }
+.label-row { display: flex; gap: 4px; margin-bottom: 4px; }
+.think-box { background: #1a1a2e; border-left: 4px solid #76b900; padding: 16px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.think-box summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.think-box p { margin-top: 0.8rem; color: #ccc; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.nav { display: flex; justify-content: space-between; margin: 2rem 0; padding: 1rem 0; border-top: 1px solid #333; }
+.nav a { color: #76b900; font-weight: bold; }
+.progress-section { margin: 2rem 0; }
+.progress-bar { width: 100%; height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #76b900, #00d4aa); border-radius: 4px; transition: width 0.3s; }
+.checkbox-item { display: flex; align-items: center; gap: 10px; margin: 8px 0; cursor: pointer; }
+.checkbox-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #76b900; }
+.tag { display: inline-block; background: #333; color: #00d4aa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  .array-cell { width: 44px; height: 40px; font-size: 0.85rem; }
+  .array-label { width: 44px; font-size: 0.7rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>差分数组 / 前缀和</h1>
+<p class="subtitle">用变化量代替全量。如果整体=个体之和，且变化量稀疏，就在变化量层面合并。</p>
+
+<div class="card card-highlight">
+<h2>核心思想（First Principles）</h2>
+<p>想象你管理一排路灯的亮度。老板说"把第2到第5盏灯都调亮3"。你可以一盏一盏调（O(n)），也可以只记录"从第2开始+3，从第6开始-3"（O(1)）。后者就是差分的思想。</p>
+
+<h3>两个关键性质</h3>
+<ul>
+<li><span class="key-point">性质A 线性性:</span> 和的变化量 = 变化量的和。多次操作可以在差分层合并，最后一次性还原。</li>
+<li><span class="key-point">性质B 局部性:</span> 每个操作 gᵢ 的变化量只在 O(1) 个点非零（区间加只影响两个端点）。</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>算法步骤</h2>
+<ol>
+<li><span class="key-point">稀疏编码:</span> 每个操作 gᵢ → O(1) 个 delta 事件（diff[l]+=c, diff[r+1]-=c）</li>
+<li><span class="key-point">实例化:</span> 前缀和得到最终数组 f(x)</li>
+<li><span class="key-point">求目标:</span> 扫一遍找 min/max/满足条件的值</li>
+</ol>
+</div>
+
+<div class="card card-accent">
+<h2>套路族</h2>
+<ul>
+<li><span class="tag">一阶差分</span> 区间加常数 — diff[l]+=c, diff[r+1]-=c</li>
+<li><span class="tag">二阶差分</span> 区间加等差数列 — 需要两层差分</li>
+<li><span class="tag">扫描线</span> 二维差分的变种</li>
+<li><span class="tag">懒标记线段树</span> 差分思想的树上推广</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>判题流程</h2>
+<p>能写成 <code>f(x) = Σgᵢ(x)</code> 吗？</p>
+<p>→ 看 f 整体结构（单调/单峰）</p>
+<p>→ 看 gᵢ 局部结构（分段常数 → 一阶差分，分段线性 → 二阶差分）</p>
+<p style="margin-top:1rem; color:#76b900; font-weight:bold;">一句话总结：能用变化量描述的，就不要用绝对值描述。</p>
+</div>
+
+<!-- Animation Section -->
+<h2>动画演示：差分数组操作</h2>
+<div class="animation-container">
+<p style="margin-bottom:10px; color:#888;">数组长度8，执行3次区间加操作: <code>[1,4]+3</code>, <code>[2,6]+2</code>, <code>[5,7]+1</code></p>
+
+<div>
+<p style="font-size:0.85rem; color:#888; margin-bottom:4px;">索引:</p>
+<div class="label-row" id="indexRow"></div>
+</div>
+
+<div style="margin-top:12px;">
+<p style="font-size:0.85rem; color:#888; margin-bottom:4px;">原始数组 (初始全0):</p>
+<div class="array-row" id="originalArray"></div>
+</div>
+
+<div style="margin-top:12px;">
+<p style="font-size:0.85rem; color:#888; margin-bottom:4px;">差分数组 diff[]:</p>
+<div class="array-row" id="diffArray"></div>
+</div>
+
+<div style="margin-top:12px;">
+<p style="font-size:0.85rem; color:#888; margin-bottom:4px;">前缀和还原结果:</p>
+<div class="array-row" id="resultArray"></div>
+</div>
+
+<div class="step-info" id="stepInfo">点击"下一步"开始演示</div>
+
+<div class="controls">
+<button class="btn" id="nextBtn" onclick="nextStep()">下一步</button>
+<button class="btn btn-secondary" onclick="resetAnimation()">重置</button>
+</div>
+</div>
+
+<!-- Thinking Questions -->
+<h2>思考题</h2>
+<div class="card">
+<details class="think-box">
+<summary>差分和前缀和是什么关系？</summary>
+<p>互逆操作。差分是"求导"（相邻元素之差），前缀和是"积分"（累加）。对一个数组先差分再前缀和，得到原数组。反之亦然。</p>
+</details>
+
+<details class="think-box">
+<summary>为什么 diff[l]+=c, diff[r+1]-=c 能实现区间加？</summary>
+<p>前缀和时，diff[l]的+c会"传播"到l及之后的所有位置。而diff[r+1]的-c会从r+1开始抵消这个+c。所以只有[l, r]范围内的元素被加了c。这就是差分的精髓：用两个端点的变化来描述一整段的变化。</p>
+</details>
+
+<details class="think-box">
+<summary>什么时候该用差分，什么时候该用线段树？</summary>
+<p>差分：所有修改先做完，最后一次性查询（离线）。线段树：修改和查询交替进行（在线）。差分是 O(n) 空间 O(1) 修改 O(n) 查询；线段树是 O(n) 空间 O(log n) 修改 O(log n) 查询。如果能离线处理，差分更简单高效。</p>
+</details>
+</div>
+
+<!-- LeetCode -->
+<h2>推荐练习</h2>
+<div class="card progress-section">
+<div class="checkbox-item"><input type="checkbox" id="lc370" onchange="saveProgress()"><label for="lc370"><a href="https://leetcode.cn/problems/range-addition/" target="_blank">370. 区间加法</a> — 差分模板题</label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc1094" onchange="saveProgress()"><label for="lc1094"><a href="https://leetcode.cn/problems/car-pooling/" target="_blank">1094. 拼车</a> — 差分+贪心</label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc1109" onchange="saveProgress()"><label for="lc1109"><a href="https://leetcode.cn/problems/corporate-flight-bookings/" target="_blank">1109. 航班预订统计</a> — 差分直接应用</label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc1674" onchange="saveProgress()"><label for="lc1674"><a href="https://leetcode.cn/problems/minimum-moves-to-make-array-complementary/" target="_blank">1674. 使数组互补的最少操作次数</a> — 差分+枚举</label></div>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+<p style="font-size:0.85rem; color:#888;" id="progressText">完成 0/4</p>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+<a href="hash-table.html">&larr; 哈希表</a>
+<a href="tree-traversal.html">树遍历 &rarr;</a>
+</div>
+
+<script>
+const N = 8;
+const operations = [
+  { l: 1, r: 4, c: 3, desc: '操作1: [1,4] += 3' },
+  { l: 2, r: 6, c: 2, desc: '操作2: [2,6] += 2' },
+  { l: 5, r: 7, c: 1, desc: '操作3: [5,7] += 1' }
+];
+
+let diff = new Array(N + 1).fill(0);
+let currentStep = 0;
+// Steps: 0=init, 1=op1-left, 2=op1-right, 3=op2-left, 4=op2-right, 5=op3-left, 6=op3-right, 7=prefix-sum
+const totalSteps = 8;
+
+function initArrays() {
+  const indexRow = document.getElementById('indexRow');
+  const origArr = document.getElementById('originalArray');
+  const diffArr = document.getElementById('diffArray');
+  const resArr = document.getElementById('resultArray');
+
+  indexRow.innerHTML = '';
+  origArr.innerHTML = '';
+  diffArr.innerHTML = '';
+  resArr.innerHTML = '';
+
+  for (let i = 0; i < N; i++) {
+    indexRow.innerHTML += `<div class="array-label">${i}</div>`;
+    origArr.innerHTML += `<div class="array-cell" id="orig-${i}">0</div>`;
+    diffArr.innerHTML += `<div class="array-cell" id="diff-${i}">0</div>`;
+    resArr.innerHTML += `<div class="array-cell" id="res-${i}">-</div>`;
+  }
+}
+
+function updateDiffDisplay() {
+  for (let i = 0; i < N; i++) {
+    const cell = document.getElementById(`diff-${i}`);
+    cell.textContent = diff[i];
+    cell.className = 'array-cell';
+    if (diff[i] > 0) cell.className += ' positive';
+    else if (diff[i] < 0) cell.className += ' negative';
+  }
+}
+
+function nextStep() {
+  if (currentStep >= totalSteps) return;
+
+  // Clear previous highlights
+  for (let i = 0; i < N; i++) {
+    document.getElementById(`diff-${i}`).classList.remove('highlight');
+  }
+
+  if (currentStep === 0) {
+    document.getElementById('stepInfo').textContent = '初始状态：差分数组全0';
+    currentStep++;
+  } else if (currentStep <= 6) {
+    const opIdx = Math.floor((currentStep - 1) / 2);
+    const isLeft = (currentStep - 1) % 2 === 0;
+    const op = operations[opIdx];
+
+    if (isLeft) {
+      diff[op.l] += op.c;
+      document.getElementById(`diff-${op.l}`).classList.add('highlight');
+      document.getElementById('stepInfo').textContent = `${op.desc} → diff[${op.l}] += ${op.c}`;
+    } else {
+      if (op.r + 1 < N) {
+        diff[op.r + 1] -= op.c;
+        document.getElementById(`diff-${op.r + 1}`).classList.add('highlight');
+        document.getElementById('stepInfo').textContent = `${op.desc} → diff[${op.r + 1}] -= ${op.c}`;
+      } else {
+        document.getElementById('stepInfo').textContent = `${op.desc} → r+1=${op.r+1} 超出范围，跳过`;
+      }
+    }
+    updateDiffDisplay();
+    currentStep++;
+  } else if (currentStep === 7) {
+    // Prefix sum
+    let sum = 0;
+    for (let i = 0; i < N; i++) {
+      sum += diff[i];
+      const cell = document.getElementById(`res-${i}`);
+      cell.textContent = sum;
+      cell.className = 'array-cell result';
+    }
+    document.getElementById('stepInfo').textContent = '前缀和还原完成！result[i] = Σ diff[0..i]';
+    document.getElementById('nextBtn').textContent = '完成';
+    currentStep++;
+  }
+}
+
+function resetAnimation() {
+  diff = new Array(N + 1).fill(0);
+  currentStep = 0;
+  initArrays();
+  document.getElementById('stepInfo').textContent = '点击"下一步"开始演示';
+  document.getElementById('nextBtn').textContent = '下一步';
+}
+
+// Progress
+const STORAGE_KEY = 'algo-progress-difference-array';
+const checkboxIds = ['lc370', 'lc1094', 'lc1109', 'lc1674'];
+
+function saveProgress() {
+  const state = {};
+  checkboxIds.forEach(id => { state[id] = document.getElementById(id).checked; });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateProgressBar();
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const state = JSON.parse(saved);
+    checkboxIds.forEach(id => {
+      if (state[id]) document.getElementById(id).checked = true;
+    });
+  }
+  updateProgressBar();
+}
+
+function updateProgressBar() {
+  const done = checkboxIds.filter(id => document.getElementById(id).checked).length;
+  const pct = (done / checkboxIds.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `完成 ${done}/${checkboxIds.length}`;
+}
+
+initArrays();
+loadProgress();
+</script>
+</body>
+</html>

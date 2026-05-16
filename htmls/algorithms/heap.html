@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>堆 / 优先队列 - 算法笔记</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.8; padding: 20px; max-width: 900px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; min-height: 300px; position: relative; overflow: hidden; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.nav { display: flex; justify-content: space-between; margin: 2rem 0; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; transition: all 0.2s; }
+.nav a:hover { background: #1a1a2e; border-color: #00d4aa; }
+
+.tag { display: inline-block; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 4px 10px; margin: 3px; font-size: 0.85rem; color: #76b900; }
+.tag-done { background: #76b900; color: #000; border-color: #76b900; cursor: pointer; }
+
+.thinking { background: #1a1a2e; border-left: 3px solid #76b900; padding: 16px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.thinking summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.thinking p { margin-top: 0.8rem; margin-bottom: 0; }
+
+/* Heap tree visualization */
+.heap-tree { display: flex; flex-direction: column; align-items: center; margin: 20px 0; }
+.heap-level { display: flex; justify-content: center; gap: 8px; margin: 5px 0; }
+.heap-node { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; border: 2px solid #76b900; color: #e0e0e0; transition: all 0.4s ease; position: relative; }
+.heap-node.active { background: #76b900; color: #000; transform: scale(1.2); }
+.heap-node.removing { background: #ff4444; border-color: #ff4444; color: #fff; }
+.heap-node.empty { border: 2px dashed #333; color: #333; }
+.heap-array { display: flex; gap: 4px; margin: 15px 0; justify-content: center; flex-wrap: wrap; }
+.heap-arr-cell { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; font-weight: bold; font-size: 0.85rem; transition: all 0.3s ease; }
+.heap-arr-cell.active { background: #76b900; color: #000; }
+.heap-arr-cell.removing { background: #ff4444; color: #fff; }
+.heap-arr-cell.incoming { background: #00d4aa; color: #000; }
+
+.progress-section { margin: 1.5rem 0; }
+.progress-item { display: inline-block; margin: 4px; }
+.progress-item input { display: none; }
+.progress-item label { display: inline-block; padding: 6px 12px; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s; }
+.progress-item input:checked + label { background: #76b900; color: #000; border-color: #76b900; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  .heap-node { width: 36px; height: 36px; font-size: 0.8rem; }
+  .heap-arr-cell { width: 34px; height: 34px; font-size: 0.8rem; }
+  .controls { flex-direction: column; align-items: stretch; }
+}
+</style>
+</head>
+<body>
+
+<h1>堆 / 优先队列</h1>
+<p style="color:#888; font-size:0.95rem;">每次 O(log n) 拿到当前最值。Python <code>heapq</code> 是最小堆。</p>
+
+<h2>三句话用法</h2>
+<div class="card">
+<pre><code><span class="keyword">import</span> heapq
+
+<span class="comment"># 1. 入堆</span>
+heapq.<span class="function">heappush</span>(heap, x)
+
+<span class="comment"># 2. 弹出最小值</span>
+heapq.<span class="function">heappop</span>(heap)
+
+<span class="comment"># 3. 看堆顶（最小值）</span>
+heap[<span class="number">0</span>]
+
+<span class="comment"># 最大堆技巧：存 -x</span>
+heapq.<span class="function">heappush</span>(heap, -x)
+val = -heapq.<span class="function">heappop</span>(heap)
+</code></pre>
+</div>
+
+<h2>经典套路</h2>
+
+<h3>1. Top K - 大小为 K 的最小堆</h3>
+<div class="card">
+<p>维护一个大小为 K 的最小堆，堆顶就是第 K 大的元素。新元素比堆顶大才入堆。</p>
+<pre><code><span class="keyword">import</span> heapq
+
+<span class="keyword">def</span> <span class="function">top_k</span>(nums, k):
+    heap = []
+    <span class="keyword">for</span> x <span class="keyword">in</span> nums:
+        heapq.<span class="function">heappush</span>(heap, x)
+        <span class="keyword">if</span> <span class="function">len</span>(heap) > k:
+            heapq.<span class="function">heappop</span>(heap)  <span class="comment"># 弹出最小的，留下最大的 k 个</span>
+    <span class="keyword">return</span> heap
+</code></pre>
+</div>
+
+<h3>2. 合并 K 个有序链表</h3>
+<div class="card">
+<p>堆元素是元组 <code>(val, index, node)</code>，第二个字段 index 用来打破 tie（避免 node 之间比较）。</p>
+<pre><code><span class="comment"># 堆中存 (值, 序号, 节点) 三元组</span>
+<span class="comment"># 序号用于打破值相同时的 tie</span>
+heapq.<span class="function">heappush</span>(heap, (node.val, i, node))
+</code></pre>
+</div>
+
+<h3>3. 双堆求中位数</h3>
+<div class="card">
+<p><code>lo</code> = 最大堆（存负数），<code>hi</code> = 最小堆。先放 lo，再从 lo 倒一个到 hi，最后平衡大小。</p>
+<pre><code><span class="keyword">def</span> <span class="function">add_num</span>(num, lo, hi):
+    heapq.<span class="function">heappush</span>(lo, -num)         <span class="comment"># 先放 lo</span>
+    heapq.<span class="function">heappush</span>(hi, -heapq.<span class="function">heappop</span>(lo))  <span class="comment"># lo 最大值倒到 hi</span>
+    <span class="keyword">if</span> <span class="function">len</span>(hi) > <span class="function">len</span>(lo):         <span class="comment"># 保持 lo >= hi</span>
+        heapq.<span class="function">heappush</span>(lo, -heapq.<span class="function">heappop</span>(hi))
+</code></pre>
+</div>
+
+<h3>4. 懒删除</h3>
+<div class="card">
+<p>不真正从堆中删除，而是标记为无效。弹出时检查是否已标记，是则跳过。</p>
+<pre><code>removed = <span class="function">set</span>()
+
+<span class="keyword">def</span> <span class="function">lazy_delete</span>(val):
+    removed.<span class="function">add</span>(val)
+
+<span class="keyword">def</span> <span class="function">lazy_pop</span>(heap):
+    <span class="keyword">while</span> heap <span class="keyword">and</span> heap[<span class="number">0</span>] <span class="keyword">in</span> removed:
+        removed.<span class="function">discard</span>(heapq.<span class="function">heappop</span>(heap))
+    <span class="keyword">return</span> heapq.<span class="function">heappop</span>(heap)
+</code></pre>
+</div>
+
+<h2>Top K 动画演示</h2>
+<p style="color:#888;">数组 <code>[3, 1, 5, 2, 4, 6]</code>，k=3。观察最小堆如何维护最大的 3 个元素。</p>
+
+<div class="animation-container">
+  <div class="step-info" id="heap-step-info">点击「下一步」开始演示</div>
+  <div style="display:flex; flex-wrap:wrap; gap:20px; justify-content:center; align-items:flex-start;">
+    <div>
+      <div style="text-align:center; color:#76b900; font-size:0.85rem; margin-bottom:8px;">堆（树形）</div>
+      <div class="heap-tree" id="heap-tree"></div>
+    </div>
+    <div>
+      <div style="text-align:center; color:#76b900; font-size:0.85rem; margin-bottom:8px;">堆数组</div>
+      <div class="heap-array" id="heap-array"></div>
+    </div>
+  </div>
+  <div style="text-align:center; margin-top:10px;">
+    <div style="color:#888; font-size:0.85rem;">待处理: <span id="heap-remaining"></span></div>
+  </div>
+  <div class="controls">
+    <button class="btn" id="heap-next-btn">下一步</button>
+    <button class="btn btn-secondary" id="heap-auto-btn">自动播放</button>
+    <button class="btn btn-secondary" id="heap-reset-btn">重置</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+
+<details class="thinking">
+<summary>为什么 Top K 用最小堆而不是最大堆？</summary>
+<p>最小堆的堆顶是最小值，我们可以快速判断新元素是否比当前第 K 大更大。如果用最大堆，堆顶是最大值，没法高效淘汰最小的元素。最小堆保证堆中始终是最大的 K 个，堆顶恰好是"门槛"。</p>
+</details>
+
+<details class="thinking">
+<summary>双堆中为什么"先放 lo 再倒到 hi"能保证 lo &le; hi？</summary>
+<p>先放 lo（最大堆），再把 lo 的最大值倒到 hi（最小堆）。这保证了从 lo 转移到 hi 的元素一定 &ge; lo 中剩余的所有元素。因此 lo 的最大值 &le; hi 的最小值，即 lo 所有元素 &le; hi 所有元素。</p>
+</details>
+
+<details class="thinking">
+<summary>懒删除的时间复杂度为什么仍然是均摊 O(log n)？</summary>
+<p>每个元素最多被"懒删除"一次，之后在某次 pop 时被跳过并真正移除。每次真正移除的代价是 O(log n)，而每个元素只会被真正移除一次。所以总代价均摊到每次操作仍是 O(log n)。</p>
+</details>
+
+<h2>LeetCode 练习</h2>
+<div class="progress-section" id="progress-section">
+  <h3>热身</h3>
+  <div id="warmup-problems"></div>
+  <h3>进阶</h3>
+  <div id="advanced-problems"></div>
+</div>
+
+<div class="nav">
+  <a href="bfs.html">&larr; BFS</a>
+  <a href="quickselect.html">快速选择 &rarr;</a>
+</div>
+
+<script>
+// === Progress tracking ===
+const STORAGE_KEY = 'algo-progress-heap';
+const warmup = [215, 703, 347, 1046];
+const advanced = [23, 295, 378, 502, 857];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+function renderProblems(container, problems) {
+  const progress = loadProgress();
+  container.innerHTML = '';
+  problems.forEach(num => {
+    const div = document.createElement('div');
+    div.className = 'progress-item';
+    const checked = progress[num] ? 'checked' : '';
+    div.innerHTML = `<input type="checkbox" id="p${num}" ${checked}><label for="p${num}">${num}</label>`;
+    div.querySelector('input').addEventListener('change', e => {
+      const p = loadProgress();
+      if (e.target.checked) p[num] = true; else delete p[num];
+      saveProgress(p);
+    });
+    container.appendChild(div);
+  });
+}
+
+renderProblems(document.getElementById('warmup-problems'), warmup);
+renderProblems(document.getElementById('advanced-problems'), advanced);
+
+// === Heap Animation ===
+const INPUT = [3, 1, 5, 2, 4, 6];
+const K = 3;
+let heap = [];
+let stepIndex = 0;
+let autoInterval = null;
+
+// Steps: for each element, push then maybe pop
+// We'll precompute all states
+let states = [];
+function computeStates() {
+  states = [];
+  let h = [];
+  states.push({ heap: [...h], action: '初始状态：空堆，k=3', highlight: -1, removing: -1, incoming: -1 });
+  for (let idx = 0; idx < INPUT.length; idx++) {
+    const x = INPUT[idx];
+    h.push(x);
+    // sift up
+    let i = h.length - 1;
+    while (i > 0) {
+      const parent = Math.floor((i - 1) / 2);
+      if (h[parent] > h[i]) { [h[parent], h[i]] = [h[i], h[parent]]; i = parent; }
+      else break;
+    }
+    states.push({ heap: [...h], action: `Push ${x} 入堆`, highlight: h.indexOf(x), removing: -1, incoming: idx });
+
+    if (h.length > K) {
+      const popped = h[0];
+      // remove top: move last to top, sift down
+      h[0] = h[h.length - 1];
+      h.pop();
+      let i = 0;
+      while (true) {
+        let smallest = i;
+        const l = 2 * i + 1, r = 2 * i + 2;
+        if (l < h.length && h[l] < h[smallest]) smallest = l;
+        if (r < h.length && h[r] < h[smallest]) smallest = r;
+        if (smallest !== i) { [h[i], h[smallest]] = [h[smallest], h[i]]; i = smallest; }
+        else break;
+      }
+      states.push({ heap: [...h], action: `堆大小>${K}，弹出堆顶 ${popped}`, highlight: -1, removing: -1, incoming: -1 });
+    }
+  }
+  states.push({ heap: [...h], action: `完成！堆中是最大的 ${K} 个元素，堆顶=${h[0]} 是第${K}大`, highlight: -1, removing: -1, incoming: -1 });
+}
+computeStates();
+
+function renderHeapTree(state) {
+  const container = document.getElementById('heap-tree');
+  const h = state.heap;
+  if (h.length === 0) { container.innerHTML = '<div style="color:#555;text-align:center;padding:40px;">空堆</div>'; return; }
+  let html = '';
+  let level = 0, idx = 0;
+  while (idx < h.length) {
+    const count = Math.pow(2, level);
+    html += '<div class="heap-level">';
+    for (let i = 0; i < count && idx < h.length; i++, idx++) {
+      let cls = 'heap-node';
+      if (idx === state.highlight) cls += ' active';
+      if (idx === state.removing) cls += ' removing';
+      html += `<div class="${cls}">${h[idx]}</div>`;
+    }
+    html += '</div>';
+    level++;
+  }
+  container.innerHTML = html;
+}
+
+function renderHeapArray(state) {
+  const container = document.getElementById('heap-array');
+  const h = state.heap;
+  if (h.length === 0) { container.innerHTML = ''; return; }
+  let html = '';
+  h.forEach((v, i) => {
+    let cls = 'heap-arr-cell';
+    if (i === state.highlight) cls += ' active';
+    if (i === state.removing) cls += ' removing';
+    html += `<div class="${cls}">${v}</div>`;
+  });
+  container.innerHTML = html;
+}
+
+function renderState() {
+  const state = states[stepIndex];
+  renderHeapTree(state);
+  renderHeapArray(state);
+  document.getElementById('heap-step-info').textContent = state.action;
+  // Show remaining
+  const processed = Math.min(Math.floor((stepIndex) / 2) + (stepIndex > 0 ? 1 : 0), INPUT.length);
+  const remaining = INPUT.slice(Math.min(stepIndex > 0 ? Math.ceil(stepIndex/2) : 0, INPUT.length));
+  document.getElementById('heap-remaining').textContent = INPUT.map((v, i) => {
+    // figure out which have been processed
+    return v;
+  }).join(', ');
+  // Simple: show full array with processed ones dimmed
+  let remHTML = '';
+  let processedCount = 0;
+  for (let i = 0; i < states.length; i++) {
+    if (i <= stepIndex && states[i].incoming >= 0) processedCount = states[i].incoming + 1;
+  }
+  remHTML = INPUT.map((v, i) => i < processedCount ? `<span style="color:#555;text-decoration:line-through;">${v}</span>` : `<span style="color:#00d4aa;">${v}</span>`).join(' ');
+  document.getElementById('heap-remaining').innerHTML = remHTML;
+}
+
+document.getElementById('heap-next-btn').addEventListener('click', () => {
+  if (stepIndex < states.length - 1) { stepIndex++; renderState(); }
+});
+document.getElementById('heap-reset-btn').addEventListener('click', () => {
+  stepIndex = 0; renderState();
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('heap-auto-btn').textContent = '自动播放'; }
+});
+document.getElementById('heap-auto-btn').addEventListener('click', () => {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; document.getElementById('heap-auto-btn').textContent = '自动播放'; return; }
+  document.getElementById('heap-auto-btn').textContent = '暂停';
+  autoInterval = setInterval(() => {
+    if (stepIndex < states.length - 1) { stepIndex++; renderState(); }
+    else { clearInterval(autoInterval); autoInterval = null; document.getElementById('heap-auto-btn').textContent = '自动播放'; }
+  }, 1200);
+});
+
+renderState();
+</script>
+</body>
+</html>

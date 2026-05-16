@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>区间 DP - 算法教程</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 40px 20px;
+  line-height: 1.8;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { text-align: center; color: #76b900; margin-bottom: 8px; font-size: 1.8rem; }
+h2 { color: #00d4aa; margin: 32px 0 16px; font-size: 1.3rem; border-bottom: 1px solid #333; padding-bottom: 8px; }
+h3 { color: #76b900; margin: 20px 0 10px; font-size: 1.1rem; }
+.subtitle { text-align: center; color: #888; margin-bottom: 32px; font-size: 0.95rem; }
+p { margin: 10px 0; }
+code {
+  background: #1a1a2e;
+  color: #00d4aa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+pre code { background: none; padding: 0; }
+.highlight { color: #76b900; font-weight: bold; }
+.key-point {
+  background: #1a2a1a;
+  border-left: 4px solid #76b900;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.insight {
+  background: #1a1a2e;
+  border-left: 4px solid #00d4aa;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+
+/* Animation */
+.animation-box {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.controls {
+  text-align: center;
+  margin: 16px 0;
+}
+button {
+  background: linear-gradient(135deg, #76b900, #00d4aa);
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin: 0 6px;
+  font-weight: bold;
+}
+button:hover { opacity: 0.85; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+.dp-table {
+  display: grid;
+  gap: 4px;
+  margin: 16px auto;
+  width: fit-content;
+}
+.dp-cell {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  transition: all 0.3s;
+}
+.dp-cell.empty { background: #222; color: #555; }
+.dp-cell.filled { background: #1a3a1a; color: #76b900; border: 1px solid #76b900; }
+.dp-cell.active { background: #2a4a0a; color: #fff; border: 2px solid #00d4aa; box-shadow: 0 0 10px #00d4aa55; }
+.dp-cell.trying { background: #2a2a0a; color: #ffaa00; border: 1px solid #ffaa00; }
+.step-info {
+  text-align: center;
+  margin: 12px 0;
+  color: #aaa;
+  font-size: 0.9rem;
+  min-height: 40px;
+}
+.array-display {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0;
+}
+.array-item {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #222;
+  border-radius: 6px;
+  font-weight: bold;
+  color: #76b900;
+}
+.array-item.highlight-range { background: #2a4a0a; border: 1px solid #00d4aa; }
+
+/* Thinking questions */
+.question-box {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+.question-header {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.question-header:hover { background: #252540; }
+.question-answer {
+  padding: 0 16px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s, padding 0.3s;
+  color: #aaa;
+}
+.question-answer.open {
+  max-height: 300px;
+  padding: 12px 16px;
+  border-top: 1px solid #333;
+}
+
+/* LeetCode */
+.leetcode-section { margin: 24px 0; }
+.tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  margin: 4px;
+  cursor: pointer;
+}
+.tag.warmup { background: #1a3a1a; color: #76b900; border: 1px solid #76b900; }
+.tag.advanced { background: #2a1a1a; color: #ff6b6b; border: 1px solid #ff6b6b; }
+.tag.done { opacity: 0.4; text-decoration: line-through; }
+
+/* Navigation */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+.nav a {
+  color: #00d4aa;
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid #00d4aa;
+  border-radius: 6px;
+}
+.nav a:hover { background: #00d4aa22; }
+
+@media (max-width: 600px) {
+  body { padding: 20px 12px; }
+  h1 { font-size: 1.4rem; }
+  .dp-cell { width: 48px; height: 48px; font-size: 0.75rem; }
+  pre { font-size: 0.78rem; padding: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>区间 DP</h1>
+<p class="subtitle">dp[i][j] = 区间 [i, j] 上的最优答案，长度从小到大枚举</p>
+
+<h2>核心思想</h2>
+<p>区间 DP 的本质：<span class="highlight">大区间的答案依赖小区间</span>，所以必须先算短区间再算长区间。</p>
+<p><code>dp[i][j]</code> 表示对子数组 <code>[i..j]</code> 做某种操作的最优值。转移时枚举分割点 k，把 <code>[i,j]</code> 拆成 <code>[i,k]</code> 和 <code>[k+1,j]</code>。</p>
+
+<h2>模板代码</h2>
+<pre><code># 经典区间 DP 模板（按长度枚举）
+for length in range(2, n + 1):        # 区间长度从 2 到 n
+    for i in range(n - length + 1):   # 左端点
+        j = i + length - 1            # 右端点
+        for k in range(i, j):         # 分割点
+            dp[i][j] = max(dp[i][j],
+                dp[i][k] + dp[k+1][j] + cost(i, k, j))</code></pre>
+
+<h2>三种遍历顺序</h2>
+<div class="key-point">
+<p><strong>1. 按长度枚举（最直观）</strong>：先算所有长度=2的区间，再算长度=3…最后算长度=n</p>
+<p><strong>2. i 倒序 + j 正序</strong>：因为 dp[i][j] 依赖 dp[i][k]（i不变,k&lt;j）和 dp[k+1][j]（k+1&gt;i），所以 i 从大到小、j 从小到大也行</p>
+<p><strong>3. 记忆化递归</strong>：最灵活，不用想顺序，直接递归 + cache</p>
+</div>
+
+<h2>三大类问题</h2>
+<h3>1. 合并/切分型（石子合并）</h3>
+<p>把相邻的东西合并（或把整体切分），每次操作有代价，求最小/最大总代价。</p>
+
+<h3>2. 回文/对称型（最长回文子序列）</h3>
+<p>dp[i][j] 表示 s[i..j] 内最长回文子序列长度。<code>s[i]==s[j]</code> 时从 dp[i+1][j-1] 转移。</p>
+
+<h3>3. 反向枚举型（戳气球）</h3>
+<div class="insight">
+<p><strong>戳气球精髓：</strong></p>
+<p>正着想"先戳哪个" → 戳完一个后，左右气球变成相邻了，状态混乱不可控</p>
+<p>倒着想"最后戳哪个" → 最后戳 k 时，左右两边是独立的子问题！</p>
+<p>核心：<span class="highlight">正难则反</span>，让最后一步操作把区间切成不相关的两半</p>
+</div>
+
+<h2>动画：石子合并</h2>
+<p>数组 <code>[3, 1, 5, 2]</code>，求合并所有石子的最小代价。每次合并相邻两堆，代价 = 两堆石子总数。</p>
+
+<div class="animation-box">
+  <div class="array-display" id="stoneArray"></div>
+  <div class="dp-table" id="dpTable" style="grid-template-columns: repeat(4, 60px);"></div>
+  <div class="step-info" id="stepInfo">点击"下一步"开始填表</div>
+  <div class="controls">
+    <button id="btnPrev" disabled>上一步</button>
+    <button id="btnNext">下一步</button>
+    <button id="btnReset">重置</button>
+    <button id="btnAuto">自动播放</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+<div id="questions">
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>1. 为什么区间 DP 必须按长度从小到大？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      因为 dp[i][j] 的计算依赖 dp[i][k] 和 dp[k+1][j]，这两个区间长度都小于 [i,j]。如果长区间先算，所依赖的短区间还没有值，结果就错了。本质就是拓扑序：先算被依赖的，再算依赖别人的。
+    </div>
+  </div>
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>2. 戳气球问题中，"最后戳" vs "先戳" 的状态为什么不同？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      "先戳 k" → 戳完 k 后，k 左右的气球变成相邻，后续操作的收益跟这次选择耦合在一起，无法拆分成独立子问题。"最后戳 k" → 在 k 被戳的那一刻，区间 (i,k) 和 (k,j) 的气球早已被戳光，k 左边是边界 i，右边是边界 j，收益确定为 nums[i]*nums[k]*nums[j]，两侧完全独立。
+    </div>
+  </div>
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>3. 记忆化递归在区间 DP 中有什么优势？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      优势：(1) 不需要想清楚填表顺序，递归自动保证先算子问题；(2) 有些区间可能永远不会被用到，记忆化可以跳过（虽然区间 DP 通常都会用到）；(3) 代码更直观，思路对应"自顶向下分治"。缺点：递归栈深度 O(n)，对 n 很大时可能栈溢出。
+    </div>
+  </div>
+</div>
+
+<h2>LeetCode 练习</h2>
+<div class="leetcode-section">
+  <h3>热身</h3>
+  <div id="warmup-tags"></div>
+  <h3>进阶</h3>
+  <div id="advanced-tags"></div>
+</div>
+
+<div class="nav">
+  <a href="dp.html">← DP 基础</a>
+  <a href="tree-dp.html">树形 DP →</a>
+</div>
+
+</div>
+
+<script>
+// === Stone merge animation ===
+const stones = [3, 1, 5, 2];
+const n = 4;
+const prefix = [0];
+for (let i = 0; i < n; i++) prefix.push(prefix[i] + stones[i]);
+function rangeSum(i, j) { return prefix[j+1] - prefix[i]; }
+
+// Compute all steps
+const dp = Array.from({length: n}, () => Array(n).fill(0));
+const steps = [];
+
+// Initial state
+steps.push({ type: 'init', info: '初始化：dp[i][i] = 0（单个石子不需要合并）' });
+
+for (let len = 2; len <= n; len++) {
+  for (let i = 0; i <= n - len; i++) {
+    const j = i + len - 1;
+    dp[i][j] = Infinity;
+    const trySteps = [];
+    for (let k = i; k < j; k++) {
+      const val = dp[i][k] + dp[k+1][j] + rangeSum(i, j);
+      trySteps.push({ k, val, left: dp[i][k], right: dp[k+1][j], cost: rangeSum(i, j) });
+      if (val < dp[i][j]) dp[i][j] = val;
+    }
+    steps.push({
+      type: 'fill',
+      i, j, len,
+      tries: trySteps,
+      result: dp[i][j],
+      info: `长度${len}: dp[${i}][${j}] 枚举分割点 → 最优 = ${dp[i][j]}`
+    });
+  }
+}
+steps.push({ type: 'done', info: `完成！最小合并代价 = dp[0][${n-1}] = ${dp[0][n-1]}` });
+
+let currentStep = -1;
+let autoInterval = null;
+const displayDp = Array.from({length: n}, () => Array(n).fill(null));
+
+function renderArray(highlightI, highlightJ) {
+  const container = document.getElementById('stoneArray');
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const el = document.createElement('div');
+    el.className = 'array-item' + (i >= highlightI && i <= highlightJ ? ' highlight-range' : '');
+    el.textContent = stones[i];
+    container.appendChild(el);
+  }
+}
+
+function renderTable(activeI, activeJ, tryingCells) {
+  const container = document.getElementById('dpTable');
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      const el = document.createElement('div');
+      if (j < i) {
+        el.className = 'dp-cell empty';
+        el.textContent = '-';
+      } else if (displayDp[i][j] !== null) {
+        let cls = 'dp-cell filled';
+        if (i === activeI && j === activeJ) cls = 'dp-cell active';
+        else if (tryingCells && tryingCells.some(c => (c[0]===i&&c[1]===j))) cls = 'dp-cell trying';
+        el.className = cls;
+        el.textContent = displayDp[i][j];
+      } else {
+        el.className = 'dp-cell empty';
+        el.textContent = '?';
+      }
+      container.appendChild(el);
+    }
+  }
+}
+
+function showStep(idx) {
+  if (idx < 0 || idx >= steps.length) return;
+  currentStep = idx;
+  const step = steps[idx];
+  document.getElementById('stepInfo').textContent = step.info;
+
+  if (step.type === 'init') {
+    for (let i = 0; i < n; i++) displayDp[i][i] = 0;
+    renderArray(-1, -1);
+    renderTable(-1, -1, null);
+  } else if (step.type === 'fill') {
+    displayDp[step.i][step.j] = step.result;
+    const trying = [];
+    for (const t of step.tries) {
+      trying.push([step.i, t.k]);
+      trying.push([t.k+1, step.j]);
+    }
+    renderArray(step.i, step.j);
+    renderTable(step.i, step.j, trying);
+  } else if (step.type === 'done') {
+    renderArray(0, n-1);
+    renderTable(-1, -1, null);
+  }
+
+  document.getElementById('btnPrev').disabled = (idx <= 0);
+  document.getElementById('btnNext').disabled = (idx >= steps.length - 1);
+}
+
+function reset() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  currentStep = -1;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) displayDp[i][j] = null;
+  renderArray(-1, -1);
+  renderTable(-1, -1, null);
+  document.getElementById('stepInfo').textContent = '点击"下一步"开始填表';
+  document.getElementById('btnPrev').disabled = true;
+  document.getElementById('btnNext').disabled = false;
+}
+
+document.getElementById('btnNext').onclick = () => showStep(currentStep + 1);
+document.getElementById('btnPrev').onclick = () => {
+  // Rebuild state up to previous step
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) displayDp[i][j] = null;
+  const target = currentStep - 1;
+  for (let s = 0; s <= target; s++) {
+    const st = steps[s];
+    if (st.type === 'init') { for (let i = 0; i < n; i++) displayDp[i][i] = 0; }
+    else if (st.type === 'fill') { displayDp[st.i][st.j] = st.result; }
+  }
+  showStep(target);
+};
+document.getElementById('btnReset').onclick = reset;
+document.getElementById('btnAuto').onclick = () => {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; return; }
+  autoInterval = setInterval(() => {
+    if (currentStep >= steps.length - 1) { clearInterval(autoInterval); autoInterval = null; return; }
+    showStep(currentStep + 1);
+  }, 1200);
+};
+
+renderArray(-1, -1);
+renderTable(-1, -1, null);
+
+// === Questions toggle ===
+function toggleAnswer(header) {
+  const answer = header.nextElementSibling;
+  const arrow = header.querySelector('.arrow');
+  answer.classList.toggle('open');
+  arrow.textContent = answer.classList.contains('open') ? '▼' : '▶';
+}
+
+// === LeetCode progress ===
+const STORAGE_KEY = 'algo-progress-interval-dp';
+const warmup = [5, 516, 647];
+const advanced = [312, 1000, 664, 546, 87];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+function renderTags() {
+  const progress = loadProgress();
+  const warmupDiv = document.getElementById('warmup-tags');
+  const advDiv = document.getElementById('advanced-tags');
+  warmupDiv.innerHTML = '';
+  advDiv.innerHTML = '';
+
+  warmup.forEach(num => {
+    const tag = document.createElement('span');
+    tag.className = 'tag warmup' + (progress[num] ? ' done' : '');
+    tag.textContent = `LC ${num}`;
+    tag.onclick = () => { progress[num] = !progress[num]; saveProgress(progress); renderTags(); };
+    warmupDiv.appendChild(tag);
+  });
+  advanced.forEach(num => {
+    const tag = document.createElement('span');
+    tag.className = 'tag advanced' + (progress[num] ? ' done' : '');
+    tag.textContent = `LC ${num}`;
+    tag.onclick = () => { progress[num] = !progress[num]; saveProgress(progress); renderTags(); };
+    advDiv.appendChild(tag);
+  });
+}
+renderTags();
+</script>
+</body>
+</html>

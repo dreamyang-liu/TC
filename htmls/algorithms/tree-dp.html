@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>树形 DP - 算法教程</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  padding: 40px 20px;
+  line-height: 1.8;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { text-align: center; color: #76b900; margin-bottom: 8px; font-size: 1.8rem; }
+h2 { color: #00d4aa; margin: 32px 0 16px; font-size: 1.3rem; border-bottom: 1px solid #333; padding-bottom: 8px; }
+h3 { color: #76b900; margin: 20px 0 10px; font-size: 1.1rem; }
+.subtitle { text-align: center; color: #888; margin-bottom: 32px; font-size: 0.95rem; }
+p { margin: 10px 0; }
+code {
+  background: #1a1a2e;
+  color: #00d4aa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  margin: 16px 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+pre code { background: none; padding: 0; }
+.highlight { color: #76b900; font-weight: bold; }
+.key-point {
+  background: #1a2a1a;
+  border-left: 4px solid #76b900;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.insight {
+  background: #1a1a2e;
+  border-left: 4px solid #00d4aa;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.motto {
+  text-align: center;
+  font-size: 1.1rem;
+  color: #76b900;
+  background: #1a2a1a;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 20px 0;
+  border: 1px solid #76b90044;
+}
+
+/* Animation */
+.animation-box {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.controls {
+  text-align: center;
+  margin: 16px 0;
+}
+button {
+  background: linear-gradient(135deg, #76b900, #00d4aa);
+  border: none;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  margin: 0 6px;
+  font-weight: bold;
+}
+button:hover { opacity: 0.85; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+canvas {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  border-radius: 8px;
+}
+.step-info {
+  text-align: center;
+  margin: 12px 0;
+  color: #aaa;
+  font-size: 0.9rem;
+  min-height: 50px;
+}
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin: 12px 0;
+  font-size: 0.85rem;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+
+/* Questions */
+.question-box {
+  background: #1a1a2e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+.question-header {
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.question-header:hover { background: #252540; }
+.question-answer {
+  padding: 0 16px;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s, padding 0.3s;
+  color: #aaa;
+}
+.question-answer.open {
+  max-height: 400px;
+  padding: 12px 16px;
+  border-top: 1px solid #333;
+}
+
+/* LeetCode */
+.leetcode-section { margin: 24px 0; }
+.tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  margin: 4px;
+  cursor: pointer;
+}
+.tag.warmup { background: #1a3a1a; color: #76b900; border: 1px solid #76b900; }
+.tag.advanced { background: #2a1a1a; color: #ff6b6b; border: 1px solid #ff6b6b; }
+.tag.done { opacity: 0.4; text-decoration: line-through; }
+
+/* Navigation */
+.nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+.nav a {
+  color: #00d4aa;
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid #00d4aa;
+  border-radius: 6px;
+}
+.nav a:hover { background: #00d4aa22; }
+
+@media (max-width: 600px) {
+  body { padding: 20px 12px; }
+  h1 { font-size: 1.4rem; }
+  pre { font-size: 0.78rem; padding: 12px; }
+  .legend { flex-direction: column; align-items: center; gap: 8px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>树形 DP</h1>
+<p class="subtitle">后序遍历 + 在每个节点汇总子树信息，返回状态让父节点组合答案</p>
+
+<h2>核心思想</h2>
+<p>树形 DP 的套路：<span class="highlight">从叶子往根算</span>（后序遍历）。每个节点处理完所有子节点后，把子节点的结果组合成自己的答案，再返回给父节点。</p>
+
+<div class="motto">口诀：选当前 → 子不能选；不选当前 → 子取最大</div>
+
+<h2>四大模式</h2>
+
+<h3>模式 1：单状态（最大深度）</h3>
+<p>最简单。每个节点返回"以我为根的子树深度"。</p>
+<pre><code>def maxDepth(root):
+    if not root: return 0
+    return 1 + max(maxDepth(root.left), maxDepth(root.right))</code></pre>
+
+<h3>模式 2：两个返回值诀窍（直径 / 最大路径和）</h3>
+<div class="key-point">
+<p><strong>关键区分：</strong></p>
+<p>- <span class="highlight">"经过我的路径"</span>= 左链 + 右链 + 我 → 只用来更新全局 ans</p>
+<p>- <span class="highlight">"给上面用的链"</span>= max(左链, 右链) + 我 → 作为返回值给父节点</p>
+<p>为什么？因为路径不能分叉！往上传的只能是一条直链。</p>
+</div>
+<pre><code>def diameterOfBinaryTree(root):
+    ans = 0
+    def dfs(node):
+        nonlocal ans
+        if not node: return 0
+        left = dfs(node.left)      # 左子树最长链
+        right = dfs(node.right)    # 右子树最长链
+        ans = max(ans, left + right)  # 经过我的路径（更新全局）
+        return max(left, right) + 1   # 给上面用的（只能选一边）
+    dfs(root)
+    return ans</code></pre>
+
+<h3>模式 3：选/不选模板（打家劫舍 III）</h3>
+<p>每个节点返回 <code>(选我的最大值, 不选我的最大值)</code> 元组。</p>
+<pre><code>def rob(root):
+    def dfs(node):
+        if not node: return (0, 0)
+        left = dfs(node.left)
+        right = dfs(node.right)
+        rob_me = node.val + left[1] + right[1]      # 选我，子不能选
+        skip_me = max(left) + max(right)             # 不选我，子随意
+        return (rob_me, skip_me)
+    return max(dfs(root))</code></pre>
+
+<h3>模式 4：换根 DP（最难）</h3>
+<div class="insight">
+<p><strong>思路：</strong>如果要求"以每个节点为根时的答案"，暴力要 O(n^2)。</p>
+<p>换根 DP 用两次 DFS：</p>
+<p>1. 第一次 DFS：以节点 0 为根，算出 dp[0] 的答案</p>
+<p>2. 第二次 DFS：从根往下，利用父节点的答案<span class="highlight">增量更新</span>子节点的答案</p>
+<p>关键公式：dp[child] = dp[parent] - child对parent的贡献 + parent对child的贡献</p>
+</div>
+
+<h2>动画：二叉树直径计算</h2>
+<p>后序遍历，每个节点计算"返回给父亲的深度"（蓝色）和"经过我的路径长度"（绿色）。</p>
+
+<div class="animation-box">
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#4a9eff;"></div><span>返回给父亲的深度</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00d4aa;"></div><span>经过我的路径长度</span></div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ff6b6b;"></div><span>全局 ans 更新</span></div>
+  </div>
+  <canvas id="treeCanvas" width="600" height="380"></canvas>
+  <div class="step-info" id="stepInfo">点击"下一步"开始后序遍历</div>
+  <div class="controls">
+    <button id="btnPrev" disabled>上一步</button>
+    <button id="btnNext">下一步</button>
+    <button id="btnReset">重置</button>
+    <button id="btnAuto">自动播放</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+<div id="questions">
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>1. 为什么树形 DP 要用后序遍历？前序行不行？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      后序遍历意味着"先处理子节点，再处理当前节点"。树形 DP 中，当前节点的答案需要子节点的结果才能计算，所以必须后序。前序是先处理自己再处理子节点，此时子节点信息还没算出来，无法组合。唯一例外是换根 DP 的第二次 DFS，那是用父节点信息更新子节点，所以用前序。
+    </div>
+  </div>
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>2. "经过当前节点的路径"和"延伸到当前节点的链"有什么区别？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      "经过当前节点的路径" = 左子树最长链 + 当前节点 + 右子树最长链，形成一个倒 V 字形，可能是全局最优解。"延伸到当前节点的链" = max(左链, 右链) + 当前节点，是一条直线，只能选一个方向。区别本质：路径可以在当前节点"拐弯"（两边都用），但传给父节点时不能拐弯（只能选一边），否则父节点那里就会出现分叉。
+    </div>
+  </div>
+  <div class="question-box">
+    <div class="question-header" onclick="toggleAnswer(this)">
+      <span>3. 换根 DP 为什么只需要两次 DFS？</span>
+      <span class="arrow">▶</span>
+    </div>
+    <div class="question-answer">
+      第一次 DFS 确定了一个基准答案（以某个节点为根）。换根时，从 parent 到 child 只发生了一个变化：child 的子树从 parent 的"下方"变成了"上方"。这个变化是 O(1) 可计算的增量。所以从根往下逐层传递，每个节点都能 O(1) 算出自己为根的答案。两次 DFS 总复杂度 O(n)，比暴力 O(n^2) 快得多。
+    </div>
+  </div>
+</div>
+
+<h2>LeetCode 练习</h2>
+<div class="leetcode-section">
+  <h3>热身</h3>
+  <div id="warmup-tags"></div>
+  <h3>进阶</h3>
+  <div id="advanced-tags"></div>
+</div>
+
+<div class="nav">
+  <a href="interval-dp.html">← 区间 DP</a>
+  <a href="backtracking.html">回溯 →</a>
+</div>
+
+</div>
+
+<script>
+// === Tree diameter animation ===
+// Tree structure:
+//        1
+//       / \
+//      2   3
+//     / \
+//    4   5
+//         \
+//          6
+const nodes = [
+  { id: 1, val: 1, left: 1, right: 2, x: 300, y: 50 },
+  { id: 2, val: 2, left: 3, right: 4, x: 180, y: 130 },
+  { id: 3, val: 3, left: -1, right: -1, x: 420, y: 130 },
+  { id: 4, val: 4, left: -1, right: -1, x: 110, y: 220 },
+  { id: 5, val: 5, left: -1, right: 5, x: 250, y: 220 },
+  { id: 6, val: 6, left: -1, right: -1, x: 310, y: 310 },
+];
+
+// Post-order traversal steps: 4, 6, 5, 2, 3, 1
+const animSteps = [
+  { node: 3, desc: '访问节点 4（叶子）：左=0, 右=0', returnVal: 1, pathLen: 0, leftD: 0, rightD: 0, ans: 0 },
+  { node: 5, desc: '访问节点 6（叶子）：左=0, 右=0', returnVal: 1, pathLen: 0, leftD: 0, rightD: 0, ans: 0 },
+  { node: 4, desc: '访问节点 5：左=0, 右=1 → 经过我=1, 返回=2', returnVal: 2, pathLen: 1, leftD: 0, rightD: 1, ans: 1 },
+  { node: 1, desc: '访问节点 2：左=1, 右=2 → 经过我=3, 返回=3', returnVal: 3, pathLen: 3, leftD: 1, rightD: 2, ans: 3 },
+  { node: 2, desc: '访问节点 3（叶子）：左=0, 右=0', returnVal: 1, pathLen: 0, leftD: 0, rightD: 0, ans: 3 },
+  { node: 0, desc: '访问节点 1：左=3, 右=1 → 经过我=4, 返回=4', returnVal: 4, pathLen: 4, leftD: 3, rightD: 1, ans: 4 },
+];
+
+let currentStep = -1;
+let autoInterval = null;
+const visited = new Set();
+const returnVals = {};
+let globalAns = 0;
+
+const canvas = document.getElementById('treeCanvas');
+const ctx = canvas.getContext('2d');
+
+function drawTree() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Draw edges
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  for (const node of nodes) {
+    if (node.left >= 0) {
+      const child = nodes[node.left];
+      ctx.beginPath();
+      ctx.moveTo(node.x, node.y + 20);
+      ctx.lineTo(child.x, child.y - 20);
+      ctx.stroke();
+    }
+    if (node.right >= 0) {
+      const child = nodes[node.right];
+      ctx.beginPath();
+      ctx.moveTo(node.x, node.y + 20);
+      ctx.lineTo(child.x, child.y - 20);
+      ctx.stroke();
+    }
+  }
+
+  // Draw nodes
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const isActive = (currentStep >= 0 && animSteps[currentStep].node === i);
+    const isVisited = visited.has(i);
+
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, 22, 0, Math.PI * 2);
+    if (isActive) {
+      ctx.fillStyle = '#2a4a0a';
+      ctx.strokeStyle = '#76b900';
+      ctx.lineWidth = 3;
+    } else if (isVisited) {
+      ctx.fillStyle = '#1a2a3a';
+      ctx.strokeStyle = '#4a9eff';
+      ctx.lineWidth = 2;
+    } else {
+      ctx.fillStyle = '#222';
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 2;
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    // Node value
+    ctx.fillStyle = isActive ? '#76b900' : (isVisited ? '#4a9eff' : '#888');
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(node.val, node.x, node.y);
+
+    // Return value annotation
+    if (returnVals[i] !== undefined) {
+      // Blue: return value
+      ctx.fillStyle = '#4a9eff';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`↑${returnVals[i]}`, node.x + 32, node.y - 10);
+    }
+  }
+
+  // Draw current step path info
+  if (currentStep >= 0) {
+    const step = animSteps[currentStep];
+    const node = nodes[step.node];
+
+    // Green: path through me
+    if (step.pathLen > 0) {
+      ctx.fillStyle = '#00d4aa';
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`路径=${step.pathLen}`, node.x + 35, node.y + 12);
+    }
+
+    // Global ans
+    ctx.fillStyle = '#ff6b6b';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`全局 ans = ${globalAns}`, canvas.width - 20, 30);
+  }
+}
+
+function showStep(idx) {
+  if (idx < 0 || idx >= animSteps.length) return;
+  currentStep = idx;
+
+  // Rebuild state
+  visited.clear();
+  Object.keys(returnVals).forEach(k => delete returnVals[k]);
+  globalAns = 0;
+  for (let s = 0; s <= idx; s++) {
+    const step = animSteps[s];
+    visited.add(step.node);
+    returnVals[step.node] = step.returnVal;
+    globalAns = step.ans;
+  }
+
+  const step = animSteps[idx];
+  document.getElementById('stepInfo').innerHTML =
+    `<strong>${step.desc}</strong><br>` +
+    `<span style="color:#4a9eff">返回值=${step.returnVal}</span> | ` +
+    `<span style="color:#00d4aa">经过路径=${step.pathLen}</span> | ` +
+    `<span style="color:#ff6b6b">ans=${globalAns}</span>`;
+
+  drawTree();
+  document.getElementById('btnPrev').disabled = (idx <= 0);
+  document.getElementById('btnNext').disabled = (idx >= animSteps.length - 1);
+}
+
+function reset() {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; }
+  currentStep = -1;
+  visited.clear();
+  Object.keys(returnVals).forEach(k => delete returnVals[k]);
+  globalAns = 0;
+  drawTree();
+  document.getElementById('stepInfo').textContent = '点击"下一步"开始后序遍历';
+  document.getElementById('btnPrev').disabled = true;
+  document.getElementById('btnNext').disabled = false;
+}
+
+document.getElementById('btnNext').onclick = () => showStep(currentStep + 1);
+document.getElementById('btnPrev').onclick = () => showStep(currentStep - 1);
+document.getElementById('btnReset').onclick = reset;
+document.getElementById('btnAuto').onclick = () => {
+  if (autoInterval) { clearInterval(autoInterval); autoInterval = null; return; }
+  autoInterval = setInterval(() => {
+    if (currentStep >= animSteps.length - 1) { clearInterval(autoInterval); autoInterval = null; return; }
+    showStep(currentStep + 1);
+  }, 1500);
+};
+
+drawTree();
+
+// === Questions toggle ===
+function toggleAnswer(header) {
+  const answer = header.nextElementSibling;
+  const arrow = header.querySelector('.arrow');
+  answer.classList.toggle('open');
+  arrow.textContent = answer.classList.contains('open') ? '▼' : '▶';
+}
+
+// === LeetCode progress ===
+const STORAGE_KEY = 'algo-progress-tree-dp';
+const warmup = [104, 543, 110, 687];
+const advanced = [124, 337, 968, 834, 310];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+function renderTags() {
+  const progress = loadProgress();
+  const warmupDiv = document.getElementById('warmup-tags');
+  const advDiv = document.getElementById('advanced-tags');
+  warmupDiv.innerHTML = '';
+  advDiv.innerHTML = '';
+
+  warmup.forEach(num => {
+    const tag = document.createElement('span');
+    tag.className = 'tag warmup' + (progress[num] ? ' done' : '');
+    tag.textContent = `LC ${num}`;
+    tag.onclick = () => { progress[num] = !progress[num]; saveProgress(progress); renderTags(); };
+    warmupDiv.appendChild(tag);
+  });
+  advanced.forEach(num => {
+    const tag = document.createElement('span');
+    tag.className = 'tag advanced' + (progress[num] ? ' done' : '');
+    tag.textContent = `LC ${num}`;
+    tag.onclick = () => { progress[num] = !progress[num]; saveProgress(progress); renderTags(); };
+    advDiv.appendChild(tag);
+  });
+}
+renderTags();
+</script>
+</body>
+</html>

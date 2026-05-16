@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双指针技巧 - 算法学习</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1 { color: #76b900; font-size: 2em; margin-bottom: 10px; }
+h2 { color: #76b900; font-size: 1.5em; margin: 40px 0 15px; border-bottom: 1px solid #333; padding-bottom: 8px; }
+h3 { color: #00d4aa; font-size: 1.2em; margin: 25px 0 10px; }
+p { margin: 10px 0; }
+code {
+  background: #1a1a2e;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Fira Code', 'Consolas', monospace;
+  font-size: 0.9em;
+}
+pre {
+  background: #1a1a2e;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 15px 0;
+  border-left: 3px solid #76b900;
+}
+pre code { background: none; padding: 0; }
+.nav-top { margin-bottom: 20px; }
+.progress-bar {
+  background: #1a1a2e;
+  padding: 12px 18px;
+  border-radius: 8px;
+  margin: 15px 0;
+  font-size: 1.1em;
+  border: 1px solid #333;
+}
+.progress-bar span { color: #76b900; font-weight: bold; }
+.section-box {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #282840;
+}
+.key-point {
+  background: #0d2818;
+  border-left: 4px solid #76b900;
+  padding: 12px 16px;
+  margin: 15px 0;
+  border-radius: 0 6px 6px 0;
+}
+.animation-container {
+  background: #1a1a2e;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #76b900;
+}
+.animation-container h3 { margin-top: 0; }
+.array-display {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.array-cell {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #444;
+  border-radius: 6px;
+  font-size: 1.1em;
+  font-weight: bold;
+  position: relative;
+  transition: all 0.3s;
+}
+.array-cell.left-ptr { border-color: #76b900; background: rgba(118,185,0,0.15); }
+.array-cell.right-ptr { border-color: #ff6b6b; background: rgba(255,107,107,0.15); }
+.array-cell.both-ptr { border-color: #ffd700; background: rgba(255,215,0,0.15); }
+.ptr-label {
+  position: absolute;
+  bottom: -22px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+.ptr-label.left { color: #76b900; }
+.ptr-label.right { color: #ff6b6b; }
+.status-line {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 1em;
+  min-height: 24px;
+}
+.btn {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.95em;
+  font-weight: bold;
+  margin: 5px;
+  transition: background 0.2s;
+}
+.btn:hover { background: #8dd600; }
+.btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+.btn-secondary { background: #00d4aa; }
+.btn-secondary:hover { background: #00eebb; }
+.controls { text-align: center; margin: 15px 0; }
+/* Floyd animation */
+.floyd-canvas {
+  width: 100%;
+  height: 320px;
+  display: block;
+}
+/* Exercises */
+.exercise-list { list-style: none; margin: 10px 0; }
+.exercise-list li {
+  padding: 8px 12px;
+  margin: 6px 0;
+  background: #16162a;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.exercise-list li label { cursor: pointer; flex: 1; display: flex; align-items: center; gap: 10px; }
+.exercise-list input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #76b900;
+  cursor: pointer;
+}
+.thinking-section {
+  background: #1a1020;
+  border-left: 4px solid #9b59b6;
+  padding: 15px;
+  margin: 15px 0;
+  border-radius: 0 8px 8px 0;
+}
+.thinking-section summary {
+  cursor: pointer;
+  color: #9b59b6;
+  font-weight: bold;
+}
+.thinking-section p { margin: 8px 0; font-size: 0.95em; }
+.nav-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 50px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.5em; }
+  .array-cell { width: 40px; height: 40px; font-size: 0.9em; }
+  .nav-bottom { flex-direction: column; gap: 10px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav-top">
+  <a href="algorithms-index.html">&larr; 返回算法目录</a>
+</nav>
+
+<h1>双指针技巧</h1>
+<p>双指针有两种核心形态：<strong>对撞指针</strong>和<strong>快慢指针</strong>。掌握它们能让很多 O(n^2) 问题降到 O(n)。</p>
+
+<div class="progress-bar">
+  练习进度：<span id="progress-count">已完成 0/10</span>
+</div>
+
+<!-- 对撞指针 -->
+<h2>1. 对撞指针（数组有序 / 两端逼近）</h2>
+<div class="section-box">
+  <div class="key-point">
+    <strong>本质：</strong>两端向中间走，每一步根据条件决定移动哪一边。因为数组有序，移动方向能确定性地缩小搜索空间。
+  </div>
+  <h3>模板：两数之和 II</h3>
+<pre><code>def two_sum(nums, target):
+    left, right = 0, len(nums) - 1
+    while left < right:
+        s = nums[left] + nums[right]
+        if s == target:
+            return [left, right]
+        elif s < target:
+            left += 1
+        else:
+            right -= 1</code></pre>
+  <p><strong>为什么正确？</strong>当 <code>s < target</code> 时，<code>left</code> 已经配不上比 <code>right</code> 更小的数了（因为有序），所以安全丢弃 <code>left</code>。反之亦然。</p>
+</div>
+
+<!-- 对撞指针动画 -->
+<div class="animation-container">
+  <h3>对撞指针动画演示</h3>
+  <p>数组 <code>[1, 3, 5, 7, 9, 11]</code>，target = 12</p>
+  <div class="array-display" id="collision-array"></div>
+  <div class="status-line" id="collision-status">点击"下一步"开始演示</div>
+  <div class="controls">
+    <button class="btn" id="collision-next">下一步</button>
+    <button class="btn btn-secondary" id="collision-reset">重置</button>
+  </div>
+</div>
+
+<!-- 快慢指针 -->
+<h2>2. 快慢指针（链表 / 找环 / 原地去重）</h2>
+<div class="section-box">
+  <div class="key-point">
+    <strong>本质：</strong>两指针速度不同，相对位移 = 距离差。利用速度差产生有用的几何关系。
+  </div>
+
+  <h3>三个子模板</h3>
+
+  <p><strong>a) 找链表中点</strong></p>
+<pre><code>slow = fast = head
+while fast and fast.next:
+    slow = slow.next
+    fast = fast.next.next
+# slow 就是中点</code></pre>
+
+  <p><strong>b) Floyd 判环</strong></p>
+<pre><code>slow = fast = head
+while fast and fast.next:
+    slow = slow.next
+    fast = fast.next.next
+    if slow == fast:  # 有环
+        break</code></pre>
+
+  <p><strong>c) 原地去重</strong></p>
+<pre><code>def remove_duplicates(nums):
+    if not nums: return 0
+    slow = 0
+    for fast in range(1, len(nums)):
+        if nums[fast] != nums[slow]:
+            slow += 1
+            nums[slow] = nums[fast]
+    return slow + 1</code></pre>
+  <div class="key-point">
+    <strong>原地去重口诀：</strong>slow 指向下一个要写入的位置，fast 扫描所有元素。
+  </div>
+</div>
+
+<!-- Floyd 环检测原理 -->
+<h2>3. Floyd 环检测原理</h2>
+<div class="section-box">
+  <p>设链表结构如下：</p>
+  <ul style="margin: 10px 0 10px 20px;">
+    <li>头节点到环入口距离 = <strong>a</strong></li>
+    <li>入口到相遇点距离 = <strong>b</strong></li>
+    <li>环长 = <strong>L</strong></li>
+  </ul>
+  <p>相遇时 slow 走了 <code>a + b</code> 步，fast 走了 <code>a + b + kL</code> 步（多绕了 k 圈）。</p>
+  <p>因为 fast = 2 * slow：</p>
+<pre><code>2(a + b) = a + b + kL
+→ a + b = kL
+→ a = kL - b</code></pre>
+  <p><strong>结论：</strong>从头节点和相遇点各走一步，走 <code>a</code> 步后一定在入口相遇。因为相遇点再走 <code>a = kL - b</code> 步，正好绕回入口。</p>
+</div>
+
+<!-- Floyd 动画 -->
+<div class="animation-container">
+  <h3>Floyd 环检测动画</h3>
+  <p>绿色 = slow（每次 1 步），红色 = fast（每次 2 步）</p>
+  <canvas class="floyd-canvas" id="floyd-canvas"></canvas>
+  <div class="status-line" id="floyd-status">正在运行...</div>
+  <div class="controls">
+    <button class="btn" id="floyd-pause">暂停</button>
+    <button class="btn btn-secondary" id="floyd-reset">重置</button>
+  </div>
+</div>
+
+<!-- 思考题 -->
+<h2>4. 思考题</h2>
+
+<details class="thinking-section">
+  <summary>为什么对撞指针要求数组有序？无序时怎么办？</summary>
+  <p>有序保证了单调性：移动 left 一定增大 sum，移动 right 一定减小 sum，这样每次移动都在确定性地缩小搜索空间。无序时这个性质不成立，只能用哈希表（O(n) 时间 + O(n) 空间）或先排序再双指针。</p>
+</details>
+
+<details class="thinking-section">
+  <summary>Floyd 算法中，为什么从头和相遇点同速走一定在入口相遇？</summary>
+  <p>因为 a = kL - b。从相遇点出发走 a 步 = 走 kL - b 步 = 在环上绕 k 圈再退 b 步 = 正好到环入口。从头出发走 a 步也到环入口。所以两者同时到达入口。</p>
+</details>
+
+<details class="thinking-section">
+  <summary>原地去重中，如果允许最多保留 2 个相同元素怎么改？</summary>
+  <p>把比较对象从 <code>nums[fast] != nums[slow]</code> 改为 <code>nums[fast] != nums[slow - 1]</code>。即 slow 往前看两个位置，只有新元素和 slow-1 不同才写入：</p>
+  <p><code>if fast < 2 or nums[fast] != nums[slow - 1]: slow += 1; nums[slow] = nums[fast]</code></p>
+  <p>更通用地，保留 k 个就比较 <code>nums[slow - (k-1)]</code>。</p>
+</details>
+
+<!-- 练习 -->
+<h2>5. LeetCode 练习</h2>
+
+<h3>热身</h3>
+<ul class="exercise-list" id="warmup-list">
+  <li><label><input type="checkbox" data-id="167"> <a href="https://leetcode.cn/problems/two-sum-ii-input-array-is-sorted/" target="_blank">167. 两数之和 II</a></label></li>
+  <li><label><input type="checkbox" data-id="11"> <a href="https://leetcode.cn/problems/container-with-most-water/" target="_blank">11. 盛最多水的容器</a></label></li>
+  <li><label><input type="checkbox" data-id="283"> <a href="https://leetcode.cn/problems/move-zeroes/" target="_blank">283. 移动零</a></label></li>
+  <li><label><input type="checkbox" data-id="876"> <a href="https://leetcode.cn/problems/middle-of-the-linked-list/" target="_blank">876. 链表的中间结点</a></label></li>
+  <li><label><input type="checkbox" data-id="141"> <a href="https://leetcode.cn/problems/linked-list-cycle/" target="_blank">141. 环形链表</a></label></li>
+</ul>
+
+<h3>进阶</h3>
+<ul class="exercise-list" id="advanced-list">
+  <li><label><input type="checkbox" data-id="15"> <a href="https://leetcode.cn/problems/3sum/" target="_blank">15. 三数之和</a></label></li>
+  <li><label><input type="checkbox" data-id="42"> <a href="https://leetcode.cn/problems/trapping-rain-water/" target="_blank">42. 接雨水</a></label></li>
+  <li><label><input type="checkbox" data-id="142"> <a href="https://leetcode.cn/problems/linked-list-cycle-ii/" target="_blank">142. 环形链表 II</a></label></li>
+  <li><label><input type="checkbox" data-id="287"> <a href="https://leetcode.cn/problems/find-the-duplicate-number/" target="_blank">287. 寻找重复数</a></label></li>
+  <li><label><input type="checkbox" data-id="75"> <a href="https://leetcode.cn/problems/sort-colors/" target="_blank">75. 颜色分类</a></label></li>
+</ul>
+
+<!-- Navigation -->
+<nav class="nav-bottom">
+  <a href="binary-search.html">&larr; 上一篇：二分查找</a>
+  <a href="sliding-window.html">下一篇：滑动窗口 &rarr;</a>
+</nav>
+
+<script>
+// === Progress tracking ===
+const STORAGE_KEY = 'algo-progress-two-pointers';
+const ALL_IDS = ['167','11','283','876','141','15','42','142','287','75'];
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch { return {}; }
+}
+
+function saveProgress(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function updateProgressDisplay() {
+  const data = loadProgress();
+  const done = ALL_IDS.filter(id => data[id]).length;
+  document.getElementById('progress-count').textContent = `已完成 ${done}/10`;
+}
+
+function initCheckboxes() {
+  const data = loadProgress();
+  document.querySelectorAll('input[data-id]').forEach(cb => {
+    const id = cb.dataset.id;
+    cb.checked = !!data[id];
+    cb.addEventListener('change', () => {
+      const d = loadProgress();
+      d[id] = cb.checked;
+      saveProgress(d);
+      updateProgressDisplay();
+    });
+  });
+  updateProgressDisplay();
+}
+
+// === Collision pointer animation ===
+const collisionNums = [1, 3, 5, 7, 9, 11];
+const collisionTarget = 12;
+let collisionState = { left: 0, right: 5, step: 0, done: false };
+
+function renderCollision() {
+  const container = document.getElementById('collision-array');
+  container.innerHTML = '';
+  collisionNums.forEach((num, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'array-cell';
+    cell.textContent = num;
+    if (i === collisionState.left && i === collisionState.right) {
+      cell.classList.add('both-ptr');
+    } else if (i === collisionState.left) {
+      cell.classList.add('left-ptr');
+      const lbl = document.createElement('div');
+      lbl.className = 'ptr-label left';
+      lbl.textContent = 'L';
+      cell.appendChild(lbl);
+    } else if (i === collisionState.right) {
+      cell.classList.add('right-ptr');
+      const lbl = document.createElement('div');
+      lbl.className = 'ptr-label right';
+      lbl.textContent = 'R';
+      cell.appendChild(lbl);
+    }
+    container.appendChild(cell);
+  });
+}
+
+function collisionStep() {
+  if (collisionState.done) return;
+  const {left, right} = collisionState;
+  if (left >= right) {
+    document.getElementById('collision-status').textContent = '搜索结束，未找到';
+    collisionState.done = true;
+    return;
+  }
+  const s = collisionNums[left] + collisionNums[right];
+  const status = document.getElementById('collision-status');
+  if (s === collisionTarget) {
+    status.innerHTML = `nums[${left}] + nums[${right}] = ${collisionNums[left]} + ${collisionNums[right]} = ${s} == ${collisionTarget} <strong style="color:#76b900">找到！</strong>`;
+    collisionState.done = true;
+  } else if (s < collisionTarget) {
+    status.textContent = `nums[${left}] + nums[${right}] = ${collisionNums[left]} + ${collisionNums[right]} = ${s} < ${collisionTarget} → left++`;
+    collisionState.left++;
+  } else {
+    status.textContent = `nums[${left}] + nums[${right}] = ${collisionNums[left]} + ${collisionNums[right]} = ${s} > ${collisionTarget} → right--`;
+    collisionState.right--;
+  }
+  renderCollision();
+}
+
+function collisionReset() {
+  collisionState = { left: 0, right: 5, step: 0, done: false };
+  document.getElementById('collision-status').textContent = '点击"下一步"开始演示';
+  renderCollision();
+}
+
+document.getElementById('collision-next').addEventListener('click', collisionStep);
+document.getElementById('collision-reset').addEventListener('click', collisionReset);
+renderCollision();
+
+// === Floyd cycle detection animation ===
+const floydCanvas = document.getElementById('floyd-canvas');
+const ctx = floydCanvas.getContext('2d');
+let floydRunning = true;
+let floydAnimId = null;
+
+// Linked list: 0->1->2->3->4->5->6->3 (cycle at node 3)
+const TAIL_LEN = 3; // nodes 0,1,2 are tail
+const CYCLE_LEN = 4; // nodes 3,4,5,6 form cycle
+const TOTAL_NODES = TAIL_LEN + CYCLE_LEN;
+
+let slowPos = 0, fastPos = 0, floydStep = 0, floydMet = false, floydDone = false;
+let floydTimer = 0;
+const FLOYD_INTERVAL = 60; // frames between steps
+
+function getNodePosition(index, w, h) {
+  const cx = w / 2, cy = h / 2;
+  const radius = Math.min(w, h) * 0.3;
+  if (index < TAIL_LEN) {
+    // Tail nodes: line from left
+    const startX = cx - radius - 60;
+    const x = startX - (TAIL_LEN - 1 - index) * 55;
+    return { x, y: cy };
+  } else {
+    // Cycle nodes: circle
+    const ci = index - TAIL_LEN;
+    const angle = -Math.PI / 2 + (ci / CYCLE_LEN) * 2 * Math.PI;
+    return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+  }
+}
+
+function resizeFloydCanvas() {
+  const rect = floydCanvas.parentElement.getBoundingClientRect();
+  floydCanvas.width = rect.width - 40;
+  floydCanvas.height = 320;
+}
+
+function drawFloyd() {
+  const w = floydCanvas.width, h = floydCanvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw edges
+  ctx.strokeStyle = '#444';
+  ctx.lineWidth = 2;
+  for (let i = 0; i < TOTAL_NODES; i++) {
+    const from = getNodePosition(i, w, h);
+    const nextIdx = i < TOTAL_NODES - 1 ? i + 1 : TAIL_LEN; // last node -> cycle start
+    const to = getNodePosition(nextIdx, w, h);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    // Arrow
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const ax = to.x - 18 * Math.cos(angle), ay = to.y - 18 * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 8 * Math.cos(angle - 0.4), ay - 8 * Math.sin(angle - 0.4));
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax - 8 * Math.cos(angle + 0.4), ay - 8 * Math.sin(angle + 0.4));
+    ctx.stroke();
+  }
+
+  // Draw nodes
+  for (let i = 0; i < TOTAL_NODES; i++) {
+    const pos = getNodePosition(i, w, h);
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 16, 0, Math.PI * 2);
+    ctx.fillStyle = i === TAIL_LEN ? '#2a4a00' : '#1a1a2e';
+    ctx.fill();
+    ctx.strokeStyle = i === TAIL_LEN ? '#76b900' : '#555';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(i.toString(), pos.x, pos.y);
+  }
+
+  // Draw slow pointer
+  const slowNode = getNodePosition(slowPos, w, h);
+  ctx.beginPath();
+  ctx.arc(slowNode.x, slowNode.y - 26, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#76b900';
+  ctx.fill();
+  ctx.fillStyle = '#76b900';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText('S', slowNode.x, slowNode.y - 26);
+
+  // Draw fast pointer
+  const fastNode = getNodePosition(fastPos, w, h);
+  ctx.beginPath();
+  ctx.arc(fastNode.x, fastNode.y + 26, 8, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff6b6b';
+  ctx.fill();
+  ctx.fillStyle = '#ff6b6b';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.fillText('F', fastNode.x, fastNode.y + 26);
+}
+
+function nextNode(pos) {
+  return pos < TOTAL_NODES - 1 ? pos + 1 : TAIL_LEN;
+}
+
+function floydAnimate() {
+  floydTimer++;
+  if (floydTimer >= FLOYD_INTERVAL && !floydDone) {
+    floydTimer = 0;
+    if (!floydMet) {
+      slowPos = nextNode(slowPos);
+      fastPos = nextNode(nextNode(fastPos));
+      floydStep++;
+      if (slowPos === fastPos) {
+        floydMet = true;
+        document.getElementById('floyd-status').innerHTML = `第 ${floydStep} 步：slow 和 fast 在节点 ${slowPos} 相遇！<strong style="color:#76b900">检测到环！</strong>`;
+        floydDone = true;
+      } else {
+        document.getElementById('floyd-status').textContent = `第 ${floydStep} 步：slow=${slowPos}, fast=${fastPos}`;
+      }
+    }
+  }
+  drawFloyd();
+  if (floydRunning) {
+    floydAnimId = requestAnimationFrame(floydAnimate);
+  }
+}
+
+function floydReset() {
+  slowPos = 0; fastPos = 0; floydStep = 0; floydMet = false; floydDone = false; floydTimer = 0;
+  document.getElementById('floyd-status').textContent = '正在运行...';
+  if (!floydRunning) {
+    floydRunning = true;
+    document.getElementById('floyd-pause').textContent = '暂停';
+    floydAnimate();
+  }
+}
+
+document.getElementById('floyd-pause').addEventListener('click', function() {
+  floydRunning = !floydRunning;
+  this.textContent = floydRunning ? '暂停' : '继续';
+  if (floydRunning) floydAnimate();
+});
+document.getElementById('floyd-reset').addEventListener('click', floydReset);
+
+resizeFloydCanvas();
+window.addEventListener('resize', () => { resizeFloydCanvas(); drawFloyd(); });
+floydAnimate();
+
+// Init
+initCheckboxes();
+</script>
+</body>
+</html>

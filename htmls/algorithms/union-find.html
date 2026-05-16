@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>并查集 Union-Find</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.builtin { color: #56b6c2; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; min-height: 350px; position: relative; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.nav { display: flex; justify-content: space-between; margin: 2rem 0; flex-wrap: wrap; gap: 10px; }
+.nav a { color: #00d4aa; text-decoration: none; padding: 8px 16px; border: 1px solid #333; border-radius: 8px; transition: all 0.2s; }
+.nav a:hover { border-color: #00d4aa; background: #1a1a2e; }
+
+.tag { display: inline-block; background: #1a1a2e; border: 1px solid #444; border-radius: 6px; padding: 4px 10px; margin: 3px; font-size: 0.85rem; color: #76b900; }
+.tag-advanced { color: #00d4aa; border-color: #00d4aa44; }
+
+.thinking-card { background: #1a1a2e; border-left: 3px solid #76b900; padding: 16px 20px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+.thinking-card summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.thinking-card p { margin: 10px 0 0; color: #ccc; }
+
+.progress-bar { background: #1a1a2e; border-radius: 8px; padding: 12px 16px; margin: 1rem 0; border: 1px solid #333; }
+.progress-bar label { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 4px 0; font-size: 0.9rem; }
+.progress-bar input[type="checkbox"] { accent-color: #76b900; width: 16px; height: 16px; }
+
+svg text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  .animation-container { padding: 12px; min-height: 280px; }
+  .controls { gap: 6px; }
+  .btn { padding: 8px 14px; font-size: 0.8rem; }
+}
+</style>
+</head>
+<body>
+
+<h1>并查集 Union-Find</h1>
+<p style="color:#888; margin-bottom:2rem;">每个集合用一棵树，根代表整个集合。find 找根，union 合并。</p>
+
+<div class="card">
+<h2>核心思想</h2>
+<p>想象一群人，每个人指向自己的"老大"。如果你要找某人属于哪个帮派，就沿着"老大"指针一直往上找，直到找到指向自己的那个人——他就是根/帮主。</p>
+<p><strong>两个操作：</strong></p>
+<ul style="margin-left:1.5rem; margin-bottom:1rem;">
+<li><code>find(x)</code>：找 x 的根（帮主是谁）</li>
+<li><code>union(x, y)</code>：把 x 和 y 所在的集合合并（让一个帮主认另一个当老大）</li>
+</ul>
+</div>
+
+<div class="card card-highlight">
+<h2>最简模板（路径压缩）</h2>
+<pre><code><span class="keyword">class</span> <span class="function">UnionFind</span>:
+    <span class="keyword">def</span> <span class="function">__init__</span>(<span class="builtin">self</span>, n):
+        <span class="builtin">self</span>.p = <span class="builtin">list</span>(<span class="builtin">range</span>(n))
+        <span class="builtin">self</span>.cnt = n
+
+    <span class="keyword">def</span> <span class="function">find</span>(<span class="builtin">self</span>, x):
+        <span class="keyword">if</span> <span class="builtin">self</span>.p[x] != x:
+            <span class="builtin">self</span>.p[x] = <span class="builtin">self</span>.find(<span class="builtin">self</span>.p[x])  <span class="comment"># 路径压缩</span>
+        <span class="keyword">return</span> <span class="builtin">self</span>.p[x]
+
+    <span class="keyword">def</span> <span class="function">union</span>(<span class="builtin">self</span>, x, y):
+        rx, ry = <span class="builtin">self</span>.find(x), <span class="builtin">self</span>.find(y)
+        <span class="keyword">if</span> rx == ry: <span class="keyword">return</span> <span class="keyword">False</span>
+        <span class="builtin">self</span>.p[rx] = ry
+        <span class="builtin">self</span>.cnt -= <span class="number">1</span>
+        <span class="keyword">return</span> <span class="keyword">True</span></code></pre>
+</div>
+
+<div class="card">
+<h2>进阶技巧</h2>
+<h3>按秩合并</h3>
+<p>矮树挂到高树下面，避免退化成链。搭配路径压缩，单次操作接近 O(1)（严格说是反阿克曼函数）。</p>
+<h3>带权并查集</h3>
+<p>边上带权值，find 时把权值累加。经典题：<code>399. 除法求值</code>。</p>
+<h3>三大场景</h3>
+<ul style="margin-left:1.5rem;">
+<li><strong>判连通：</strong>两点 find 相同 → 连通</li>
+<li><strong>数连通分量：</strong>最后 cnt 就是答案</li>
+<li><strong>离线处理（时光倒流）：</strong>删边不好做？倒着加边就行！</li>
+</ul>
+</div>
+
+<h2>动画：Union-Find 过程可视化</h2>
+<div class="animation-container">
+<div class="controls">
+  <button class="btn" id="btn-next">下一步 Union</button>
+  <button class="btn btn-secondary" id="btn-find">执行 Find (路径压缩)</button>
+  <button class="btn btn-secondary" id="btn-reset">重置</button>
+</div>
+<div class="step-info" id="step-info">点击"下一步"开始演示 union 操作</div>
+<svg id="uf-svg" width="100%" height="280" viewBox="0 0 600 280"></svg>
+</div>
+
+<script>
+(function() {
+  const operations = [
+    [0, 1, 'union(0, 1): 节点0指向1'],
+    [2, 3, 'union(2, 3): 节点2指向3'],
+    [1, 3, 'union(1, 3): 节点1的根(1)指向3'],
+    [4, 5, 'union(4, 5): 节点4指向5'],
+    [3, 5, 'union(3, 5): 节点3的根(3)指向5']
+  ];
+  let parent, step, findMode;
+
+  function reset() {
+    parent = [0,1,2,3,4,5];
+    step = 0;
+    findMode = false;
+    document.getElementById('step-info').textContent = '点击"下一步"开始演示 union 操作';
+    draw();
+  }
+
+  function find(x) {
+    if (parent[x] !== x) {
+      parent[x] = find(parent[x]);
+    }
+    return parent[x];
+  }
+
+  function doUnion() {
+    if (step >= operations.length) {
+      document.getElementById('step-info').textContent = '所有 union 操作已完成！试试点击 Find 看路径压缩效果';
+      return;
+    }
+    const [x, y, msg] = operations[step];
+    const rx = find(x), ry = find(y);
+    if (rx !== ry) parent[rx] = ry;
+    step++;
+    document.getElementById('step-info').textContent = msg;
+    draw();
+  }
+
+  function doFind() {
+    // compress all paths
+    for (let i = 0; i < 6; i++) find(i);
+    document.getElementById('step-info').textContent = 'Find 路径压缩：所有节点直接指向根，树变扁了！';
+    draw();
+  }
+
+  function getPositions() {
+    // compute tree layout
+    const children = Array.from({length:6}, ()=>[]);
+    const roots = [];
+    for (let i = 0; i < 6; i++) {
+      if (parent[i] === i) roots.push(i);
+      else children[parent[i]].push(i);
+    }
+
+    const pos = {};
+    let xOffset = 50;
+    const xGap = 100;
+
+    function layoutTree(root, baseX, depth) {
+      const ch = children[root];
+      if (ch.length === 0) {
+        pos[root] = { x: baseX, y: 40 + depth * 80 };
+        return { left: baseX, right: baseX };
+      }
+      let currentX = baseX;
+      let leftmost = Infinity, rightmost = -Infinity;
+      for (const c of ch) {
+        const bounds = layoutTree(c, currentX, depth + 1);
+        leftmost = Math.min(leftmost, bounds.left);
+        rightmost = Math.max(rightmost, bounds.right);
+        currentX = bounds.right + xGap;
+      }
+      const myX = (leftmost + rightmost) / 2;
+      pos[root] = { x: myX, y: 40 + depth * 80 };
+      return { left: leftmost, right: rightmost };
+    }
+
+    let cursor = 50;
+    for (const r of roots) {
+      const bounds = layoutTree(r, cursor, 0);
+      cursor = bounds.right + 120;
+    }
+
+    // normalize to fit in viewBox
+    const xs = Object.values(pos).map(p => p.x);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const scale = maxX > minX ? 500 / (maxX - minX) : 1;
+    for (const k of Object.keys(pos)) {
+      pos[k].x = 50 + (pos[k].x - minX) * scale;
+    }
+    return pos;
+  }
+
+  function draw() {
+    const svg = document.getElementById('uf-svg');
+    const pos = getPositions();
+    const colors = ['#76b900','#00d4aa','#e06c75','#61afef','#d19a66','#c678dd'];
+    let html = '';
+
+    // edges
+    for (let i = 0; i < 6; i++) {
+      if (parent[i] !== i) {
+        const from = pos[i], to = pos[parent[i]];
+        html += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#555" stroke-width="2" marker-end="url(#arrow)"/>`;
+      }
+    }
+
+    // arrow marker
+    html = `<defs><marker id="arrow" viewBox="0 0 10 10" refX="20" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/></marker></defs>` + html;
+
+    // nodes
+    for (let i = 0; i < 6; i++) {
+      const {x, y} = pos[i];
+      const isRoot = parent[i] === i;
+      const fill = isRoot ? '#76b900' : '#1a1a2e';
+      const stroke = isRoot ? '#76b900' : '#00d4aa';
+      html += `<circle cx="${x}" cy="${y}" r="20" fill="${fill}" stroke="${stroke}" stroke-width="2"/>`;
+      html += `<text x="${x}" y="${y+5}" text-anchor="middle" fill="${isRoot?'#000':'#e0e0e0'}" font-size="14" font-weight="bold">${i}</text>`;
+    }
+
+    // parent array display
+    html += `<text x="300" y="270" text-anchor="middle" fill="#888" font-size="12">parent: [${parent.join(', ')}]</text>`;
+
+    svg.innerHTML = html;
+  }
+
+  document.getElementById('btn-next').onclick = doUnion;
+  document.getElementById('btn-find').onclick = doFind;
+  document.getElementById('btn-reset').onclick = reset;
+  reset();
+})();
+</script>
+
+<div class="card">
+<h2>思考题</h2>
+<details class="thinking-card">
+<summary>路径压缩具体做了什么？为什么能让 find 接近 O(1)？</summary>
+<p>路径压缩在 find 的递归回溯时，把路径上每个节点直接挂到根上。这样下次再 find 这些节点，一步就到根。多次操作后树几乎是扁平的，均摊接近 O(1)。</p>
+</details>
+<details class="thinking-card">
+<summary>为什么 union 时要先 find 两个根再合并？</summary>
+<p>因为我们合并的是"集合"不是"节点"。如果不先找根，可能把中间节点连到另一棵树，导致原本同集合的节点断裂。只有根代表整个集合。</p>
+</details>
+<details class="thinking-card">
+<summary>"时光倒流"技巧是怎么把删边变成加边的？</summary>
+<p>先读入所有操作，标记哪些边最终会被删。然后从最终状态开始，倒序处理：删边变成加边（union）。因为并查集只支持合并不支持拆分，倒着做刚好把拆分变成合并。经典题：LC 803。</p>
+</details>
+</div>
+
+<div class="card">
+<h2>LeetCode 练习</h2>
+<h3>热身</h3>
+<div class="progress-bar" id="progress-warmup">
+  <label><input type="checkbox" data-id="547"> 547. 省份数量</label>
+  <label><input type="checkbox" data-id="200"> 200. 岛屿数量</label>
+  <label><input type="checkbox" data-id="684"> 684. 冗余连接</label>
+  <label><input type="checkbox" data-id="990"> 990. 等式方程的可满足性</label>
+</div>
+<h3>进阶</h3>
+<div class="progress-bar" id="progress-advanced">
+  <label><input type="checkbox" data-id="128"> 128. 最长连续序列</label>
+  <label><input type="checkbox" data-id="399"> 399. 除法求值</label>
+  <label><input type="checkbox" data-id="721"> 721. 账户合并</label>
+  <label><input type="checkbox" data-id="803"> 803. 打砖块</label>
+  <label><input type="checkbox" data-id="685"> 685. 冗余连接 II</label>
+</div>
+</div>
+
+<script>
+(function() {
+  const KEY = 'algo-progress-union-find';
+  const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+  document.querySelectorAll('.progress-bar input[type="checkbox"]').forEach(cb => {
+    const id = cb.dataset.id;
+    if (saved[id]) cb.checked = true;
+    cb.addEventListener('change', () => {
+      saved[id] = cb.checked;
+      localStorage.setItem(KEY, JSON.stringify(saved));
+    });
+  });
+})();
+</script>
+
+<div class="nav">
+  <a href="trie.html">&larr; Trie 字典树</a>
+  <a href="topological-sort.html">拓扑排序 &rarr;</a>
+</div>
+
+</body>
+</html>

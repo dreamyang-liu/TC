@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>二叉树递归/遍历 - 树=根+左子树+右子树</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.8; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: #888; font-size: 1.1rem; margin-bottom: 2rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+.card-accent { border-color: #00d4aa; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+ul, ol { margin: 0.5rem 0 1rem 1.5rem; }
+li { margin-bottom: 0.5rem; }
+.key-point { color: #76b900; font-weight: bold; }
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.btn-active { box-shadow: 0 0 0 2px #76b900; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.95rem; margin: 10px 0; min-height: 24px; }
+.tree-canvas { width: 100%; height: 320px; display: block; }
+.think-box { background: #1a1a2e; border-left: 4px solid #76b900; padding: 16px 20px; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+.think-box summary { cursor: pointer; color: #76b900; font-weight: bold; }
+.think-box p { margin-top: 0.8rem; color: #ccc; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.nav { display: flex; justify-content: space-between; margin: 2rem 0; padding: 1rem 0; border-top: 1px solid #333; }
+.nav a { color: #76b900; font-weight: bold; }
+.progress-section { margin: 2rem 0; }
+.progress-bar { width: 100%; height: 8px; background: #1a1a2e; border-radius: 4px; overflow: hidden; margin: 0.5rem 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #76b900, #00d4aa); border-radius: 4px; transition: width 0.3s; }
+.checkbox-item { display: flex; align-items: center; gap: 10px; margin: 8px 0; cursor: pointer; }
+.checkbox-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #76b900; }
+.tag { display: inline-block; background: #333; color: #00d4aa; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin: 2px; }
+.order-display { font-family: monospace; font-size: 1.1rem; color: #76b900; margin: 10px 0; min-height: 30px; letter-spacing: 2px; }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  .tree-canvas { height: 260px; }
+}
+</style>
+</head>
+<body>
+
+<h1>二叉树递归 / 遍历</h1>
+<p class="subtitle">树 = 根 + 左子树 + 右子树。递归函数只想清楚：当前节点做什么，子树返回什么。</p>
+
+<div class="card card-highlight">
+<h2>三种遍历</h2>
+<ul>
+<li><span class="key-point">前序 (根左右):</span> 先处理自己，再递归子树。适合自顶向下传递信息。</li>
+<li><span class="key-point">中序 (左根右):</span> BST 中序遍历得到升序序列。</li>
+<li><span class="key-point">后序 (左右根):</span> 先递归子树，再处理自己。适合自底向上聚合信息。</li>
+</ul>
+
+<h3>何时用哪种？</h3>
+<ul>
+<li>需要从上往下传参数 → <span class="tag">前序</span></li>
+<li>BST 相关/有序性 → <span class="tag">中序</span></li>
+<li>需要子树结果来计算当前节点 → <span class="tag">后序</span></li>
+</ul>
+</div>
+
+<div class="card">
+<h2>递归三问</h2>
+<ol>
+<li><span class="key-point">返回什么？</span> 子树要向上汇报什么信息？</li>
+<li><span class="key-point">递归基返回什么？</span> 空节点 / 叶节点返回什么？</li>
+<li><span class="key-point">怎么用子树返回值组合？</span> 左右子树的返回值如何合成当前节点的答案？</li>
+</ol>
+</div>
+
+<div class="card card-accent">
+<h2>两个返回值诀窍</h2>
+<p>很多树题需要维护两个量：</p>
+<ul>
+<li><span class="key-point">"经过我的"</span> — 在递归过程中内部更新全局答案（如最长路径经过当前节点）</li>
+<li><span class="key-point">"给上面用的"</span> — 作为返回值传给父节点（如以当前节点为端点的最长路径）</li>
+</ul>
+<p>典型例题：124. 二叉树中的最大路径和、543. 二叉树的直径</p>
+</div>
+
+<div class="card">
+<h2>进阶遍历方式</h2>
+<ul>
+<li><span class="key-point">迭代遍历（用栈）:</span> 手动模拟递归栈，避免栈溢出</li>
+<li><span class="key-point">Morris 遍历:</span> O(1) 空间，利用叶节点的空指针临时建立线索，遍历完恢复</li>
+</ul>
+</div>
+
+<!-- Animation Section -->
+<h2>动画演示：三种遍历对比</h2>
+<div class="animation-container">
+<p style="margin-bottom:10px; color:#888;">同一棵7节点完全二叉树，选择遍历方式观察节点访问顺序</p>
+
+<div class="controls">
+<button class="btn" id="btnPre" onclick="startTraversal('pre')">前序遍历</button>
+<button class="btn" id="btnIn" onclick="startTraversal('in')">中序遍历</button>
+<button class="btn" id="btnPost" onclick="startTraversal('post')">后序遍历</button>
+<button class="btn btn-secondary" onclick="resetTree()">重置</button>
+</div>
+
+<canvas class="tree-canvas" id="treeCanvas"></canvas>
+
+<div class="order-display" id="orderDisplay"></div>
+<div class="step-info" id="stepInfo">选择一种遍历方式开始动画</div>
+</div>
+
+<!-- Thinking Questions -->
+<h2>思考题</h2>
+<div class="card">
+<details class="think-box">
+<summary>为什么中序遍历 BST 是升序的？</summary>
+<p>BST 的定义：左子树所有节点 < 根 < 右子树所有节点。中序遍历先访问左子树（都比根小），再访问根，再访问右子树（都比根大）。递归地，每个子树内部也满足这个性质，所以整体是升序的。</p>
+</details>
+
+<details class="think-box">
+<summary>"递归三问"中，最难的是哪一步？为什么？</summary>
+<p>第三步"怎么组合"最难。因为它需要你想清楚子问题和原问题的关系，这往往不是显然的。比如"二叉树的直径"，你需要意识到"经过当前节点的最长路径 = 左子树深度 + 右子树深度"，而"返回给父节点的"只能是单边最长路径。这种拆分需要洞察力。</p>
+</details>
+
+<details class="think-box">
+<summary>Morris 遍历如何做到 O(1) 空间？代价是什么？</summary>
+<p>Morris 遍历利用叶节点本来为 null 的右指针，临时指向中序后继（建立"线索"）。这样不需要栈就能回溯。代价：(1) 会临时修改树结构（遍历完需要恢复）；(2) 遍历过程中树不是有效的BST，不能并发访问；(3) 代码复杂度更高。</p>
+</details>
+</div>
+
+<!-- LeetCode -->
+<h2>推荐练习</h2>
+<div class="card progress-section">
+<h3>热身</h3>
+<div class="checkbox-item"><input type="checkbox" id="lc104" onchange="saveProgress()"><label for="lc104"><a href="https://leetcode.cn/problems/maximum-depth-of-binary-tree/" target="_blank">104. 二叉树的最大深度</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc226" onchange="saveProgress()"><label for="lc226"><a href="https://leetcode.cn/problems/invert-binary-tree/" target="_blank">226. 翻转二叉树</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc101" onchange="saveProgress()"><label for="lc101"><a href="https://leetcode.cn/problems/symmetric-tree/" target="_blank">101. 对称二叉树</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc98" onchange="saveProgress()"><label for="lc98"><a href="https://leetcode.cn/problems/validate-binary-search-tree/" target="_blank">98. 验证二叉搜索树</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc110" onchange="saveProgress()"><label for="lc110"><a href="https://leetcode.cn/problems/balanced-binary-tree/" target="_blank">110. 平衡二叉树</a></label></div>
+
+<h3>进阶</h3>
+<div class="checkbox-item"><input type="checkbox" id="lc543" onchange="saveProgress()"><label for="lc543"><a href="https://leetcode.cn/problems/diameter-of-binary-tree/" target="_blank">543. 二叉树的直径</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc124" onchange="saveProgress()"><label for="lc124"><a href="https://leetcode.cn/problems/binary-tree-maximum-path-sum/" target="_blank">124. 二叉树中的最大路径和</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc236" onchange="saveProgress()"><label for="lc236"><a href="https://leetcode.cn/problems/lowest-common-ancestor-of-a-binary-tree/" target="_blank">236. 二叉树的最近公共祖先</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc105" onchange="saveProgress()"><label for="lc105"><a href="https://leetcode.cn/problems/construct-binary-tree-from-preorder-and-inorder-traversal/" target="_blank">105. 从前序与中序遍历序列构造二叉树</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc297" onchange="saveProgress()"><label for="lc297"><a href="https://leetcode.cn/problems/serialize-and-deserialize-binary-tree/" target="_blank">297. 二叉树的序列化与反序列化</a></label></div>
+<div class="checkbox-item"><input type="checkbox" id="lc437" onchange="saveProgress()"><label for="lc437"><a href="https://leetcode.cn/problems/path-sum-iii/" target="_blank">437. 路径总和 III</a></label></div>
+
+<div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+<p style="font-size:0.85rem; color:#888;" id="progressText">完成 0/11</p>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+<a href="difference-array.html">&larr; 差分数组</a>
+<span style="color:#555;">最后一个模式</span>
+</div>
+
+<script>
+// Tree structure: 7-node complete binary tree
+// Indices 0-6, values displayed as 1-7
+//        1(0)
+//       / \
+//     2(1)  3(2)
+//    / \   / \
+//  4(3) 5(4) 6(5) 7(6)
+
+const tree = [1, 2, 3, 4, 5, 6, 7];
+const canvas = document.getElementById('treeCanvas');
+const ctx = canvas.getContext('2d');
+
+let nodeStates = new Array(7).fill(0); // 0=normal, 1=visiting, 2=visited
+let animationOrder = [];
+let animStep = 0;
+let animTimer = null;
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+}
+
+function getNodePos(idx) {
+  const w = canvas.getBoundingClientRect().width;
+  const h = canvas.getBoundingClientRect().height;
+  const level = Math.floor(Math.log2(idx + 1));
+  const posInLevel = idx - (Math.pow(2, level) - 1);
+  const nodesInLevel = Math.pow(2, level);
+  const x = w * (posInLevel + 0.5) / nodesInLevel;
+  const y = 50 + level * 80;
+  return { x, y };
+}
+
+function drawTree() {
+  const w = canvas.getBoundingClientRect().width;
+  const h = canvas.getBoundingClientRect().height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw edges
+  for (let i = 0; i < 7; i++) {
+    const left = 2 * i + 1;
+    const right = 2 * i + 2;
+    const pos = getNodePos(i);
+    if (left < 7) {
+      const lpos = getNodePos(left);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      ctx.lineTo(lpos.x, lpos.y);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    if (right < 7) {
+      const rpos = getNodePos(right);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      ctx.lineTo(rpos.x, rpos.y);
+      ctx.strokeStyle = '#444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  // Draw nodes
+  for (let i = 0; i < 7; i++) {
+    const pos = getNodePos(i);
+    const r = 24;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+
+    if (nodeStates[i] === 2) {
+      ctx.fillStyle = '#00d4aa';
+      ctx.fill();
+      ctx.strokeStyle = '#00d4aa';
+    } else if (nodeStates[i] === 1) {
+      ctx.fillStyle = '#76b900';
+      ctx.fill();
+      ctx.strokeStyle = '#76b900';
+    } else {
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fill();
+      ctx.strokeStyle = '#555';
+    }
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Node value
+    ctx.fillStyle = nodeStates[i] > 0 ? '#000' : '#e0e0e0';
+    ctx.font = 'bold 16px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(tree[i], pos.x, pos.y);
+  }
+}
+
+function preorder(i, result) {
+  if (i >= 7) return;
+  result.push(i);
+  preorder(2*i+1, result);
+  preorder(2*i+2, result);
+}
+
+function inorder(i, result) {
+  if (i >= 7) return;
+  inorder(2*i+1, result);
+  result.push(i);
+  inorder(2*i+2, result);
+}
+
+function postorder(i, result) {
+  if (i >= 7) return;
+  postorder(2*i+1, result);
+  postorder(2*i+2, result);
+  result.push(i);
+}
+
+function startTraversal(type) {
+  if (animTimer) clearInterval(animTimer);
+  resetTree();
+
+  // Update button styles
+  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('btn-active'));
+  document.getElementById('btn' + (type === 'pre' ? 'Pre' : type === 'in' ? 'In' : 'Post')).classList.add('btn-active');
+
+  animationOrder = [];
+  if (type === 'pre') preorder(0, animationOrder);
+  else if (type === 'in') inorder(0, animationOrder);
+  else postorder(0, animationOrder);
+
+  const names = { pre: '前序 (根左右)', in: '中序 (左根右)', post: '后序 (左右根)' };
+  document.getElementById('stepInfo').textContent = `${names[type]} 遍历中...`;
+
+  animStep = 0;
+  const orderEl = document.getElementById('orderDisplay');
+  orderEl.textContent = '';
+
+  animTimer = setInterval(() => {
+    if (animStep >= animationOrder.length) {
+      clearInterval(animTimer);
+      animTimer = null;
+      document.getElementById('stepInfo').textContent = `遍历完成！`;
+      return;
+    }
+
+    // Mark previous as visited
+    if (animStep > 0) {
+      nodeStates[animationOrder[animStep - 1]] = 2;
+    }
+    // Mark current as visiting
+    nodeStates[animationOrder[animStep]] = 1;
+
+    orderEl.textContent += (animStep > 0 ? ' → ' : '') + tree[animationOrder[animStep]];
+    animStep++;
+    drawTree();
+  }, 700);
+}
+
+function resetTree() {
+  if (animTimer) { clearInterval(animTimer); animTimer = null; }
+  nodeStates = new Array(7).fill(0);
+  animStep = 0;
+  document.getElementById('orderDisplay').textContent = '';
+  document.getElementById('stepInfo').textContent = '选择一种遍历方式开始动画';
+  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('btn-active'));
+  drawTree();
+}
+
+// Progress
+const STORAGE_KEY = 'algo-progress-tree-traversal';
+const checkboxIds = ['lc104','lc226','lc101','lc98','lc110','lc543','lc124','lc236','lc105','lc297','lc437'];
+
+function saveProgress() {
+  const state = {};
+  checkboxIds.forEach(id => { state[id] = document.getElementById(id).checked; });
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  updateProgressBar();
+}
+
+function loadProgress() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    const state = JSON.parse(saved);
+    checkboxIds.forEach(id => {
+      if (state[id]) document.getElementById(id).checked = true;
+    });
+  }
+  updateProgressBar();
+}
+
+function updateProgressBar() {
+  const done = checkboxIds.filter(id => document.getElementById(id).checked).length;
+  const pct = (done / checkboxIds.length) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `完成 ${done}/${checkboxIds.length}`;
+}
+
+// Init
+window.addEventListener('load', () => {
+  resizeCanvas();
+  drawTree();
+  loadProgress();
+});
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  drawTree();
+});
+</script>
+</body>
+</html>

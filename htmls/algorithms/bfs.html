@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BFS 广度优先搜索</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 1.8em; }
+h2 { color: #00d4aa; margin: 32px 0 12px; font-size: 1.3em; border-left: 4px solid #00d4aa; padding-left: 12px; }
+h3 { color: #76b900; margin: 20px 0 8px; font-size: 1.1em; }
+p, li { margin-bottom: 8px; }
+ul, ol { padding-left: 20px; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; color: #76b900; }
+pre { background: #1a1a2e; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; border: 1px solid #2a2a4a; }
+pre code { background: none; padding: 0; color: #e0e0e0; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 8px; }
+.nav a { background: #1a1a2e; padding: 6px 14px; border-radius: 6px; border: 1px solid #2a2a4a; font-size: 0.9em; }
+.nav a:hover { border-color: #00d4aa; text-decoration: none; }
+.progress-bar { background: #1a1a2e; padding: 10px 16px; border-radius: 8px; margin-bottom: 24px; border: 1px solid #2a2a4a; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.progress-bar span { color: #76b900; font-weight: bold; }
+.subtitle { color: #aaa; font-size: 1em; margin-bottom: 24px; }
+.key-point { background: #1a1a2e; border-left: 4px solid #76b900; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
+.warning { background: #2a1a1a; border-left: 4px solid #ff6b6b; padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
+.grid-container { display: flex; flex-direction: column; align-items: center; margin: 16px 0; }
+.grid { display: inline-grid; gap: 3px; margin: 12px 0; }
+.cell {
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 0.75em; font-weight: bold;
+  transition: background 0.3s, transform 0.2s;
+}
+.cell-empty { background: #1a1a2e; border: 1px solid #2a2a4a; }
+.cell-wall { background: #4a4a4a; }
+.cell-start { background: #76b900; color: #000; }
+.cell-end { background: #ff6b6b; color: #fff; }
+.cell-visited { background: #00d4aa33; border: 1px solid #00d4aa; }
+.cell-path { background: #76b900; color: #000; transform: scale(1.05); }
+.cell-current { background: #ffaa00; color: #000; }
+.cell-fresh { background: #ff8c00; }
+.cell-rotten { background: #8b0000; color: #fff; }
+.cell-rotting { background: #ff4444; color: #fff; }
+.controls { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.btn {
+  background: #1a1a2e; color: #00d4aa; border: 1px solid #00d4aa;
+  padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.9em;
+}
+.btn:hover { background: #00d4aa22; }
+.btn.active { background: #00d4aa; color: #000; }
+.step-info { color: #aaa; font-size: 0.9em; margin: 8px 0; min-height: 1.5em; }
+.thinking { background: #1a1a2e; border: 1px solid #76b900; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.thinking summary { color: #76b900; cursor: pointer; font-weight: bold; }
+.thinking p { margin-top: 8px; }
+.leetcode-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 12px 0; }
+.leetcode-item { background: #1a1a2e; padding: 8px 12px; border-radius: 6px; border: 1px solid #2a2a4a; display: flex; align-items: center; gap: 8px; }
+.leetcode-item input { accent-color: #76b900; width: 16px; height: 16px; cursor: pointer; }
+.leetcode-item a { flex: 1; }
+.layer-colors { display: flex; gap: 4px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+.layer-swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  .cell { width: 40px; height: 40px; font-size: 0.65em; }
+  h1 { font-size: 1.4em; }
+  .leetcode-list { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="backtracking.html">&larr; 回溯</a>
+  <a href="algorithms-index.html">目录</a>
+  <a href="heap.html">堆 &rarr;</a>
+</nav>
+
+<div class="progress-bar">
+  <span id="progress-text">已完成 0/8</span>
+</div>
+
+<h1>BFS 广度优先搜索</h1>
+<p class="subtitle">一层一层往外扩。第一次访问到某点的步数 = 最短步数（边权为1）。</p>
+
+<h2>1. 最简模板（按层遍历）</h2>
+<pre><code>from collections import deque
+
+def bfs(start):
+    q = deque([start])
+    visited = {start}
+    step = 0
+    while q:
+        for _ in range(len(q)):
+            node = q.popleft()
+            if is_target(node): return step
+            for nxt in neighbors(node):
+                if nxt not in visited:
+                    visited.add(nxt)
+                    q.append(nxt)
+        step += 1
+    return -1</code></pre>
+
+<h2>2. 关键点</h2>
+<div class="warning">
+  <strong>入队时就标记 visited</strong>（不是出队时！）否则同一个节点可能被多次入队，导致超时或错误结果。
+</div>
+
+<h2>3. 网格 BFS</h2>
+<div class="key-point">
+  方向数组：<code>dirs = [(-1,0),(1,0),(0,-1),(0,1)]</code><br>
+  判断越界 + 判断障碍 + 判断是否已访问
+</div>
+
+<h2>4. 多源 BFS</h2>
+<div class="key-point">
+  所有起点一开始就塞进队列，相当于加了一个"超级源点"连接所有起点。典型题：腐烂的橘子、01矩阵。
+</div>
+
+<h2>5. 双向 BFS</h2>
+<div class="key-point">
+  从起点和终点同时扩散，每次扩展较小的那一边。时间从 O(b^d) 降到 O(b^(d/2))，其中 b 是分支因子，d 是深度。
+</div>
+
+<h2>6. BFS vs DFS 选择</h2>
+<div class="key-point">
+  <ul>
+    <li>最短步数 / 最少操作次数 → <strong>BFS</strong></li>
+    <li>所有路径 / 排列组合 / 连通分量 → <strong>DFS</strong></li>
+    <li>拓扑排序 → BFS (Kahn) 或 DFS 都行</li>
+  </ul>
+</div>
+
+<h2>动画 1：网格 BFS（最短路径）</h2>
+<p>5x5 网格，绿色=起点(0,0)，红色=终点(4,4)，灰色=障碍。观察 BFS 逐层扩散，找到最短路径后高亮。</p>
+<div class="grid-container">
+  <div id="grid1" class="grid" style="grid-template-columns: repeat(5, 48px);"></div>
+  <div class="layer-colors" id="layer-legend"></div>
+  <div class="step-info" id="step-info1">点击"开始"观看 BFS 扩散</div>
+  <div class="controls">
+    <button class="btn" id="btn-start1">开始</button>
+    <button class="btn" id="btn-pause1">暂停</button>
+    <button class="btn" id="btn-reset1">重置</button>
+  </div>
+</div>
+
+<h2>动画 2：多源 BFS（腐烂的橘子）</h2>
+<p>深红=腐烂橘子（多个起点），橙色=新鲜橘子。所有腐烂橘子同时向四周扩散。</p>
+<div class="grid-container">
+  <div id="grid2" class="grid" style="grid-template-columns: repeat(4, 48px);"></div>
+  <div class="step-info" id="step-info2">点击"开始"观看多源 BFS 扩散</div>
+  <div class="controls">
+    <button class="btn" id="btn-start2">开始</button>
+    <button class="btn" id="btn-pause2">暂停</button>
+    <button class="btn" id="btn-reset2">重置</button>
+  </div>
+</div>
+
+<h2>思考题</h2>
+
+<details class="thinking">
+  <summary>为什么 BFS 能保证找到最短路径（边权为1时）？</summary>
+  <p>因为 BFS 按层扩散，第 k 层的节点离起点的距离恰好是 k。第一次到达目标节点时，经过的层数就是最小步数。后续再到达目标的路径，层数只会更大或相等，不会更小。</p>
+</details>
+
+<details class="thinking">
+  <summary>"入队时标记" vs "出队时标记" 有什么区别？</summary>
+  <p><strong>入队时标记</strong>：一个节点只会入队一次，队列大小 = O(节点数)。<br>
+  <strong>出队时标记</strong>：同一个节点可能被多个邻居同时入队，队列可能膨胀到 O(边数)，在网格题中容易超时（比如 4 个邻居都把同一个点入队了）。对于无权图求最短路，两者结果一样，但后者浪费时间和空间。</p>
+</details>
+
+<details class="thinking">
+  <summary>双向 BFS 的时间复杂度优势是什么？什么时候适合用？</summary>
+  <p>单向 BFS 搜索空间为 O(b^d)，双向 BFS 为 O(2 * b^(d/2))，指数级缩小。<br>
+  <strong>适用条件</strong>：已知起点和终点，且能反向扩展邻居（如 Word Ladder）。不适合：终点不明确或无法反向搜索的场景。</p>
+</details>
+
+<h2>LeetCode 练习</h2>
+<h3>热身</h3>
+<div class="leetcode-list" id="lc-warmup"></div>
+<h3>进阶</h3>
+<div class="leetcode-list" id="lc-advanced"></div>
+
+<script>
+// Progress tracking
+const STORAGE_KEY = 'algo-progress-bfs';
+const problems = [
+  { id: '102', name: '102. 层序遍历', url: 'https://leetcode.cn/problems/binary-tree-level-order-traversal/', group: 'warmup' },
+  { id: '200', name: '200. 岛屿数量', url: 'https://leetcode.cn/problems/number-of-islands/', group: 'warmup' },
+  { id: '994', name: '994. 腐烂的橘子', url: 'https://leetcode.cn/problems/rotting-oranges/', group: 'warmup' },
+  { id: '127', name: '127. 单词接龙', url: 'https://leetcode.cn/problems/word-ladder/', group: 'advanced' },
+  { id: '752', name: '752. 打开转盘锁', url: 'https://leetcode.cn/problems/open-the-lock/', group: 'advanced' },
+  { id: '542', name: '542. 01 矩阵', url: 'https://leetcode.cn/problems/01-matrix/', group: 'advanced' },
+  { id: '1293', name: '1293. 消除障碍', url: 'https://leetcode.cn/problems/shortest-path-in-a-grid-with-obstacles-elimination/', group: 'advanced' },
+  { id: '847', name: '847. 访问所有节点', url: 'https://leetcode.cn/problems/shortest-path-visiting-all-nodes/', group: 'advanced' },
+];
+
+function getProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+function updateProgressText() {
+  const p = getProgress();
+  const done = problems.filter(pr => p[pr.id]).length;
+  document.getElementById('progress-text').textContent = `已完成 ${done}/8`;
+}
+
+function renderProblems() {
+  const p = getProgress();
+  const warmup = document.getElementById('lc-warmup');
+  const advanced = document.getElementById('lc-advanced');
+  problems.forEach(pr => {
+    const div = document.createElement('div');
+    div.className = 'leetcode-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!p[pr.id];
+    cb.addEventListener('change', () => { const pg = getProgress(); pg[pr.id] = cb.checked; saveProgress(pg); updateProgressText(); });
+    const a = document.createElement('a');
+    a.href = pr.url;
+    a.target = '_blank';
+    a.textContent = pr.name;
+    div.appendChild(cb);
+    div.appendChild(a);
+    (pr.group === 'warmup' ? warmup : advanced).appendChild(div);
+  });
+  updateProgressText();
+}
+renderProblems();
+
+// Animation 1: Grid BFS
+const ROWS = 5, COLS = 5;
+const walls1 = new Set(['1,1','2,1','3,3','1,3','2,3']);
+const layerColors = ['#00d4aa','#00b4d8','#7b68ee','#e040fb','#ff6b6b','#ffaa00','#76b900'];
+
+let grid1State, anim1Timer, anim1Running, anim1Queue, anim1Visited, anim1Parent, anim1Step;
+
+function initGrid1() {
+  clearInterval(anim1Timer);
+  anim1Running = false;
+  const container = document.getElementById('grid1');
+  container.innerHTML = '';
+  grid1State = [];
+  for (let r = 0; r < ROWS; r++) {
+    grid1State[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = `g1-${r}-${c}`;
+      if (r === 0 && c === 0) { cell.classList.add('cell-start'); cell.textContent = 'S'; }
+      else if (r === 4 && c === 4) { cell.classList.add('cell-end'); cell.textContent = 'E'; }
+      else if (walls1.has(`${r},${c}`)) { cell.classList.add('cell-wall'); }
+      else { cell.classList.add('cell-empty'); }
+      container.appendChild(cell);
+      grid1State[r][c] = walls1.has(`${r},${c}`) ? 'wall' : 'empty';
+    }
+  }
+  document.getElementById('step-info1').textContent = '点击"开始"观看 BFS 扩散';
+}
+
+function startBFS1() {
+  if (anim1Running) return;
+  initGrid1();
+  anim1Running = true;
+  anim1Queue = [[0, 0]];
+  anim1Visited = new Set(['0,0']);
+  anim1Parent = {};
+  anim1Step = 0;
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+
+  function tick() {
+    if (anim1Queue.length === 0) {
+      document.getElementById('step-info1').textContent = '未找到路径';
+      anim1Running = false; return;
+    }
+    const layerSize = anim1Queue.length;
+    const nextQueue = [];
+    const color = layerColors[anim1Step % layerColors.length];
+    let found = false;
+    for (let i = 0; i < layerSize; i++) {
+      const [r, c] = anim1Queue[i];
+      if (!(r === 0 && c === 0) && !(r === 4 && c === 4)) {
+        const cell = document.getElementById(`g1-${r}-${c}`);
+        cell.className = 'cell cell-visited';
+        cell.style.background = color + '44';
+        cell.style.borderColor = color;
+        cell.textContent = anim1Step;
+      }
+      if (r === 4 && c === 4) { found = true; break; }
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        const key = `${nr},${nc}`;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !anim1Visited.has(key) && grid1State[nr][nc] !== 'wall') {
+          anim1Visited.add(key);
+          anim1Parent[key] = `${r},${c}`;
+          nextQueue.push([nr, nc]);
+        }
+      }
+    }
+    if (found) {
+      highlightPath1();
+      anim1Running = false; return;
+    }
+    anim1Step++;
+    anim1Queue = nextQueue;
+    document.getElementById('step-info1').textContent = `第 ${anim1Step} 层扩散中... 队列大小: ${anim1Queue.length}`;
+    if (anim1Queue.length > 0) {
+      anim1Timer = setTimeout(tick, 600);
+    } else {
+      // Check if end was reached
+      if (anim1Visited.has('4,4')) highlightPath1();
+      else { document.getElementById('step-info1').textContent = '未找到路径'; anim1Running = false; }
+    }
+  }
+  anim1Timer = setTimeout(tick, 300);
+}
+
+function highlightPath1() {
+  let key = '4,4';
+  const path = [];
+  while (key && key !== '0,0') { path.push(key); key = anim1Parent[key]; }
+  path.push('0,0');
+  path.reverse();
+  let i = 0;
+  function showPath() {
+    if (i >= path.length) {
+      document.getElementById('step-info1').textContent = `最短路径长度: ${path.length - 1} 步`;
+      return;
+    }
+    const [r, c] = path[i].split(',').map(Number);
+    const cell = document.getElementById(`g1-${r}-${c}`);
+    cell.className = 'cell cell-path';
+    cell.textContent = i === 0 ? 'S' : (i === path.length - 1 ? 'E' : i);
+    i++;
+    setTimeout(showPath, 200);
+  }
+  showPath();
+}
+
+document.getElementById('btn-start1').addEventListener('click', startBFS1);
+document.getElementById('btn-pause1').addEventListener('click', () => { clearTimeout(anim1Timer); anim1Running = false; });
+document.getElementById('btn-reset1').addEventListener('click', initGrid1);
+initGrid1();
+
+// Animation 2: Multi-source BFS (Rotting Oranges)
+const ROWS2 = 4, COLS2 = 4;
+// 0=empty, 1=fresh, 2=rotten
+const initialGrid2 = [
+  [2, 1, 1, 0],
+  [1, 1, 0, 1],
+  [0, 1, 1, 1],
+  [1, 0, 1, 2],
+];
+
+let anim2Timer, anim2Running;
+
+function renderGrid2(grid, info) {
+  const container = document.getElementById('grid2');
+  container.innerHTML = '';
+  for (let r = 0; r < ROWS2; r++) {
+    for (let c = 0; c < COLS2; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.id = `g2-${r}-${c}`;
+      if (grid[r][c] === 2) { cell.classList.add('cell-rotten'); cell.textContent = '腐'; }
+      else if (grid[r][c] === 1) { cell.classList.add('cell-fresh'); cell.textContent = '鲜'; }
+      else { cell.classList.add('cell-empty'); }
+      container.appendChild(cell);
+    }
+  }
+  if (info) document.getElementById('step-info2').textContent = info;
+}
+
+function startBFS2() {
+  if (anim2Running) return;
+  anim2Running = true;
+  const grid = initialGrid2.map(row => [...row]);
+  renderGrid2(grid, '多源 BFS 开始...');
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  let queue = [];
+  for (let r = 0; r < ROWS2; r++)
+    for (let c = 0; c < COLS2; c++)
+      if (grid[r][c] === 2) queue.push([r, c]);
+
+  let minute = 0;
+  function tick() {
+    const nextQueue = [];
+    for (const [r, c] of queue) {
+      for (const [dr, dc] of dirs) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS2 && nc >= 0 && nc < COLS2 && grid[nr][nc] === 1) {
+          grid[nr][nc] = 2;
+          nextQueue.push([nr, nc]);
+        }
+      }
+    }
+    if (nextQueue.length === 0) {
+      const fresh = grid.flat().filter(v => v === 1).length;
+      document.getElementById('step-info2').textContent = fresh > 0 ? `无法全部腐烂，剩余 ${fresh} 个` : `全部腐烂！用时 ${minute} 分钟`;
+      anim2Running = false;
+      return;
+    }
+    minute++;
+    queue = nextQueue;
+    // Animate new rotten
+    for (const [r, c] of nextQueue) {
+      const cell = document.getElementById(`g2-${r}-${c}`);
+      cell.className = 'cell cell-rotting';
+      cell.textContent = minute;
+    }
+    document.getElementById('step-info2').textContent = `第 ${minute} 分钟：${nextQueue.length} 个橘子腐烂`;
+    anim2Timer = setTimeout(() => {
+      for (const [r, c] of nextQueue) {
+        const cell = document.getElementById(`g2-${r}-${c}`);
+        cell.className = 'cell cell-rotten';
+        cell.textContent = '腐';
+      }
+      tick();
+    }, 800);
+  }
+  anim2Timer = setTimeout(tick, 500);
+}
+
+function resetGrid2() {
+  clearTimeout(anim2Timer);
+  anim2Running = false;
+  renderGrid2(initialGrid2, '点击"开始"观看多源 BFS 扩散');
+}
+
+document.getElementById('btn-start2').addEventListener('click', startBFS2);
+document.getElementById('btn-pause2').addEventListener('click', () => { clearTimeout(anim2Timer); anim2Running = false; });
+document.getElementById('btn-reset2').addEventListener('click', resetGrid2);
+resetGrid2();
+</script>
+</body>
+</html>

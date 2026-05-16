@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>滑动窗口 - 算法学习</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 2em; }
+h2 { color: #00d4aa; margin: 30px 0 12px; font-size: 1.4em; border-left: 4px solid #00d4aa; padding-left: 12px; }
+h3 { color: #76b900; margin: 20px 0 8px; font-size: 1.1em; }
+a { color: #00d4aa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+nav { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+nav a { padding: 6px 14px; border: 1px solid #333; border-radius: 6px; font-size: 0.9em; }
+nav a:hover { background: #1a1a3a; }
+.subtitle { color: #999; font-size: 1em; margin-bottom: 24px; }
+pre {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  font-size: 0.88em;
+  line-height: 1.6;
+  margin: 12px 0;
+}
+code { font-family: 'Fira Code', 'Consolas', monospace; }
+.highlight { color: #76b900; }
+.highlight2 { color: #00d4aa; }
+.card {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+}
+.tip { border-left: 3px solid #76b900; padding-left: 12px; margin: 12px 0; color: #ccc; }
+ul, ol { padding-left: 24px; margin: 8px 0; }
+li { margin: 6px 0; }
+
+/* Animation containers */
+.anim-container {
+  background: #12122a;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 16px 0;
+}
+.char-array {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.char-cell {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid #444;
+  border-radius: 6px;
+  font-size: 1.2em;
+  font-weight: bold;
+  position: relative;
+  transition: all 0.3s;
+}
+.char-cell.in-window {
+  background: rgba(118, 185, 0, 0.15);
+  border-color: #76b900;
+}
+.char-cell .idx {
+  position: absolute;
+  bottom: -18px;
+  font-size: 0.6em;
+  color: #666;
+}
+.pointer-label {
+  position: absolute;
+  top: -20px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+.pointer-left { color: #ff6b6b; }
+.pointer-right { color: #76b900; }
+.controls { text-align: center; margin: 12px 0; }
+.btn {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+  margin: 4px;
+}
+.btn:hover { background: #8fd400; }
+.btn:disabled { background: #444; color: #888; cursor: not-allowed; }
+.btn-secondary { background: #00d4aa; }
+.btn-secondary:hover { background: #00f0c0; }
+.info-panel {
+  display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;
+  margin: 12px 0; font-size: 0.9em;
+}
+.info-panel span { background: #1a1a2e; padding: 4px 10px; border-radius: 4px; border: 1px solid #333; }
+.step-log { color: #999; font-size: 0.85em; min-height: 24px; text-align: center; margin-top: 8px; }
+
+/* Side by side */
+.side-by-side {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 700px) {
+  .side-by-side { grid-template-columns: 1fr; }
+  .char-cell { width: 36px; height: 36px; font-size: 1em; }
+}
+
+/* Progress */
+.progress-bar {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.progress-bar .count { color: #76b900; font-weight: bold; }
+
+/* Practice links */
+.practice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.practice-grid a {
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px; border: 1px solid #333; border-radius: 6px;
+  font-size: 0.9em; transition: all 0.2s;
+}
+.practice-grid a:hover { background: #1a1a3a; border-color: #00d4aa; }
+.practice-grid a.done { border-color: #76b900; background: rgba(118,185,0,0.1); }
+
+/* Thinking questions */
+.question {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 10px 0;
+  cursor: pointer;
+}
+.question summary {
+  color: #00d4aa;
+  font-weight: bold;
+  cursor: pointer;
+}
+.question p { margin-top: 8px; color: #ccc; }
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="algorithms-index.html">< 返回目录</a>
+  <span style="color:#666">滑动窗口</span>
+  <span>
+    <a href="two-pointers.html">< 双指针</a> |
+    <a href="monotonic-stack.html">单调栈 ></a>
+  </span>
+</nav>
+
+<h1>滑动窗口</h1>
+<p class="subtitle">右指针扩张，左指针在窗口不合法时收缩</p>
+
+<div class="progress-bar">
+  <span>练习进度:</span>
+  <span class="count" id="progress-display">已完成 0/8</span>
+</div>
+
+<!-- Template -->
+<h2>最简模板（最长合法窗口）</h2>
+<div class="card">
+<pre><code><span class="highlight">def</span> sliding_window(s):
+    <span class="highlight2">from</span> collections <span class="highlight2">import</span> Counter
+    window = Counter()
+    left = 0
+    ans = 0
+    <span class="highlight">for</span> right, c <span class="highlight">in</span> enumerate(s):
+        window[c] += 1              <span style="color:#666"># 右指针进窗口</span>
+        <span class="highlight">while</span> not_valid(window):     <span style="color:#666"># 窗口不合法</span>
+            window[s[left]] -= 1    <span style="color:#666"># 左指针出窗口</span>
+            <span class="highlight">if</span> window[s[left]] == 0:
+                <span class="highlight">del</span> window[s[left]]
+            left += 1
+        ans = max(ans, right - left + 1)  <span style="color:#666"># while 外更新答案</span>
+    <span class="highlight">return</span> ans</code></pre>
+</div>
+
+<!-- Variants -->
+<h2>两种变体</h2>
+<div class="card">
+  <h3>最长合法窗口</h3>
+  <p><code>while 不合法</code> - 收缩到合法为止，答案在 <strong>while 外</strong>更新</p>
+  <p class="tip">场景: 最长无重复子串、最多含 K 个 0 的最长连续 1</p>
+
+  <h3 style="margin-top:16px">最短合法窗口</h3>
+  <p><code>while 合法</code> - 只要合法就记录答案并继续收缩，答案在 <strong>while 内</strong>更新</p>
+  <p class="tip">场景: 和 >= target 的最短子数组、覆盖所有字符的最小窗口</p>
+</div>
+
+<!-- Key points -->
+<h2>不写错要点</h2>
+<div class="card">
+<ul>
+  <li><strong>进出对称</strong>: right 进窗口做了什么操作，left 出窗口就要做对应的逆操作</li>
+  <li><strong>right 每轮 +1</strong>: for 循环保证，不需要手动管理</li>
+  <li><strong>left 只在 while 里动</strong>: 绝不在 while 外面移动 left</li>
+</ul>
+</div>
+
+<!-- Exactly K trick -->
+<h2>"恰好 K" = "至多 K" - "至多 K-1"</h2>
+<div class="card">
+<pre><code><span class="highlight">def</span> exactly_k(nums, k):
+    <span class="highlight">return</span> at_most(nums, k) - at_most(nums, k - 1)
+
+<span class="highlight">def</span> at_most(nums, k):
+    <span style="color:#666"># 标准滑窗，统计所有"至多 K 个不同字符"的子数组数</span>
+    left = 0
+    count = {}
+    ans = 0
+    <span class="highlight">for</span> right, x <span class="highlight">in</span> enumerate(nums):
+        count[x] = count.get(x, 0) + 1
+        <span class="highlight">while</span> len(count) > k:
+            count[nums[left]] -= 1
+            <span class="highlight">if</span> count[nums[left]] == 0:
+                <span class="highlight">del</span> count[nums[left]]
+            left += 1
+        ans += right - left + 1  <span style="color:#666"># 以 right 结尾的合法子数组数</span>
+    <span class="highlight">return</span> ans</code></pre>
+</div>
+
+<!-- Animation 1: Main sliding window visualization -->
+<h2>动画: 最长无重复子串</h2>
+<p style="color:#999;margin-bottom:8px">字符串 "abcabcbb"，点击"下一步"推进算法</p>
+
+<div class="anim-container" id="anim1">
+  <div class="char-array" id="char-array"></div>
+  <div class="info-panel">
+    <span>window: <code id="window-display">{}</code></span>
+    <span>ans: <strong id="ans-display">0</strong></span>
+    <span>left: <span id="left-display" style="color:#ff6b6b">0</span>, right: <span id="right-display" style="color:#76b900">-</span></span>
+  </div>
+  <div class="step-log" id="step-log">点击"下一步"开始</div>
+  <div class="controls">
+    <button class="btn" id="btn-next">下一步</button>
+    <button class="btn btn-secondary" id="btn-reset">重置</button>
+  </div>
+</div>
+
+<!-- Animation 2: Longest vs Shortest comparison -->
+<h2>动画: 最长 vs 最短对比</h2>
+<p style="color:#999;margin-bottom:8px">左: 最长合法窗口 (while 不合法) | 右: 最短合法窗口 (while 合法)</p>
+
+<div class="side-by-side">
+  <div class="anim-container">
+    <h3 style="text-align:center;margin-bottom:10px">最长 (ans 在 while 外)</h3>
+    <div class="char-array" id="longest-array"></div>
+    <div class="info-panel"><span>ans: <strong id="longest-ans">0</strong></span></div>
+    <div class="step-log" id="longest-log">点击开始</div>
+    <div class="controls">
+      <button class="btn" id="btn-longest-next">下一步</button>
+      <button class="btn btn-secondary" id="btn-longest-reset">重置</button>
+    </div>
+  </div>
+  <div class="anim-container">
+    <h3 style="text-align:center;margin-bottom:10px">最短 (ans 在 while 内)</h3>
+    <div class="char-array" id="shortest-array"></div>
+    <div class="info-panel"><span>ans: <strong id="shortest-ans">Inf</strong></span></div>
+    <div class="step-log" id="shortest-log">点击开始</div>
+    <div class="controls">
+      <button class="btn" id="btn-shortest-next">下一步</button>
+      <button class="btn btn-secondary" id="btn-shortest-reset">重置</button>
+    </div>
+  </div>
+</div>
+
+<!-- Thinking questions -->
+<h2>思考题</h2>
+
+<details class="question">
+  <summary>为什么左指针只向右移动，不会回退？这保证了什么复杂度？</summary>
+  <p>因为当窗口不合法时，我们需要缩小窗口（左指针右移）。而右指针扩张后窗口变大，只可能"更不合法"，所以左指针没有理由回退。左右指针各自最多移动 n 次，所以总时间复杂度是 O(2n) = O(n)，而不是 O(n^2)。这就是滑动窗口比暴力枚举快的本质原因。</p>
+</details>
+
+<details class="question">
+  <summary>"恰好 K 个不同字符" 为什么不能直接滑窗？怎么转化？</summary>
+  <p>直接滑窗的问题：窗口中恰好有 K 个不同字符时，既不能确定要扩张还是收缩。扩张可能变成 K+1 个（不合法），收缩可能变成 K-1 个（也不合法）。没有单调性，无法用 while 循环维护。<br><br>转化方法：恰好 K = 至多 K - 至多 (K-1)。"至多 K" 有单调性（窗口越大越可能超过 K），可以标准滑窗。</p>
+</details>
+
+<details class="question">
+  <summary>如果窗口合法性判断是 O(1) 的，整体复杂度是多少？为什么？</summary>
+  <p>整体 O(n)。虽然有 for + while 两层循环看起来像 O(n^2)，但分析总操作次数：right 走了 n 步，left 总共也最多走 n 步（只增不减），每步的合法性判断 O(1)，所以总计 O(n) + O(n) = O(n)。这是「均摊分析」的经典例子。</p>
+</details>
+
+<!-- Practice -->
+<h2>LeetCode 练习</h2>
+
+<h3>热身</h3>
+<div class="practice-grid" id="warmup-grid"></div>
+
+<h3>进阶</h3>
+<div class="practice-grid" id="advanced-grid"></div>
+
+<script>
+// --- Progress tracking ---
+const STORAGE_KEY = 'algo-progress-sliding-window';
+const problems = [
+  {id: '3', url: 'https://leetcode.cn/problems/longest-substring-without-repeating-characters/', level: 'warmup'},
+  {id: '209', url: 'https://leetcode.cn/problems/minimum-size-subarray-sum/', level: 'warmup'},
+  {id: '438', url: 'https://leetcode.cn/problems/find-all-anagrams-in-a-string/', level: 'warmup'},
+  {id: '1004', url: 'https://leetcode.cn/problems/max-consecutive-ones-iii/', level: 'warmup'},
+  {id: '76', url: 'https://leetcode.cn/problems/minimum-window-substring/', level: 'advanced'},
+  {id: '992', url: 'https://leetcode.cn/problems/subarrays-with-k-different-integers/', level: 'advanced'},
+  {id: '395', url: 'https://leetcode.cn/problems/longest-substring-with-at-least-k-repeating-characters/', level: 'advanced'},
+  {id: '239', url: 'https://leetcode.cn/problems/sliding-window-maximum/', level: 'advanced'},
+];
+
+function getProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+}
+function saveProgress(arr) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+}
+function updateProgressDisplay() {
+  const done = getProgress();
+  document.getElementById('progress-display').textContent = `已完成 ${done.length}/8`;
+  document.querySelectorAll('.practice-grid a').forEach(a => {
+    const id = a.dataset.id;
+    if (done.includes(id)) a.classList.add('done');
+    else a.classList.remove('done');
+  });
+}
+
+function renderProblems() {
+  const warmup = document.getElementById('warmup-grid');
+  const advanced = document.getElementById('advanced-grid');
+  problems.forEach(p => {
+    const container = p.level === 'warmup' ? warmup : advanced;
+    const a = document.createElement('a');
+    a.href = p.url;
+    a.target = '_blank';
+    a.textContent = p.id;
+    a.dataset.id = p.id;
+    a.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const done = getProgress();
+      if (done.includes(p.id)) {
+        saveProgress(done.filter(x => x !== p.id));
+      } else {
+        done.push(p.id);
+        saveProgress(done);
+      }
+      updateProgressDisplay();
+    });
+    a.title = '右键点击标记完成/取消';
+    container.appendChild(a);
+  });
+  updateProgressDisplay();
+}
+renderProblems();
+
+// --- Animation 1: Longest substring without repeating characters ---
+const STR = "abcabcbb";
+let anim1State = { left: 0, right: -1, window: {}, ans: 0, steps: [], stepIdx: 0 };
+
+function generateSteps() {
+  const steps = [];
+  let left = 0, window = {}, ans = 0;
+  for (let right = 0; right < STR.length; right++) {
+    const c = STR[right];
+    window[c] = (window[c] || 0) + 1;
+    steps.push({type:'expand', left, right, window:{...window}, ans, msg:`right=${right}, 加入 '${c}', window=${JSON.stringify(window)}`});
+    while (hasDuplicate(window)) {
+      const lc = STR[left];
+      window[lc]--;
+      if (window[lc] === 0) delete window[lc];
+      left++;
+      steps.push({type:'shrink', left, right, window:{...window}, ans, msg:`有重复! 移除 '${lc}', left=${left}`});
+    }
+    ans = Math.max(ans, right - left + 1);
+    steps.push({type:'update', left, right, window:{...window}, ans, msg:`窗口合法, ans = max(ans, ${right}-${left}+1) = ${ans}`});
+  }
+  steps.push({type:'done', left, right: STR.length-1, window:{...window}, ans, msg:`完成! 最长无重复子串长度 = ${ans}`});
+  return steps;
+}
+function hasDuplicate(w) { return Object.values(w).some(v => v > 1); }
+
+function renderAnim1(state) {
+  const container = document.getElementById('char-array');
+  container.innerHTML = '';
+  for (let i = 0; i < STR.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'char-cell';
+    if (i >= state.left && i <= state.right) cell.classList.add('in-window');
+    cell.textContent = STR[i];
+    if (i === state.left && state.right >= 0) {
+      const lbl = document.createElement('span');
+      lbl.className = 'pointer-label pointer-left';
+      lbl.textContent = 'L';
+      cell.appendChild(lbl);
+    }
+    if (i === state.right) {
+      const lbl = document.createElement('span');
+      lbl.className = 'pointer-label pointer-right';
+      lbl.textContent = 'R';
+      cell.appendChild(lbl);
+    }
+    const idx = document.createElement('span');
+    idx.className = 'idx';
+    idx.textContent = i;
+    cell.appendChild(idx);
+    container.appendChild(cell);
+  }
+  document.getElementById('window-display').textContent = JSON.stringify(state.window);
+  document.getElementById('ans-display').textContent = state.ans;
+  document.getElementById('left-display').textContent = state.left;
+  document.getElementById('right-display').textContent = state.right >= 0 ? state.right : '-';
+}
+
+function initAnim1() {
+  anim1State = { left: 0, right: -1, window: {}, ans: 0, steps: generateSteps(), stepIdx: 0 };
+  renderAnim1(anim1State);
+  document.getElementById('step-log').textContent = '点击"下一步"开始';
+  document.getElementById('btn-next').disabled = false;
+}
+
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (anim1State.stepIdx >= anim1State.steps.length) return;
+  const step = anim1State.steps[anim1State.stepIdx++];
+  anim1State.left = step.left;
+  anim1State.right = step.right;
+  anim1State.window = step.window;
+  anim1State.ans = step.ans;
+  renderAnim1(anim1State);
+  document.getElementById('step-log').textContent = step.msg;
+  if (step.type === 'done') document.getElementById('btn-next').disabled = true;
+});
+
+document.getElementById('btn-reset').addEventListener('click', initAnim1);
+initAnim1();
+
+// --- Animation 2: Longest vs Shortest side by side ---
+// Longest: "abcabcbb" - longest without repeating (same as above but simplified)
+// Shortest: [2,3,1,2,4,3] - minimum size subarray sum >= 7
+
+// -- Longest side --
+const LONGEST_STR = "abcabcbb";
+let longestState = { left:0, right:-1, ans:0, steps:[], stepIdx:0 };
+
+function genLongestSteps() {
+  const steps = [];
+  let left=0, w={}, ans=0;
+  for (let r=0; r<LONGEST_STR.length; r++) {
+    const c = LONGEST_STR[r];
+    w[c]=(w[c]||0)+1;
+    steps.push({left, right:r, ans, msg:`R=${r} 扩张 '${c}'`});
+    while (Object.values(w).some(v=>v>1)) {
+      w[LONGEST_STR[left]]--;
+      if(w[LONGEST_STR[left]]===0) delete w[LONGEST_STR[left]];
+      left++;
+      steps.push({left, right:r, ans, msg:`不合法, L收缩到${left}`});
+    }
+    ans = Math.max(ans, r-left+1);
+    steps.push({left, right:r, ans, msg:`while外更新 ans=${ans}`});
+  }
+  return steps;
+}
+
+function renderLongest(s) {
+  const container = document.getElementById('longest-array');
+  container.innerHTML = '';
+  for (let i=0; i<LONGEST_STR.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'char-cell';
+    if (i>=s.left && i<=s.right) cell.classList.add('in-window');
+    cell.textContent = LONGEST_STR[i];
+    if (i===s.left && s.right>=0) { const l=document.createElement('span'); l.className='pointer-label pointer-left'; l.textContent='L'; cell.appendChild(l); }
+    if (i===s.right) { const l=document.createElement('span'); l.className='pointer-label pointer-right'; l.textContent='R'; cell.appendChild(l); }
+    container.appendChild(cell);
+  }
+  document.getElementById('longest-ans').textContent = s.ans;
+  document.getElementById('longest-log').textContent = s.msg || '点击开始';
+}
+
+function initLongest() {
+  longestState = {left:0, right:-1, ans:0, steps:genLongestSteps(), stepIdx:0, msg:''};
+  renderLongest(longestState);
+}
+document.getElementById('btn-longest-next').addEventListener('click', () => {
+  if (longestState.stepIdx >= longestState.steps.length) return;
+  const step = longestState.steps[longestState.stepIdx++];
+  Object.assign(longestState, step);
+  renderLongest(longestState);
+});
+document.getElementById('btn-longest-reset').addEventListener('click', initLongest);
+initLongest();
+
+// -- Shortest side --
+const SHORTEST_ARR = [2,3,1,2,4,3];
+const SHORTEST_TARGET = 7;
+let shortestState = { left:0, right:-1, ans:Infinity, steps:[], stepIdx:0 };
+
+function genShortestSteps() {
+  const steps = [];
+  let left=0, sum=0, ans=Infinity;
+  for (let r=0; r<SHORTEST_ARR.length; r++) {
+    sum += SHORTEST_ARR[r];
+    steps.push({left, right:r, ans, msg:`R=${r} 扩张, sum=${sum}`});
+    while (sum >= SHORTEST_TARGET) {
+      ans = Math.min(ans, r-left+1);
+      steps.push({left, right:r, ans, msg:`while内更新 ans=${ans}`});
+      sum -= SHORTEST_ARR[left];
+      left++;
+      steps.push({left, right:r, ans, msg:`合法, L收缩到${left}, sum=${sum}`});
+    }
+  }
+  return steps;
+}
+
+function renderShortest(s) {
+  const container = document.getElementById('shortest-array');
+  container.innerHTML = '';
+  for (let i=0; i<SHORTEST_ARR.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'char-cell';
+    if (i>=s.left && i<=s.right) cell.classList.add('in-window');
+    cell.textContent = SHORTEST_ARR[i];
+    if (i===s.left && s.right>=0) { const l=document.createElement('span'); l.className='pointer-label pointer-left'; l.textContent='L'; cell.appendChild(l); }
+    if (i===s.right) { const l=document.createElement('span'); l.className='pointer-label pointer-right'; l.textContent='R'; cell.appendChild(l); }
+    container.appendChild(cell);
+  }
+  document.getElementById('shortest-ans').textContent = s.ans === Infinity ? 'Inf' : s.ans;
+  document.getElementById('shortest-log').textContent = s.msg || '点击开始';
+}
+
+function initShortest() {
+  shortestState = {left:0, right:-1, ans:Infinity, steps:genShortestSteps(), stepIdx:0, msg:''};
+  renderShortest(shortestState);
+}
+document.getElementById('btn-shortest-next').addEventListener('click', () => {
+  if (shortestState.stepIdx >= shortestState.steps.length) return;
+  const step = shortestState.steps[shortestState.stepIdx++];
+  Object.assign(shortestState, step);
+  renderShortest(shortestState);
+});
+document.getElementById('btn-shortest-reset').addEventListener('click', initShortest);
+initShortest();
+</script>
+
+</body>
+</html>

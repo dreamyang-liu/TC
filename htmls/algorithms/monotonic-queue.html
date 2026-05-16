@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单调队列 - Monotonic Queue</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0f0f23;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.7;
+  padding: 20px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { color: #76b900; margin-bottom: 8px; font-size: 1.8em; }
+h2 { color: #00d4aa; margin: 30px 0 12px; font-size: 1.4em; border-bottom: 1px solid #333; padding-bottom: 6px; }
+h3 { color: #76b900; margin: 20px 0 8px; font-size: 1.1em; }
+p { margin: 10px 0; }
+code { background: #1a1a2e; padding: 2px 6px; border-radius: 4px; font-family: 'Fira Code', monospace; font-size: 0.9em; }
+pre {
+  background: #1a1a2e;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-left: 3px solid #76b900;
+}
+pre code { background: none; padding: 0; }
+.accent { color: #76b900; }
+.accent2 { color: #00d4aa; }
+.nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 8px; }
+.nav a {
+  color: #00d4aa;
+  text-decoration: none;
+  padding: 6px 12px;
+  border: 1px solid #00d4aa;
+  border-radius: 4px;
+  font-size: 0.85em;
+  transition: all 0.2s;
+}
+.nav a:hover { background: #00d4aa; color: #0f0f23; }
+.tip {
+  background: #1a2a1a;
+  border-left: 3px solid #76b900;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 0.9em;
+}
+.compare-table th, .compare-table td {
+  border: 1px solid #333;
+  padding: 8px 12px;
+  text-align: left;
+}
+.compare-table th { background: #1a1a2e; color: #76b900; }
+.compare-table td { background: #0a0a1a; }
+
+/* Animation area */
+.anim-container {
+  background: #1a1a2e;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 20px 0;
+}
+.anim-controls {
+  display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center;
+}
+.anim-controls button {
+  background: #76b900;
+  color: #0f0f23;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9em;
+  transition: all 0.2s;
+}
+.anim-controls button:hover { background: #8ed000; }
+.anim-controls button:disabled { background: #555; color: #999; cursor: not-allowed; }
+.speed-label { color: #aaa; font-size: 0.85em; }
+.array-vis {
+  display: flex; gap: 4px; margin: 12px 0; flex-wrap: wrap; align-items: flex-end;
+}
+.arr-item {
+  display: flex; flex-direction: column; align-items: center; transition: all 0.3s;
+}
+.arr-bar {
+  width: 44px; min-height: 30px;
+  background: #333;
+  border-radius: 4px 4px 0 0;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding-bottom: 4px;
+  color: #e0e0e0;
+  font-weight: bold;
+  font-size: 0.85em;
+  transition: all 0.3s;
+}
+.arr-bar.in-window { background: #444; border: 2px solid #76b900; }
+.arr-bar.current { background: #76b900; color: #0f0f23; }
+.arr-bar.in-queue { background: #00d4aa; color: #0f0f23; }
+.arr-bar.expired { background: #ff6b6b; color: #fff; }
+.arr-bar.cleaned { background: #ff9f43; color: #0f0f23; }
+.arr-idx { font-size: 0.75em; color: #888; margin-top: 4px; }
+.window-marker {
+  display: flex; gap: 4px; margin: 4px 0;
+}
+.queue-vis {
+  display: flex; align-items: center; gap: 4px; margin: 12px 0; min-height: 50px;
+  border: 2px solid #555; border-radius: 8px; padding: 8px 12px;
+  position: relative;
+}
+.queue-vis::before {
+  content: '队头';
+  position: absolute; top: -18px; left: 8px;
+  font-size: 0.7em; color: #888;
+}
+.queue-vis::after {
+  content: '队尾';
+  position: absolute; top: -18px; right: 8px;
+  font-size: 0.7em; color: #888;
+}
+.queue-item {
+  min-width: 40px; background: #00d4aa; color: #0f0f23; text-align: center;
+  padding: 6px 8px; border-radius: 4px; font-weight: bold; font-size: 0.85em;
+  transition: all 0.3s;
+}
+.queue-item.head { border: 2px solid #76b900; }
+.step-info {
+  color: #aaa; font-size: 0.9em; margin: 8px 0; min-height: 24px;
+}
+.step-info .hl { color: #76b900; font-weight: bold; }
+.step-info .hl2 { color: #00d4aa; font-weight: bold; }
+.ans-row {
+  margin: 12px 0; font-size: 0.9em;
+}
+.ans-row span { color: #76b900; font-weight: bold; }
+
+/* Thinking questions */
+.question {
+  background: #1a1a2e;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 10px 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.question:hover { border-color: #76b900; }
+.question .q-title { color: #00d4aa; font-weight: bold; }
+.question .q-answer { display: none; margin-top: 10px; color: #ccc; border-top: 1px solid #333; padding-top: 10px; }
+.question.open .q-answer { display: block; }
+
+/* LeetCode section */
+.lc-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.lc-item {
+  display: flex; align-items: center; gap: 6px;
+}
+.lc-item a {
+  color: #00d4aa; text-decoration: none; font-size: 0.9em;
+}
+.lc-item a:hover { text-decoration: underline; }
+.lc-item input[type="checkbox"] { accent-color: #76b900; width: 16px; height: 16px; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.4em; }
+  .arr-bar { width: 36px; }
+  .queue-item { min-width: 34px; }
+  .anim-controls { gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="algorithms-index.html">← 目录</a>
+  <div>
+    <a href="monotonic-stack.html">← 单调栈</a>
+    <a href="dp.html">动态规划 →</a>
+  </div>
+</nav>
+
+<h1>单调队列 Monotonic Queue</h1>
+<p>单调队列 = <span class="accent">滑动窗口</span> + <span class="accent2">单调栈</span>。队尾入队清理被打败的，队头清理过期的。</p>
+
+<h2>核心模板</h2>
+<p>滑动窗口最大值 (Sliding Window Maximum):</p>
+<pre><code>from collections import deque
+
+def max_sliding_window(nums, k):
+    q = deque()  # 存下标，队头到队尾递减
+    ans = []
+    for i, x in enumerate(nums):
+        # 1. 队尾：清理被打败的（维护单调性）
+        while q and nums[q[-1]] <= x:
+            q.pop()
+        # 2. 入队
+        q.append(i)
+        # 3. 队头：清理过期的（维护窗口）
+        if q[0] <= i - k:
+            q.popleft()
+        # 4. 取答案
+        if i >= k - 1:
+            ans.append(nums[q[0]])
+    return ans</code></pre>
+
+<div class="tip">
+<strong>三步走口诀：</strong><br>
+① 队尾维护单调性（新人打旧人）<br>
+② 队头维护窗口大小（过期的出局）<br>
+③ 队头取答案（最大/最小值在队头）
+</div>
+
+<h2>单调栈 vs 单调队列</h2>
+<table class="compare-table">
+<tr><th>对比项</th><th>单调栈</th><th>单调队列</th></tr>
+<tr><td>数据结构</td><td>栈（只有一端）</td><td>双端队列（两端操作）</td></tr>
+<tr><td>核心操作</td><td>栈顶 push/pop</td><td>队尾 push/pop + 队头 popleft</td></tr>
+<tr><td>解决问题</td><td>下一个更大/更小元素</td><td>滑动窗口最值</td></tr>
+<tr><td>窗口约束</td><td>无（全局）</td><td>有（窗口大小 k）</td></tr>
+<tr><td>队头操作</td><td>不需要</td><td>过期淘汰</td></tr>
+<tr><td>时间复杂度</td><td>O(n)</td><td>O(n)</td></tr>
+</table>
+
+<div class="tip">
+<strong>一句话区别：</strong>单调队列多了一个"队头清理过期元素"的操作，因为它有窗口大小的限制。单调栈可以看作窗口大小无限的特例。
+</div>
+
+<h2>动画演示</h2>
+<p>数组 <code>[1, 3, -1, -3, 5, 3, 6, 7]</code>, k=3 的滑动窗口最大值：</p>
+
+<div class="anim-container">
+  <div class="anim-controls">
+    <button id="btn-reset">重置</button>
+    <button id="btn-step">下一步</button>
+    <button id="btn-play">自动播放</button>
+    <span class="speed-label">速度：</span>
+    <input type="range" id="speed-slider" min="400" max="2500" value="1200" style="width:100px;">
+  </div>
+  <div class="step-info" id="step-info">点击"下一步"开始</div>
+  <h3 style="margin:12px 0 4px; font-size:0.9em;">数组（高亮=当前窗口）：</h3>
+  <div class="array-vis" id="array-vis"></div>
+  <h3 style="margin:12px 0 4px; font-size:0.9em;">双端队列（存储下标对应的值）：</h3>
+  <div class="queue-vis" id="queue-vis"></div>
+  <div class="ans-row" id="ans-row">答案: <span>[]</span></div>
+</div>
+
+<h2>思考题</h2>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">1. 为什么单调队列要存下标而不是值？</div>
+  <div class="q-answer">因为需要判断队头元素是否已经"过期"（滑出窗口）。只有通过下标才能判断 <code>q[0] <= i - k</code>。如果只存值，就无法知道这个值对应的位置是否还在窗口内。</div>
+</div>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">2. 三步操作的顺序能换吗？换了会怎样？</div>
+  <div class="q-answer">
+    <p>核心约束：入队必须在清理队尾之后（否则新元素可能被自己清掉）。取答案必须在入队之后（当前元素可能就是答案）。</p>
+    <p>清理队头可以在入队前也可以在入队后（只要在取答案之前）。但习惯上放在入队后更直观：先让新人进来，再检查窗口是否超限。</p>
+    <p>如果把清理队尾放在入队之后，新元素就无法淘汰比它弱的旧人，单调性被破坏。</p>
+  </div>
+</div>
+
+<div class="question" onclick="this.classList.toggle('open')">
+  <div class="q-title">3. 如何用单调队列同时维护窗口内的最大值和最小值？</div>
+  <div class="q-answer">维护两个单调队列：一个递减队列（队头是最大值），一个递增队列（队头是最小值）。两者独立运行，各自清理各自的队尾和队头。典型题目：LC 1438（绝对差不超过限制的最长连续子数组）。</div>
+</div>
+
+<h2>LeetCode 练习</h2>
+
+<h3>热身</h3>
+<div class="lc-list" id="lc-warmup"></div>
+
+<h3>进阶</h3>
+<div class="lc-list" id="lc-advanced"></div>
+
+<script>
+const STORAGE_KEY = 'algo-progress-monotonic-queue';
+const nums = [1, 3, -1, -3, 5, 3, 6, 7];
+const K = 3;
+const n = nums.length;
+const minVal = Math.min(...nums);
+const maxVal = Math.max(...nums);
+
+// LeetCode problems
+const warmup = [
+  {id: 239, name: 'Sliding Window Maximum'},
+  {id: 1438, name: 'Longest Continuous Subarray With Absolute Diff Less Than or Equal to Limit'},
+];
+const advanced = [
+  {id: 862, name: 'Shortest Subarray with Sum at Least K'},
+  {id: 918, name: 'Maximum Sum Circular Subarray'},
+  {id: 1696, name: 'Jump Game VI'},
+];
+
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveProgress(p) { localStorage.setItem(STORAGE_KEY, JSON.stringify(p)); }
+
+function renderLC(containerId, problems) {
+  const container = document.getElementById(containerId);
+  const progress = loadProgress();
+  container.innerHTML = '';
+  problems.forEach(p => {
+    const div = document.createElement('div');
+    div.className = 'lc-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!progress[p.id];
+    cb.onchange = () => { const pr = loadProgress(); pr[p.id] = cb.checked; saveProgress(pr); };
+    const a = document.createElement('a');
+    a.href = `https://leetcode.com/problems/${p.name.toLowerCase().replace(/\s+/g, '-')}/`;
+    a.target = '_blank';
+    a.textContent = `${p.id}. ${p.name}`;
+    div.appendChild(cb);
+    div.appendChild(a);
+    container.appendChild(div);
+  });
+}
+renderLC('lc-warmup', warmup);
+renderLC('lc-advanced', advanced);
+
+// Animation logic
+let steps = [];
+let currentStep = -1;
+let playing = false;
+let playTimer = null;
+
+function generateSteps() {
+  steps = [];
+  let q = []; // deque of indices
+  let ans = [];
+
+  steps.push({ type: 'init', queue: [], ans: [], current: -1, windowStart: 0, expired: -1, cleaned: [], info: '初始状态：队列为空，开始遍历' });
+
+  for (let i = 0; i < n; i++) {
+    let x = nums[i];
+    let ws = Math.max(0, i - K + 1);
+
+    steps.push({ type: 'visit', queue: [...q], ans: [...ans], current: i, windowStart: ws, expired: -1, cleaned: [], info: `访问 nums[${i}] = <span class="hl">${x}</span>` });
+
+    // Step 1: clean tail
+    let cleaned = [];
+    while (q.length && nums[q[q.length-1]] <= x) {
+      cleaned.push(q.pop());
+    }
+    if (cleaned.length > 0) {
+      steps.push({ type: 'clean-tail', queue: [...q], ans: [...ans], current: i, windowStart: ws, expired: -1, cleaned: cleaned, info: `① 队尾清理：${cleaned.map(c => nums[c]).join(',')} 被 <span class="hl">${x}</span> 打败，弹出` });
+    }
+
+    // Step 2: push
+    q.push(i);
+    steps.push({ type: 'push', queue: [...q], ans: [...ans], current: i, windowStart: ws, expired: -1, cleaned: [], info: `② 入队：${x}（下标${i}）加入队尾` });
+
+    // Step 3: expire head
+    let expired = -1;
+    if (q[0] <= i - K) {
+      expired = q.shift();
+      steps.push({ type: 'expire', queue: [...q], ans: [...ans], current: i, windowStart: ws, expired: expired, cleaned: [], info: `③ 队头过期：nums[${expired}]=${nums[expired]} 已不在窗口内，弹出队头` });
+    }
+
+    // Step 4: collect answer
+    if (i >= K - 1) {
+      ans.push(nums[q[0]]);
+      steps.push({ type: 'answer', queue: [...q], ans: [...ans], current: i, windowStart: ws, expired: -1, cleaned: [], info: `④ 取答案：窗口[${ws}..${i}]的最大值 = <span class="hl2">${nums[q[0]]}</span>（队头）` });
+    }
+  }
+  steps.push({ type: 'done', queue: [...q], ans: [...ans], current: -1, windowStart: n-K, expired: -1, cleaned: [], info: '遍历结束！最终答案: [' + ans.join(', ') + ']' });
+}
+generateSteps();
+
+function barHeight(val) {
+  // Normalize to range 30-100px, handle negatives
+  return ((val - minVal) / (maxVal - minVal)) * 70 + 30;
+}
+
+function renderState(step) {
+  const arrayVis = document.getElementById('array-vis');
+  const queueVis = document.getElementById('queue-vis');
+  const stepInfo = document.getElementById('step-info');
+  const ansRow = document.getElementById('ans-row');
+
+  stepInfo.innerHTML = step.info;
+  ansRow.innerHTML = '答案: <span>[' + step.ans.join(', ') + ']</span>';
+
+  arrayVis.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const item = document.createElement('div');
+    item.className = 'arr-item';
+    const bar = document.createElement('div');
+    bar.className = 'arr-bar';
+    bar.style.height = barHeight(nums[i]) + 'px';
+
+    if (i === step.current) bar.classList.add('current');
+    else if (i === step.expired) bar.classList.add('expired');
+    else if (step.cleaned.includes(i)) bar.classList.add('cleaned');
+    else if (step.queue.includes(i)) bar.classList.add('in-queue');
+    else if (step.current >= 0 && i >= step.windowStart && i <= step.current) bar.classList.add('in-window');
+
+    bar.textContent = nums[i];
+    const idx = document.createElement('div');
+    idx.className = 'arr-idx';
+    idx.textContent = `i=${i}`;
+    item.appendChild(bar);
+    item.appendChild(idx);
+    arrayVis.appendChild(item);
+  }
+
+  queueVis.innerHTML = '';
+  if (step.queue.length === 0) {
+    queueVis.innerHTML = '<span style="color:#666;font-size:0.85em;">（空）</span>';
+  } else {
+    step.queue.forEach((qi, idx) => {
+      const el = document.createElement('div');
+      el.className = 'queue-item';
+      if (idx === 0) el.classList.add('head');
+      el.textContent = `${nums[qi]}`;
+      el.title = `下标 ${qi}`;
+      queueVis.appendChild(el);
+    });
+  }
+}
+
+function doStep() {
+  if (currentStep < steps.length - 1) {
+    currentStep++;
+    renderState(steps[currentStep]);
+  } else {
+    stopPlay();
+  }
+  updateButtons();
+}
+
+function reset() {
+  stopPlay();
+  currentStep = 0;
+  renderState(steps[0]);
+  updateButtons();
+}
+
+function stopPlay() { playing = false; clearInterval(playTimer); updateButtons(); }
+
+function togglePlay() {
+  if (playing) { stopPlay(); return; }
+  playing = true;
+  updateButtons();
+  const speed = document.getElementById('speed-slider').value;
+  playTimer = setInterval(() => {
+    if (currentStep >= steps.length - 1) { stopPlay(); return; }
+    doStep();
+  }, speed);
+}
+
+function updateButtons() {
+  document.getElementById('btn-step').disabled = currentStep >= steps.length - 1;
+  document.getElementById('btn-play').textContent = playing ? '暂停' : '自动播放';
+}
+
+document.getElementById('btn-reset').onclick = reset;
+document.getElementById('btn-step').onclick = doStep;
+document.getElementById('btn-play').onclick = togglePlay;
+document.getElementById('speed-slider').onchange = () => { if (playing) { stopPlay(); togglePlay(); } };
+
+// Init
+reset();
+</script>
+
+</body>
+</html>

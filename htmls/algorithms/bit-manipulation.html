@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>位运算 - Bit Manipulation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f0f23; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; padding: 20px; max-width: 1000px; margin: 0 auto; }
+h1 { font-size: 2.2rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 0.5rem; }
+h2 { font-size: 1.6rem; background: linear-gradient(135deg, #76b900, #00d4aa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin: 2rem 0 1rem; }
+h3 { font-size: 1.2rem; color: #00d4aa; margin: 1.5rem 0 0.8rem; }
+p { margin-bottom: 1rem; }
+.subtitle { color: #888; font-size: 1rem; margin-bottom: 2rem; }
+.card { background: #1a1a2e; border-radius: 12px; border: 1px solid #333; padding: 24px; margin: 20px 0; }
+.card-highlight { border-color: #76b900; }
+code { background: #0a0a1a; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9em; color: #00d4aa; }
+pre { background: #0a0a1a; border-radius: 8px; padding: 20px; overflow-x: auto; margin: 1rem 0; border: 1px solid #222; }
+pre code { background: none; padding: 0; font-size: 0.85rem; line-height: 1.5; color: #e0e0e0; }
+.keyword { color: #c678dd; }
+.comment { color: #5c6370; font-style: italic; }
+.number { color: #d19a66; }
+.function { color: #61afef; }
+.string { color: #98c379; }
+
+.animation-container { background: #0a0a1a; border-radius: 12px; padding: 20px; margin: 1.5rem 0; border: 1px solid #333; position: relative; overflow: hidden; }
+.btn { background: linear-gradient(135deg, #76b900, #00d4aa); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; transition: transform 0.2s, opacity 0.2s; }
+.btn:hover { transform: scale(1.05); opacity: 0.9; }
+.btn:active { transform: scale(0.95); }
+.btn-secondary { background: #333; color: #e0e0e0; border: 1px solid #555; }
+.btn-secondary:hover { background: #444; }
+.controls { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+.step-info { color: #76b900; font-size: 0.9rem; margin: 10px 0; min-height: 24px; }
+
+.bit-row { display: flex; gap: 4px; margin: 8px 0; align-items: center; font-family: 'SF Mono', 'Fira Code', monospace; }
+.bit-cell { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: #1a1a2e; border: 1px solid #444; border-radius: 4px; font-size: 1rem; transition: all 0.4s ease; }
+.bit-cell.on { background: #76b900; color: #000; font-weight: bold; }
+.bit-cell.off { background: #1a1a2e; color: #555; }
+.bit-cell.highlight { background: #00d4aa; color: #000; font-weight: bold; animation: pulse 0.6s ease; }
+.bit-cell.removed { background: #ff4444; color: #fff; animation: fadeOut 0.6s ease; }
+.bit-label { width: 120px; color: #888; font-size: 0.85rem; text-align: right; padding-right: 12px; }
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.2); } }
+@keyframes fadeOut { 0% { opacity: 1; } 100% { opacity: 0.3; } }
+
+.trick-num { display: inline-block; width: 24px; height: 24px; background: #76b900; color: #000; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; font-size: 0.8rem; margin-right: 8px; }
+.trick-item { margin: 12px 0; padding: 12px; background: #0a0a1a; border-radius: 8px; border-left: 3px solid #76b900; }
+
+.thinking-card { background: #1a1a2e; border: 1px solid #00d4aa; border-radius: 12px; padding: 20px; margin: 12px 0; }
+.thinking-card summary { cursor: pointer; color: #00d4aa; font-weight: bold; }
+.thinking-card p { margin-top: 12px; color: #ccc; }
+
+.leetcode-tag { display: inline-block; background: #333; color: #76b900; padding: 4px 10px; border-radius: 16px; font-size: 0.8rem; margin: 4px; font-family: monospace; }
+.leetcode-tag.advanced { color: #00d4aa; border: 1px solid #00d4aa; }
+
+.progress-section { background: #1a1a2e; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #333; }
+.progress-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #76b900, #00d4aa); border-radius: 4px; transition: width 0.3s ease; }
+.checkbox-item { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+.checkbox-item input { accent-color: #76b900; width: 16px; height: 16px; }
+
+.nav-bar { display: flex; justify-content: space-between; margin: 2rem 0; padding: 16px 0; border-top: 1px solid #333; }
+.nav-link { color: #76b900; text-decoration: none; font-size: 0.9rem; }
+.nav-link:hover { color: #00d4aa; }
+
+ul { padding-left: 1.5rem; margin-bottom: 1rem; }
+li { margin: 4px 0; }
+
+@media (max-width: 600px) {
+  body { padding: 12px; }
+  h1 { font-size: 1.6rem; }
+  .bit-cell { width: 28px; height: 28px; font-size: 0.8rem; }
+  .bit-label { width: 80px; font-size: 0.75rem; }
+  .controls { flex-direction: column; align-items: stretch; }
+}
+</style>
+</head>
+<body>
+
+<h1>位运算 Bit Manipulation</h1>
+<p class="subtitle">面试出现率不高，但一旦出现完全靠记忆。背下来就是送分题。</p>
+
+<!-- 5个必会操作 -->
+<div class="card card-highlight">
+<h2>5个必会操作</h2>
+<table style="width:100%; border-collapse: collapse; margin: 12px 0;">
+<tr style="border-bottom: 1px solid #333;">
+  <td style="padding: 8px;"><code>n & 1</code></td>
+  <td style="padding: 8px; color: #ccc;">取最低位（判断奇偶）</td>
+</tr>
+<tr style="border-bottom: 1px solid #333;">
+  <td style="padding: 8px;"><code>n >> 1</code></td>
+  <td style="padding: 8px; color: #ccc;">右移一位（除以2）</td>
+</tr>
+<tr style="border-bottom: 1px solid #333;">
+  <td style="padding: 8px;"><code>n & (n-1)</code></td>
+  <td style="padding: 8px; color: #ccc;">清掉最低位的1</td>
+</tr>
+<tr style="border-bottom: 1px solid #333;">
+  <td style="padding: 8px;"><code>n & -n</code></td>
+  <td style="padding: 8px; color: #ccc;">取出最低位的1（lowbit）</td>
+</tr>
+<tr>
+  <td style="padding: 8px;"><code>n ^ n == 0</code></td>
+  <td style="padding: 8px; color: #ccc;">相同的数异或为0</td>
+</tr>
+</table>
+</div>
+
+<!-- 异或3性质 -->
+<div class="card">
+<h3>异或 XOR 三大性质</h3>
+<ul>
+  <li><code>a ^ 0 = a</code> — 任何数异或0等于自身</li>
+  <li><code>a ^ a = 0</code> — 任何数异或自身等于0</li>
+  <li>可交换、可结合 — 顺序无关，可以随意分组</li>
+</ul>
+<p style="color:#888; font-size:0.9rem;">这三个性质组合起来：一堆数异或，成对的全消掉，落单的留下来。</p>
+</div>
+
+<!-- 6个trick -->
+<h2>6个必背 Trick</h2>
+
+<div class="trick-item">
+<span class="trick-num">1</span><strong>判断2的幂</strong>
+<pre><code><span class="keyword">def</span> <span class="function">isPowerOfTwo</span>(n):
+    <span class="keyword">return</span> n > <span class="number">0</span> <span class="keyword">and</span> (n & (n-<span class="number">1</span>)) == <span class="number">0</span></code></pre>
+<p style="color:#888; font-size:0.85rem;">2的幂只有一个1，n&(n-1)清掉后变0。</p>
+</div>
+
+<div class="trick-item">
+<span class="trick-num">2</span><strong>Popcount（数1的个数）</strong>
+<pre><code><span class="keyword">def</span> <span class="function">popcount</span>(n):
+    count = <span class="number">0</span>
+    <span class="keyword">while</span> n:
+        n &= n - <span class="number">1</span>  <span class="comment"># 每次清掉一个1</span>
+        count += <span class="number">1</span>
+    <span class="keyword">return</span> count</code></pre>
+</div>
+
+<div class="trick-item">
+<span class="trick-num">3</span><strong>枚举子集（bitmask）</strong>
+<pre><code><span class="comment"># 枚举n个元素的所有子集</span>
+<span class="keyword">for</span> mask <span class="keyword">in</span> <span class="function">range</span>(<span class="number">1</span> << n):
+    <span class="comment"># mask的二进制表示哪些元素被选中</span>
+    <span class="keyword">pass</span></code></pre>
+</div>
+
+<div class="trick-item">
+<span class="trick-num">4</span><strong>枚举子集的子集</strong>
+<pre><code><span class="comment"># 枚举mask的所有非空子集</span>
+sub = mask
+<span class="keyword">while</span> sub:
+    <span class="comment"># 处理sub</span>
+    sub = (sub - <span class="number">1</span>) & mask</code></pre>
+<p style="color:#888; font-size:0.85rem;">减1后与mask取AND，自动跳到下一个合法子集。</p>
+</div>
+
+<div class="trick-item">
+<span class="trick-num">5</span><strong>交换两数（仅trivia，面试别用）</strong>
+<pre><code>a ^= b
+b ^= a
+a ^= b</code></pre>
+</div>
+
+<div class="trick-item">
+<span class="trick-num">6</span><strong>找两个只出现一次的数</strong>
+<pre><code><span class="keyword">def</span> <span class="function">singleNumbers</span>(nums):
+    xor_all = <span class="number">0</span>
+    <span class="keyword">for</span> x <span class="keyword">in</span> nums:
+        xor_all ^= x  <span class="comment"># xor_all = a ^ b</span>
+
+    lowbit = xor_all & (-xor_all)  <span class="comment"># 取最低位的1</span>
+
+    a, b = <span class="number">0</span>, <span class="number">0</span>
+    <span class="keyword">for</span> x <span class="keyword">in</span> nums:
+        <span class="keyword">if</span> x & lowbit:
+            a ^= x
+        <span class="keyword">else</span>:
+            b ^= x
+    <span class="keyword">return</span> a, b</code></pre>
+<p style="color:#888; font-size:0.85rem;">lowbit位上，a和b一定不同（否则异或该位不会是1），所以可以分组。</p>
+</div>
+
+<!-- 状态压缩DP模板 -->
+<h2>状态压缩 DP 模板（n<=20）</h2>
+<div class="card">
+<p>用一个整数 <code>mask</code> 表示集合的选取状态，第i位为1代表第i个元素已选。</p>
+<pre><code><span class="comment"># 经典模板：TSP / 划分子集</span>
+n = len(nums)
+dp = [<span class="number">float('inf')</span>] * (<span class="number">1</span> << n)
+dp[<span class="number">0</span>] = <span class="number">0</span>  <span class="comment"># 空集</span>
+
+<span class="keyword">for</span> mask <span class="keyword">in</span> <span class="function">range</span>(<span class="number">1</span> << n):
+    <span class="comment"># 枚举下一个要加入的元素</span>
+    <span class="keyword">for</span> i <span class="keyword">in</span> <span class="function">range</span>(n):
+        <span class="keyword">if</span> mask & (<span class="number">1</span> << i):
+            <span class="keyword">continue</span>  <span class="comment"># 已经选过</span>
+        new_mask = mask | (<span class="number">1</span> << i)
+        dp[new_mask] = <span class="function">min</span>(dp[new_mask], dp[mask] + cost(mask, i))
+
+<span class="comment"># 或者枚举子集转移</span>
+<span class="keyword">for</span> mask <span class="keyword">in</span> <span class="function">range</span>(<span class="number">1</span> << n):
+    sub = mask
+    <span class="keyword">while</span> sub:
+        dp[mask] = <span class="function">min</span>(dp[mask], dp[mask ^ sub] + f(sub))
+        sub = (sub - <span class="number">1</span>) & mask</code></pre>
+<p style="color:#888; font-size:0.85rem;">时间复杂度 O(2^n * n) 或 O(3^n)，所以 n 一般不超过20。</p>
+</div>
+
+<!-- Animation -->
+<h2>动画：位操作可视化</h2>
+<div class="animation-container">
+<div class="controls">
+  <button class="btn" onclick="startDemo('clear')">n & (n-1) 清最低位1</button>
+  <button class="btn btn-secondary" onclick="startDemo('lowbit')">n & -n 取最低位1</button>
+  <button class="btn btn-secondary" onclick="resetDemo()">重置</button>
+</div>
+<div id="bit-display">
+  <div class="bit-row">
+    <span class="bit-label">n = 13</span>
+    <div id="bits-n" style="display:flex; gap:4px;"></div>
+    <span style="margin-left:12px; color:#888;" id="decimal-n">= 13</span>
+  </div>
+  <div class="bit-row" id="row-operand" style="display:none;">
+    <span class="bit-label" id="label-operand">n-1 = 12</span>
+    <div id="bits-operand" style="display:flex; gap:4px;"></div>
+    <span style="margin-left:12px; color:#888;" id="decimal-operand">= 12</span>
+  </div>
+  <div class="bit-row" id="row-result" style="display:none;">
+    <span class="bit-label" id="label-result">结果</span>
+    <div id="bits-result" style="display:flex; gap:4px;"></div>
+    <span style="margin-left:12px; color:#888;" id="decimal-result">= ?</span>
+  </div>
+</div>
+<div class="step-info" id="bit-step-info">点击按钮开始演示</div>
+</div>
+
+<!-- 思考题 -->
+<h2>思考题</h2>
+
+<details class="thinking-card">
+<summary>为什么 n&(n-1) 能清掉最低位的1？从二进制角度解释。</summary>
+<p>n 的最低位的1，假设在第k位。那么 n 的第0~k-1位全是0，第k位是1。<br>
+n-1 做的事情：第k位变0，第0~k-1位全变1（借位）。<br>
+所以 n & (n-1)：第k位 1&0=0（清掉了！），第0~k-1位 0&1=0，高位不变。</p>
+</details>
+
+<details class="thinking-card">
+<summary>状态压缩DP为什么只适用于 n<=20？</summary>
+<p>状态数是 2^n。n=20 时有 100万个状态，勉强能跑。<br>
+n=25 就是 3300万，n=30 就是 10亿，内存和时间都扛不住。<br>
+实际面试中一般 n<=16 比较常见，n=20 是极限。</p>
+</details>
+
+<details class="thinking-card">
+<summary>"找两个只出现一次的数"中，为什么 lowbit 能把两个数分到不同组？</summary>
+<p>xor_all = a ^ b。lowbit 取出的是 a 和 b 第一个不同的位。<br>
+在这一位上，a是1、b是0（或反过来）。<br>
+按这一位分组，a 和 b 一定在不同组。其他成对的数，同一个数在同一组，异或后消掉。</p>
+</details>
+
+<!-- LeetCode -->
+<h2>LeetCode 题目</h2>
+<div class="card">
+<h3>热身</h3>
+<span class="leetcode-tag">136. Single Number</span>
+<span class="leetcode-tag">191. Number of 1 Bits</span>
+<span class="leetcode-tag">338. Counting Bits</span>
+
+<h3>进阶</h3>
+<span class="leetcode-tag advanced">137. Single Number II</span>
+<span class="leetcode-tag advanced">260. Single Number III</span>
+<span class="leetcode-tag advanced">421. Maximum XOR</span>
+<span class="leetcode-tag advanced">847. Shortest Path Visiting All Nodes</span>
+<span class="leetcode-tag advanced">698. Partition to K Equal Sum Subsets</span>
+</div>
+
+<!-- Progress -->
+<div class="progress-section">
+<h3>学习进度</h3>
+<div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+<p id="progress-text" style="font-size:0.85rem; color:#888;">0 / 8 完成</p>
+<div id="progress-checks"></div>
+</div>
+
+<!-- Navigation -->
+<nav class="nav-bar">
+<a href="linked-list.html" class="nav-link">&larr; 上一篇: 链表</a>
+<a href="hash-table.html" class="nav-link">下一篇: 哈希表 &rarr;</a>
+</nav>
+
+<script>
+// Progress tracking
+const STORAGE_KEY = 'algo-progress-bit-manipulation';
+const problems = ['136', '191', '338', '137', '260', '421', '847', '698'];
+
+function loadProgress() {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  const container = document.getElementById('progress-checks');
+  container.innerHTML = '';
+  let done = 0;
+  problems.forEach(p => {
+    const checked = saved[p] || false;
+    if (checked) done++;
+    const label = document.createElement('label');
+    label.className = 'checkbox-item';
+    label.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleProblem('${p}', this.checked)"><span>LC ${p}</span>`;
+    container.appendChild(label);
+  });
+  document.getElementById('progress-fill').style.width = (done / problems.length * 100) + '%';
+  document.getElementById('progress-text').textContent = `${done} / ${problems.length} 完成`;
+}
+
+function toggleProblem(id, checked) {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  saved[id] = checked;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  loadProgress();
+}
+
+loadProgress();
+
+// Bit animation
+const NUM = 13;
+const BITS = 8;
+
+function toBits(n) {
+  return Array.from({length: BITS}, (_, i) => (n >> (BITS - 1 - i)) & 1);
+}
+
+function renderBits(containerId, bits, highlights = [], classes = []) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  bits.forEach((b, i) => {
+    const cell = document.createElement('div');
+    cell.className = 'bit-cell ' + (b ? 'on' : 'off');
+    if (highlights.includes(i)) cell.className += ' ' + (classes[highlights.indexOf(i)] || 'highlight');
+    cell.textContent = b;
+    container.appendChild(cell);
+  });
+}
+
+function resetDemo() {
+  const bits = toBits(NUM);
+  renderBits('bits-n', bits);
+  document.getElementById('decimal-n').textContent = '= 13';
+  document.getElementById('row-operand').style.display = 'none';
+  document.getElementById('row-result').style.display = 'none';
+  document.getElementById('bit-step-info').textContent = '点击按钮开始演示';
+}
+
+function startDemo(type) {
+  resetDemo();
+  const n = NUM;
+  const bitsN = toBits(n);
+
+  if (type === 'clear') {
+    // n & (n-1): clear lowest set bit
+    const operand = n - 1; // 12
+    const result = n & operand; // 12
+    const bitsOp = toBits(operand);
+    const bitsRes = toBits(result);
+
+    setTimeout(() => {
+      document.getElementById('bit-step-info').textContent = 'Step 1: n = 13，二进制为 00001101';
+      renderBits('bits-n', bitsN, [4, 5, 7], ['highlight', 'highlight', 'highlight']);
+    }, 300);
+
+    setTimeout(() => {
+      document.getElementById('row-operand').style.display = 'flex';
+      document.getElementById('label-operand').textContent = 'n-1 = 12';
+      document.getElementById('decimal-operand').textContent = '= 12';
+      renderBits('bits-operand', bitsOp);
+      document.getElementById('bit-step-info').textContent = 'Step 2: n-1 = 12。最低位的1（第0位）变0，更低位全变1';
+      // Highlight the difference: bit 7 (LSB) was 1->0, bit 6 was 0->1
+      renderBits('bits-operand', bitsOp, [6, 7], ['highlight', 'highlight']);
+    }, 1500);
+
+    setTimeout(() => {
+      document.getElementById('row-result').style.display = 'flex';
+      document.getElementById('label-result').textContent = 'n&(n-1)';
+      document.getElementById('decimal-result').textContent = '= 12';
+      renderBits('bits-result', bitsRes);
+      document.getElementById('bit-step-info').textContent = 'Step 3: AND 操作 — 最低位的1被清掉了！13 (3个1) -> 12 (2个1)';
+      // Highlight cleared bit
+      renderBits('bits-n', bitsN, [7], ['removed']);
+      renderBits('bits-result', bitsRes, [4, 5], ['highlight', 'highlight']);
+    }, 3000);
+
+  } else if (type === 'lowbit') {
+    // n & -n: get lowest set bit
+    const neg = (~n + 1) & 0xFF; // -n in 8-bit two's complement = 243
+    const result = n & ((~n + 1) & 0xFF); // 1
+    const bitsNeg = toBits(neg);
+    const bitsRes = toBits(result);
+
+    setTimeout(() => {
+      document.getElementById('bit-step-info').textContent = 'Step 1: n = 13，二进制为 00001101';
+      renderBits('bits-n', bitsN, [4, 5, 7], ['highlight', 'highlight', 'highlight']);
+    }, 300);
+
+    setTimeout(() => {
+      document.getElementById('row-operand').style.display = 'flex';
+      document.getElementById('label-operand').textContent = '-n (补码)';
+      document.getElementById('decimal-operand').textContent = '= ~n+1';
+      renderBits('bits-operand', bitsNeg);
+      document.getElementById('bit-step-info').textContent = 'Step 2: -n = ~n + 1。取反再加1，最低位的1保持，更高位全反转';
+      renderBits('bits-operand', bitsNeg, [7], ['highlight']);
+    }, 1500);
+
+    setTimeout(() => {
+      document.getElementById('row-result').style.display = 'flex';
+      document.getElementById('label-result').textContent = 'n&(-n)';
+      document.getElementById('decimal-result').textContent = '= 1';
+      renderBits('bits-result', bitsRes, [7], ['highlight']);
+      document.getElementById('bit-step-info').textContent = 'Step 3: AND 操作 — 只留下最低位的1！lowbit(13) = 1';
+    }, 3000);
+  }
+}
+
+// Initialize
+resetDemo();
+</script>
+</body>
+</html>
